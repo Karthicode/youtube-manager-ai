@@ -1,7 +1,7 @@
 {
   "builds": [
     {
-      "src": "app/main.py",
+      "src": "api/index",
       "use": "@vercel/python"
     }
   ],
@@ -9,12 +9,6 @@
     {
       "source": "/(.*)",
       "destination": "/api/index"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "app/main.py"
     }
   ]
 }
