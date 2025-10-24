@@ -1,6 +1,8 @@
 """Vercel serverless function handler for FastAPI app."""
 
+from mangum import Mangum
 from app.main import app
 
-# Vercel expects a variable named 'app' or a function named 'handler'
-# This file serves as the entry point for Vercel's Python runtime
+# Mangum is an adapter for running ASGI applications (like FastAPI) on AWS Lambda/Vercel
+# It wraps the FastAPI app to work with serverless function handlers
+handler = Mangum(app, lifespan="off")
