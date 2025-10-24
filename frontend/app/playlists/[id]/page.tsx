@@ -13,7 +13,7 @@ import {
 	Spinner,
 } from "@heroui/react";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { playlistsApi, videosApi } from "@/api/api";
 import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
@@ -24,7 +24,7 @@ import type { Playlist, Video } from "@/types";
 export default function PlaylistDetailPage() {
 	const router = useRouter();
 	const params = useParams();
-	const playlistId = parseInt(params.id as string);
+	const playlistId = parseInt(params.id as string, 10);
 	const { isAuthenticated } = useAuthStore();
 
 	const [playlist, setPlaylist] = useState<Playlist | null>(null);
@@ -41,24 +41,7 @@ export default function PlaylistDetailPage() {
 		boolean | null
 	>(null);
 
-	useEffect(() => {
-		if (!isAuthenticated) {
-			router.push("/");
-			return;
-		}
-
-		fetchPlaylistDetails();
-	}, [
-		isAuthenticated,
-		router,
-		playlistId,
-		selectedCategories,
-		selectedTags,
-		searchQuery,
-		showOnlyCategorized,
-	]);
-
-	const fetchPlaylistDetails = async () => {
+	const fetchPlaylistDetails = useCallback(async () => {
 		setLoading(true);
 		try {
 			// Fetch playlist info and videos
@@ -81,7 +64,16 @@ export default function PlaylistDetailPage() {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [playlistId, selectedCategories, selectedTags, searchQuery]);
+
+	useEffect(() => {
+		if (!isAuthenticated) {
+			router.push("/");
+			return;
+		}
+
+		fetchPlaylistDetails();
+	}, [isAuthenticated, router, fetchPlaylistDetails]);
 
 	const handleSyncVideos = async () => {
 		setSyncing(true);

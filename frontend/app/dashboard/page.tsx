@@ -17,8 +17,8 @@ import {
 } from "@heroui/react";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { playlistsApi, videosApi } from "@/api/api";
+import { useCallback, useEffect, useState } from "react";
+import { videosApi } from "@/api/api";
 import Navbar from "@/components/Navbar";
 import { useAuthStore } from "@/store/auth";
 import type { VideoStats } from "@/types";
@@ -31,13 +31,32 @@ export default function Dashboard() {
 	const [syncing, setSyncing] = useState(false);
 	const [batchSyncing, setBatchSyncing] = useState(false);
 	const [batchCategorizing, setBatchCategorizing] = useState(false);
-	const [batchSyncResult, setBatchSyncResult] = useState<any>(null);
-	const [categorizationResult, setCategorizationResult] = useState<any>(null);
+	const [batchSyncResult, setBatchSyncResult] = useState<{
+		total_videos_synced?: number;
+		videos_categorized?: number;
+		[key: string]: unknown;
+	} | null>(null);
+	const [categorizationResult, setCategorizationResult] = useState<{
+		total_categorized?: number;
+		total_failed?: number;
+		[key: string]: unknown;
+	} | null>(null);
 	const [mounted, setMounted] = useState(false);
 
 	// Handle hydration
 	useEffect(() => {
 		setMounted(true);
+	}, []);
+
+	const fetchStats = useCallback(async () => {
+		try {
+			const response = await videosApi.getVideoStats();
+			setStats(response.data);
+		} catch (error) {
+			console.error("Failed to fetch stats:", error);
+		} finally {
+			setLoading(false);
+		}
 	}, []);
 
 	useEffect(() => {
@@ -50,18 +69,7 @@ export default function Dashboard() {
 		}
 
 		fetchStats();
-	}, [mounted, isAuthenticated, router]);
-
-	const fetchStats = async () => {
-		try {
-			const response = await videosApi.getVideoStats();
-			setStats(response.data);
-		} catch (error) {
-			console.error("Failed to fetch stats:", error);
-		} finally {
-			setLoading(false);
-		}
-	};
+	}, [mounted, isAuthenticated, router, fetchStats]);
 
 	const handleSync = async () => {
 		setSyncing(true);
@@ -453,9 +461,9 @@ export default function Dashboard() {
 									<CardBody className="pt-4">
 										{stats.top_categories.length > 0 ? (
 											<div className="space-y-3">
-												{stats.top_categories.map((category, index) => (
+												{stats.top_categories.map((category) => (
 													<div
-														key={index}
+														key={category.name}
 														className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
 													>
 														<span className="font-medium text-gray-700 dark:text-gray-300">
@@ -488,9 +496,9 @@ export default function Dashboard() {
 									<CardBody className="pt-4">
 										{stats.top_tags.length > 0 ? (
 											<div className="flex flex-wrap gap-2">
-												{stats.top_tags.map((tag, index) => (
+												{stats.top_tags.map((tag) => (
 													<Chip
-														key={index}
+														key={tag.name}
 														variant="bordered"
 														size="sm"
 														radius="md"

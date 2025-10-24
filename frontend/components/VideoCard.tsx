@@ -62,8 +62,16 @@ export default function VideoCard({
 				<CardBody className="p-4">
 					<div className="flex items-center justify-between gap-4">
 						<div
+							role="button"
+							tabIndex={0}
 							className="flex-1 min-w-0 cursor-pointer"
 							onClick={openYouTube}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+									openYouTube();
+								}
+							}}
 						>
 							<h3 className="font-semibold text-base line-clamp-1 mb-1">
 								{video.title}
@@ -130,7 +138,7 @@ export default function VideoCard({
 											color="primary"
 											variant="light"
 											isLoading={isCategorizing}
-											onPress={(e) => {
+											onPress={() => {
 												onCategorize(video.id);
 											}}
 										>
@@ -150,7 +158,18 @@ export default function VideoCard({
 	return (
 		<Card className="w-full hover:scale-105 transition-transform">
 			<CardBody className="p-0">
-				<div className="relative cursor-pointer" onClick={openYouTube}>
+				<div
+				role="button"
+				tabIndex={0}
+				className="relative cursor-pointer"
+				onClick={openYouTube}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						openYouTube();
+					}
+				}}
+			>
 					<Image
 						shadow="sm"
 						radius="none"
@@ -165,7 +184,18 @@ export default function VideoCard({
 						</div>
 					)}
 				</div>
-				<div className="p-3 space-y-2 cursor-pointer" onClick={openYouTube}>
+				<div
+				role="button"
+				tabIndex={0}
+				className="p-3 space-y-2 cursor-pointer"
+				onClick={openYouTube}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						openYouTube();
+					}
+				}}
+			>
 					<Tooltip content={video.title}>
 						<h3 className="font-semibold text-sm line-clamp-2">
 							{video.title}
@@ -219,7 +249,7 @@ export default function VideoCard({
 								color="primary"
 								variant="light"
 								isLoading={isCategorizing}
-								onPress={(e) => {
+								onPress={() => {
 									onCategorize(video.id);
 								}}
 							>

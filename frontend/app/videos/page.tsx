@@ -11,7 +11,7 @@ import {
 import GridViewIcon from "@mui/icons-material/GridView";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { videosApi } from "@/api/api";
 import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
@@ -71,40 +71,19 @@ function VideosPageContent() {
 		return () => clearTimeout(timer);
 	}, [searchQuery]);
 
-	useEffect(() => {
-		// Wait for Zustand to hydrate from localStorage
-		if (!mounted) return;
-
-		if (!isAuthenticated) {
-			router.push("/");
-			return;
-		}
-
-		// Read initial filters from URL
-		const categorized = searchParams.get("categorized");
-		if (categorized === "false") {
-			setShowOnlyCategorized(false);
-		}
-
-		fetchVideos();
-	}, [
-		mounted,
-		isAuthenticated,
-		router,
-		currentPage,
-		selectedCategories,
-		selectedTags,
-		debouncedSearchQuery,
-		showOnlyCategorized,
-		sortBy,
-		sortOrder,
-		pageSize,
-	]);
-
-	const fetchVideos = async () => {
+	const fetchVideos = useCallback(async () => {
 		setLoading(true);
 		try {
-			const params: any = {
+			const params: {
+				page: number;
+				page_size: number;
+				sort_by: string;
+				sort_order: string;
+				category_ids?: string;
+				tag_ids?: string;
+				search?: string;
+				is_categorized?: boolean;
+			} = {
 				page: currentPage,
 				page_size: pageSize,
 				sort_by: sortBy,
@@ -138,7 +117,34 @@ function VideosPageContent() {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [
+		currentPage,
+		pageSize,
+		sortBy,
+		sortOrder,
+		selectedCategories,
+		selectedTags,
+		debouncedSearchQuery,
+		showOnlyCategorized,
+	]);
+
+	useEffect(() => {
+		// Wait for Zustand to hydrate from localStorage
+		if (!mounted) return;
+
+		if (!isAuthenticated) {
+			router.push("/");
+			return;
+		}
+
+		// Read initial filters from URL
+		const categorized = searchParams.get("categorized");
+		if (categorized === "false") {
+			setShowOnlyCategorized(false);
+		}
+
+		fetchVideos();
+	}, [mounted, isAuthenticated, router, searchParams, fetchVideos]);
 
 	const handleCategorize = async (videoId: number) => {
 		setCategorizingId(videoId);
@@ -202,9 +208,9 @@ function VideosPageContent() {
 						<div className="flex gap-3 items-end flex-wrap">
 							{/* View Toggle */}
 							<div className="flex flex-col gap-1">
-								<label className="text-sm text-gray-600 dark:text-gray-400">
+								<span className="text-sm text-gray-600 dark:text-gray-400">
 									View
-								</label>
+								</span>
 								<ButtonGroup size="md" variant="bordered">
 									<Button
 										onPress={() => setViewMode("grid")}
@@ -225,9 +231,9 @@ function VideosPageContent() {
 
 							{/* Per Page */}
 							<div className="flex flex-col gap-1">
-								<label className="text-sm text-gray-600 dark:text-gray-400">
+								<span className="text-sm text-gray-600 dark:text-gray-400">
 									Per page
-								</label>
+								</span>
 								<Select
 									selectedKeys={[String(pageSize)]}
 									onSelectionChange={(keys) => {
@@ -250,7 +256,7 @@ function VideosPageContent() {
 
 							{/* Sort By */}
 							<div className="flex flex-col gap-1">
-								<label className="text-sm text-gray-600 dark:text-gray-400">
+								<label className="text-sm text-gray-600 dark:text-gray-400" htmlFor="sort-by">
 									Sort by
 								</label>
 								<Select

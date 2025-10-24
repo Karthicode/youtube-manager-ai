@@ -23,23 +23,14 @@ export default function Home() {
 	}, [isAuthenticated, router]);
 
 	const handleLogin = async () => {
-		console.log("🔐 Login button clicked");
 		try {
-			console.log("🚀 Calling authApi.getLoginUrl()...");
 			const response = await authApi.getLoginUrl();
-			console.log("✅ Got response:", response.data);
-			console.log("🔗 Redirecting to:", response.data.auth_url);
 			window.location.href = response.data.auth_url;
-		} catch (error: any) {
-			console.error("❌ Failed to get login URL:", error);
-			console.error("Error details:", {
-				message: error.message,
-				response: error.response?.data,
-				status: error.response?.status,
-				config: error.config,
-			});
+		} catch (error) {
+			console.error("Failed to get login URL:", error);
+			const errorMessage = error instanceof Error ? error.message : "Unknown error";
 			alert(
-				`Login failed: ${error.message}\n\nPlease check the console for details.`,
+				`Login failed: ${errorMessage}\n\nPlease check the console for details.`,
 			);
 		}
 	};
@@ -208,12 +199,24 @@ export default function Home() {
 					<div className="flex items-center justify-between text-sm text-white/60">
 						<p>© 2025 YouTube Manager AI</p>
 						<div className="flex gap-4">
-							<a href="#" className="hover:text-white transition-colors">
+							<button
+								type="button"
+								className="hover:text-white transition-colors"
+								onClick={() => {
+									/* Privacy policy handler */
+								}}
+							>
 								Privacy
-							</a>
-							<a href="#" className="hover:text-white transition-colors">
+							</button>
+							<button
+								type="button"
+								className="hover:text-white transition-colors"
+								onClick={() => {
+									/* Terms handler */
+								}}
+							>
 								Terms
-							</a>
+							</button>
 						</div>
 					</div>
 				</div>

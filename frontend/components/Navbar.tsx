@@ -2,12 +2,10 @@
 
 import {
 	Avatar,
-	Button,
 	Dropdown,
 	DropdownItem,
 	DropdownMenu,
 	DropdownTrigger,
-	Link as HeroLink,
 	Navbar as HeroNavbar,
 	NavbarBrand,
 	NavbarContent,

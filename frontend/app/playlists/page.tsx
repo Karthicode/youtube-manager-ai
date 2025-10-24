@@ -5,7 +5,6 @@ import {
 	Card,
 	CardBody,
 	CardFooter,
-	Chip,
 	Image,
 	Modal,
 	ModalBody,
@@ -15,7 +14,7 @@ import {
 } from "@heroui/react";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { playlistsApi } from "@/api/api";
 import Navbar from "@/components/Navbar";
 import { useAuthStore } from "@/store/auth";
@@ -29,16 +28,7 @@ export default function PlaylistsPage() {
 	const [loading, setLoading] = useState(true);
 	const [syncing, setSyncing] = useState(false);
 
-	useEffect(() => {
-		if (!isAuthenticated) {
-			router.push("/");
-			return;
-		}
-
-		fetchPlaylists();
-	}, [isAuthenticated, router]);
-
-	const fetchPlaylists = async () => {
+	const fetchPlaylists = useCallback(async () => {
 		setLoading(true);
 		try {
 			const response = await playlistsApi.getPlaylists({ page_size: 50 });
@@ -48,7 +38,16 @@ export default function PlaylistsPage() {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, []);
+
+	useEffect(() => {
+		if (!isAuthenticated) {
+			router.push("/");
+			return;
+		}
+
+		fetchPlaylists();
+	}, [isAuthenticated, router, fetchPlaylists]);
 
 	const handleSync = async () => {
 		setSyncing(true);
@@ -65,10 +64,6 @@ export default function PlaylistsPage() {
 
 	const handleViewPlaylist = (playlistId: number) => {
 		router.push(`/playlists/${playlistId}`);
-	};
-
-	const openYouTubePlaylist = (youtubeId: string) => {
-		window.open(`https://www.youtube.com/playlist?list=${youtubeId}`, "_blank");
 	};
 
 	if (!isAuthenticated) {
@@ -138,8 +133,16 @@ export default function PlaylistsPage() {
 								>
 									<CardBody className="p-0">
 										<div
+											role="button"
+											tabIndex={0}
 											className="relative cursor-pointer"
 											onClick={() => handleViewPlaylist(playlist.id)}
+											onKeyDown={(e) => {
+												if (e.key === "Enter" || e.key === " ") {
+													e.preventDefault();
+													handleViewPlaylist(playlist.id);
+												}
+											}}
 										>
 											<Image
 												shadow="sm"
@@ -156,8 +159,16 @@ export default function PlaylistsPage() {
 											</div>
 										</div>
 										<div
+											role="button"
+											tabIndex={0}
 											className="p-3 space-y-2 cursor-pointer"
 											onClick={() => handleViewPlaylist(playlist.id)}
+											onKeyDown={(e) => {
+												if (e.key === "Enter" || e.key === " ") {
+													e.preventDefault();
+													handleViewPlaylist(playlist.id);
+												}
+											}}
 										>
 											<h3 className="font-semibold text-sm line-clamp-2">
 												{playlist.title}
