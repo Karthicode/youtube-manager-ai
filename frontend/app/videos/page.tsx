@@ -1,0 +1,364 @@
+"use client";
+
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Button,
+  Spinner,
+  Select,
+  SelectItem,
+  Pagination,
+  ButtonGroup,
+} from "@heroui/react";
+import GridViewIcon from "@mui/icons-material/GridView";
+import ViewListIcon from "@mui/icons-material/ViewList";
+import { useAuthStore } from "@/store/auth";
+import { videosApi } from "@/api/api";
+import { Video, PaginatedVideosResponse } from "@/types";
+import Navbar from "@/components/Navbar";
+import VideoCard from "@/components/VideoCard";
+import FilterPanel from "@/components/FilterPanel";
+
+const SORT_OPTIONS = [
+  { value: "liked_at", label: "Liked Date" },
+  { value: "published_at", label: "Published Date" },
+  { value: "title", label: "Title" },
+  { value: "view_count", label: "Views" },
+  { value: "duration_seconds", label: "Duration" },
+];
+
+function VideosPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isAuthenticated } = useAuthStore();
+
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [categorizingId, setCategorizingId] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Filter states
+  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+  const [selectedTags, setSelectedTags] = useState<number[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [showOnlyCategorized, setShowOnlyCategorized] = useState<boolean | null>(null);
+
+  // Pagination and sorting
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalVideos, setTotalVideos] = useState(0);
+  const [sortBy, setSortBy] = useState("liked_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [pageSize, setPageSize] = useState(25);
+
+  // View mode
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+  // Handle hydration
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    // Wait for Zustand to hydrate from localStorage
+    if (!mounted) return;
+
+    if (!isAuthenticated) {
+      router.push("/");
+      return;
+    }
+
+    // Read initial filters from URL
+    const categorized = searchParams.get("categorized");
+    if (categorized === "false") {
+      setShowOnlyCategorized(false);
+    }
+
+    fetchVideos();
+  }, [
+    mounted,
+    isAuthenticated,
+    router,
+    currentPage,
+    selectedCategories,
+    selectedTags,
+    debouncedSearchQuery,
+    showOnlyCategorized,
+    sortBy,
+    sortOrder,
+    pageSize,
+  ]);
+
+  const fetchVideos = async () => {
+    setLoading(true);
+    try {
+      const params: any = {
+        page: currentPage,
+        page_size: pageSize,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+      };
+
+      if (selectedCategories.length > 0) {
+        params.category_ids = selectedCategories.join(",");
+      }
+
+      if (selectedTags.length > 0) {
+        params.tag_ids = selectedTags.join(",");
+      }
+
+      if (debouncedSearchQuery) {
+        params.search = debouncedSearchQuery;
+      }
+
+      if (showOnlyCategorized !== null) {
+        params.is_categorized = showOnlyCategorized;
+      }
+
+      const response = await videosApi.getLikedVideos(params);
+      const paginatedData: PaginatedVideosResponse = response.data;
+
+      setVideos(paginatedData.items);
+      setTotalPages(paginatedData.total_pages);
+      setTotalVideos(paginatedData.total);
+    } catch (error) {
+      console.error("Failed to fetch videos:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCategorize = async (videoId: number) => {
+    setCategorizingId(videoId);
+    try {
+      await videosApi.categorizeVideo(videoId);
+      await fetchVideos(); // Refresh the list
+    } catch (error) {
+      console.error("Failed to categorize video:", error);
+    } finally {
+      setCategorizingId(null);
+    }
+  };
+
+  const handleClearFilters = () => {
+    setSelectedCategories([]);
+    setSelectedTags([]);
+    setSearchQuery("");
+    setShowOnlyCategorized(null);
+    setCurrentPage(1);
+  };
+
+  const toggleSortOrder = () => {
+    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+  };
+
+  // Don't render anything until hydrated
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex justify-center items-center">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Navbar />
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Liked Videos</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
+                {totalVideos > 0 && (
+                  <>
+                    Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, totalVideos)} of {totalVideos} videos
+                  </>
+                )}
+              </p>
+            </div>
+
+            <div className="flex gap-3 items-end flex-wrap">
+              {/* View Toggle */}
+              <div className="flex flex-col gap-1">
+                <label className="text-sm text-gray-600 dark:text-gray-400">View</label>
+                <ButtonGroup size="md" variant="bordered">
+                  <Button
+                    onPress={() => setViewMode("grid")}
+                    color={viewMode === "grid" ? "primary" : "default"}
+                    isIconOnly
+                  >
+                    <GridViewIcon fontSize="small" />
+                  </Button>
+                  <Button
+                    onPress={() => setViewMode("list")}
+                    color={viewMode === "list" ? "primary" : "default"}
+                    isIconOnly
+                  >
+                    <ViewListIcon fontSize="small" />
+                  </Button>
+                </ButtonGroup>
+              </div>
+
+              {/* Per Page */}
+              <div className="flex flex-col gap-1">
+                <label className="text-sm text-gray-600 dark:text-gray-400">Per page</label>
+                <Select
+                  selectedKeys={[String(pageSize)]}
+                  onSelectionChange={(keys) => {
+                    const selected = Array.from(keys)[0];
+                    if (selected) {
+                      setPageSize(Number(selected));
+                      setCurrentPage(1);
+                    }
+                  }}
+                  className="w-24"
+                  size="md"
+                  variant="bordered"
+                  aria-label="Items per page"
+                >
+                  <SelectItem key="25">25</SelectItem>
+                  <SelectItem key="50">50</SelectItem>
+                  <SelectItem key="100">100</SelectItem>
+                </Select>
+              </div>
+
+              {/* Sort By */}
+              <div className="flex flex-col gap-1">
+                <label className="text-sm text-gray-600 dark:text-gray-400">Sort by</label>
+                <Select
+                  selectedKeys={[sortBy]}
+                  onSelectionChange={(keys) => {
+                    const selected = Array.from(keys)[0];
+                    if (selected) setSortBy(selected as string);
+                  }}
+                  className="w-48"
+                  size="md"
+                  variant="bordered"
+                  aria-label="Sort by"
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <SelectItem key={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </div>
+
+              {/* Sort Order */}
+              <Button
+                size="md"
+                variant="bordered"
+                onPress={toggleSortOrder}
+                className="h-10 mt-6"
+                color="primary"
+              >
+                {sortOrder === "asc" ? "↑ Asc" : "↓ Desc"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Filters Sidebar */}
+            <div className="lg:col-span-1">
+              <FilterPanel
+                selectedCategories={selectedCategories}
+                selectedTags={selectedTags}
+                searchQuery={searchQuery}
+                showOnlyCategorized={showOnlyCategorized}
+                onCategoriesChange={setSelectedCategories}
+                onTagsChange={setSelectedTags}
+                onSearchChange={setSearchQuery}
+                onCategorizationFilterChange={setShowOnlyCategorized}
+                onClearFilters={handleClearFilters}
+              />
+            </div>
+
+            {/* Videos Grid */}
+            <div className="lg:col-span-3">
+              {loading ? (
+                <div className="flex justify-center items-center h-64">
+                  <Spinner size="lg" />
+                </div>
+              ) : videos.length > 0 ? (
+                <>
+                  <div className={
+                    viewMode === "grid"
+                      ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+                      : "flex flex-col gap-4"
+                  }>
+                    {videos.map((video) => (
+                      <VideoCard
+                        key={video.id}
+                        video={video}
+                        onCategorize={handleCategorize}
+                        isCategorizing={categorizingId === video.id}
+                        viewMode={viewMode}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex justify-center mt-8">
+                      <Pagination
+                        total={totalPages}
+                        page={currentPage}
+                        onChange={setCurrentPage}
+                        showControls
+                        color="primary"
+                        size="lg"
+                        variant="bordered"
+                        radius="full"
+                        classNames={{
+                          cursor: "bg-primary text-white",
+                        }}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 text-lg">No videos found</p>
+                  <p className="text-gray-400 text-sm mt-2">
+                    Try adjusting your filters or sync your videos
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function VideosPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="flex justify-center items-center h-screen">
+          <Spinner size="lg" />
+        </div>
+      </div>
+    }>
+      <VideosPageContent />
+    </Suspense>
+  );
+}
