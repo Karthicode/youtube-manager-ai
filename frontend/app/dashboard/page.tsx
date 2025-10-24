@@ -32,13 +32,18 @@ export default function Dashboard() {
 	const [batchSyncing, setBatchSyncing] = useState(false);
 	const [batchCategorizing, setBatchCategorizing] = useState(false);
 	const [batchSyncResult, setBatchSyncResult] = useState<{
+		message?: string;
 		total_videos_synced?: number;
 		videos_categorized?: number;
+		pages_fetched?: number;
 		[key: string]: unknown;
 	} | null>(null);
 	const [categorizationResult, setCategorizationResult] = useState<{
+		message?: string;
 		total_categorized?: number;
 		total_failed?: number;
+		total_videos?: number;
+		success_rate?: number;
 		[key: string]: unknown;
 	} | null>(null);
 	const [mounted, setMounted] = useState(false);
@@ -260,7 +265,7 @@ export default function Dashboard() {
 													{batchSyncResult.pages_fetched}
 												</span>
 											</div>
-											{batchSyncResult.videos_categorized > 0 && (
+											{(batchSyncResult.videos_categorized ?? 0) > 0 && (
 												<div className="flex justify-between">
 													<span className="text-gray-600 dark:text-gray-400">
 														Videos Categorized:
@@ -328,7 +333,7 @@ export default function Dashboard() {
 									<div className="space-y-4">
 										<div className="text-center">
 											<p className="text-2xl mb-4">
-												{categorizationResult.total_failed === 0 ? "✅" : "⚠️"}
+												{(categorizationResult.total_failed ?? 0) === 0 ? "✅" : "⚠️"}
 											</p>
 											<p className="text-lg font-semibold mb-2">
 												{categorizationResult.message}
@@ -351,7 +356,7 @@ export default function Dashboard() {
 													{categorizationResult.total_categorized}
 												</span>
 											</div>
-											{categorizationResult.total_failed > 0 && (
+											{(categorizationResult.total_failed ?? 0) > 0 && (
 												<div className="flex justify-between">
 													<span className="text-red-600 dark:text-red-400">
 														Failed:
