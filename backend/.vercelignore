@@ -10,6 +10,10 @@ venv/
 .env.local
 *.log
 
+# Ignore Poetry files (only use requirements.txt for Vercel)
+pyproject.toml
+poetry.lock
+
 # Ignore test files
 tests/
 .pytest_cache/
@@ -24,3 +28,6 @@ tests/
 # Ignore git
 .git/
 .gitignore
+
+# Ignore old vercel files
+vercel_app.py
