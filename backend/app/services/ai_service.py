@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.logger import api_logger
 from app.models.video import Video
 from app.models.category import Category
 from app.models.tag import Tag
@@ -100,8 +101,9 @@ Rules:
 
         except Exception as e:
             import traceback
-            print(f"Error categorizing video {video.id}: {str(e)}")
-            print(f"Full traceback: {traceback.format_exc()}")
+
+            api_logger.error(f"Error categorizing video {video.id}: {str(e)}")
+            api_logger.debug(f"Full traceback: {traceback.format_exc()}")
             # Return default categorization on error
             return VideoCategorization(
                 primary_categories=["Entertainment"],
@@ -266,7 +268,7 @@ Rules:
                 self.apply_categorization(db, video, categorization)
                 success_count += 1
             except Exception as e:
-                print(f"Failed to categorize video {video.id}: {str(e)}")
+                api_logger.error(f"Failed to categorize video {video.id}: {str(e)}")
                 continue
 
         return success_count

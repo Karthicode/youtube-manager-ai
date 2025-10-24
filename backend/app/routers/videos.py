@@ -1,10 +1,9 @@
 """Videos router for managing YouTube videos."""
 
-from typing import Annotated, List
-from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
@@ -17,6 +16,7 @@ from app.models.tag import Tag
 from app.schemas.video import VideoResponse, PaginatedVideosResponse
 from app.services.youtube_service import YouTubeService
 from app.services.ai_service import AIService
+from app.logger import api_logger
 import math
 
 router = APIRouter(prefix="/videos")
@@ -135,7 +135,7 @@ async def sync_liked_videos(
                     ai_service.apply_categorization(db, video, categorization)
                     categorized_count += 1
                 except Exception as e:
-                    print(f"Failed to categorize video {video.id}: {e}")
+                    api_logger.error(f"Failed to categorize video {video.id}: {e}")
 
         return {
             "status": "success",
@@ -253,7 +253,7 @@ async def get_video_stats(
 
     categorized = (
         db.query(Video)
-        .filter(Video.user_id == current_user.id, Video.is_categorized == True)
+        .filter(Video.user_id == current_user.id, Video.is_categorized)
         .count()
     )
 
@@ -340,11 +340,11 @@ async def sync_all_liked_videos(
         page_token = None
         page_num = 1
 
-        print(f"🚀 Starting batch sync for user {current_user.id}")
+        api_logger.info(f"Starting batch sync for user {current_user.id}")
 
         # Fetch all pages
         while True:
-            print(f"📄 Fetching page {page_num}...")
+            api_logger.info(f"Fetching page {page_num}...")
 
             # Fetch 50 videos per page (max allowed by YouTube API)
             videos, next_page_token = youtube_service.fetch_liked_videos_paginated(
@@ -354,11 +354,13 @@ async def sync_all_liked_videos(
             all_videos.extend(videos)
             total_synced += len(videos)
 
-            print(f"✅ Page {page_num}: Fetched {len(videos)} videos (Total: {total_synced})")
+            api_logger.info(
+                f"Page {page_num}: Fetched {len(videos)} videos (Total: {total_synced})"
+            )
 
             # Check if there are more pages
             if not next_page_token:
-                print(f"🏁 Reached end of liked videos. Total: {total_synced}")
+                api_logger.info(f"Reached end of liked videos. Total: {total_synced}")
                 break
 
             page_token = next_page_token
@@ -366,7 +368,7 @@ async def sync_all_liked_videos(
 
             # Safety limit to prevent infinite loops
             if page_num > 100:  # 100 pages * 50 = 5000 videos max
-                print(f"⚠️  Reached safety limit of 100 pages")
+                api_logger.warning("Reached safety limit of 100 pages")
                 break
 
         # Update user's last sync time
@@ -376,29 +378,31 @@ async def sync_all_liked_videos(
         # Categorize if requested
         categorized_count = 0
         if auto_categorize and all_videos:
-            print(f"🤖 Starting categorization of {len(all_videos)} videos...")
+            api_logger.info(f"Starting categorization of {len(all_videos)} videos...")
             ai_service = AIService()
             uncategorized = [v for v in all_videos if not v.is_categorized]
 
             for i, video in enumerate(uncategorized, 1):
                 try:
-                    print(f"🏷️  Categorizing {i}/{len(uncategorized)}: {video.title[:50]}...")
+                    api_logger.info(
+                        f"Categorizing {i}/{len(uncategorized)}: {video.title[:50]}..."
+                    )
                     categorization = ai_service.categorize_video(db, video)
                     ai_service.apply_categorization(db, video, categorization)
                     categorized_count += 1
                 except Exception as e:
-                    print(f"❌ Failed to categorize video {video.id}: {e}")
+                    api_logger.error(f"Failed to categorize video {video.id}: {e}")
 
         return {
             "status": "success",
             "total_videos_synced": total_synced,
             "videos_categorized": categorized_count,
             "pages_fetched": page_num,
-            "message": f"Successfully synced {total_synced} videos"
+            "message": f"Successfully synced {total_synced} videos",
         }
 
     except Exception as e:
-        print(f"❌ Batch sync failed: {str(e)}")
+        api_logger.error(f"Batch sync failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to batch sync videos: {str(e)}",
@@ -409,8 +413,12 @@ async def sync_all_liked_videos(
 async def categorize_all_uncategorized(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-    batch_size: int = Query(10, ge=1, le=50, description="Number of videos to categorize in parallel"),
-    max_videos: int | None = Query(None, ge=1, description="Limit total videos to categorize"),
+    batch_size: int = Query(
+        10, ge=1, le=50, description="Number of videos to categorize in parallel"
+    ),
+    max_videos: int | None = Query(
+        None, ge=1, description="Limit total videos to categorize"
+    ),
 ):
     """
     Categorize all uncategorized videos in parallel batches.
@@ -424,10 +432,11 @@ async def categorize_all_uncategorized(
     """
     try:
         # Get all uncategorized videos
-        query = db.query(Video).filter(
-            Video.user_id == current_user.id,
-            Video.is_categorized == False
-        ).order_by(Video.liked_at.desc())
+        query = (
+            db.query(Video)
+            .filter(Video.user_id == current_user.id, ~Video.is_categorized)
+            .order_by(Video.liked_at.desc())
+        )
 
         if max_videos:
             query = query.limit(max_videos)
@@ -440,11 +449,11 @@ async def categorize_all_uncategorized(
                 "status": "success",
                 "message": "No uncategorized videos found",
                 "total_categorized": 0,
-                "total_failed": 0
+                "total_failed": 0,
             }
 
-        print(f"🤖 Starting parallel categorization of {total_count} videos...")
-        print(f"⚡ Using batch size: {batch_size}")
+        api_logger.info(f"Starting parallel categorization of {total_count} videos...")
+        api_logger.info(f"Using batch size: {batch_size}")
 
         ai_service = AIService()
         categorized_count = 0
@@ -452,11 +461,13 @@ async def categorize_all_uncategorized(
 
         # Process in batches
         for i in range(0, total_count, batch_size):
-            batch = uncategorized_videos[i:i + batch_size]
+            batch = uncategorized_videos[i : i + batch_size]
             batch_num = (i // batch_size) + 1
             total_batches = (total_count + batch_size - 1) // batch_size
 
-            print(f"\n📦 Processing batch {batch_num}/{total_batches} ({len(batch)} videos)")
+            api_logger.info(
+                f"Processing batch {batch_num}/{total_batches} ({len(batch)} videos)"
+            )
 
             # Use ThreadPoolExecutor for parallel processing
             with ThreadPoolExecutor(max_workers=batch_size) as executor:
@@ -464,40 +475,45 @@ async def categorize_all_uncategorized(
 
                 for video in batch:
                     future = executor.submit(
-                        categorize_single_video,
-                        db,
-                        ai_service,
-                        video
+                        categorize_single_video, db, ai_service, video
                     )
                     futures.append((video, future))
 
                 # Collect results
                 for video, future in futures:
                     try:
-                        success = future.result(timeout=60)  # 60 second timeout per video
+                        success = future.result(
+                            timeout=60
+                        )  # 60 second timeout per video
                         if success:
                             categorized_count += 1
-                            print(f"✅ {video.title[:50]}")
+                            api_logger.debug(f"Categorized: {video.title[:50]}")
                         else:
                             failed_count += 1
-                            print(f"❌ Failed: {video.title[:50]}")
+                            api_logger.error(f"Failed: {video.title[:50]}")
                     except Exception as e:
                         failed_count += 1
-                        print(f"❌ Exception for {video.title[:50]}: {e}")
+                        api_logger.error(f"Exception for {video.title[:50]}: {e}")
 
-            print(f"📊 Progress: {categorized_count}/{total_count} categorized, {failed_count} failed")
+            api_logger.info(
+                f"Progress: {categorized_count}/{total_count} categorized, {failed_count} failed"
+            )
 
         return {
             "status": "success",
             "total_videos": total_count,
             "total_categorized": categorized_count,
             "total_failed": failed_count,
-            "success_rate": round((categorized_count / total_count) * 100, 2) if total_count > 0 else 0,
-            "message": f"Categorized {categorized_count} out of {total_count} videos"
+            "success_rate": (
+                round((categorized_count / total_count) * 100, 2)
+                if total_count > 0
+                else 0
+            ),
+            "message": f"Categorized {categorized_count} out of {total_count} videos",
         }
 
     except Exception as e:
-        print(f"❌ Batch categorization failed: {str(e)}")
+        api_logger.error(f"Batch categorization failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to batch categorize: {str(e)}",
@@ -512,6 +528,7 @@ def categorize_single_video(db: Session, ai_service: AIService, video: Video) ->
     try:
         # Create a new session for this thread
         from app.database import SessionLocal
+
         thread_db = SessionLocal()
 
         try:
@@ -530,5 +547,5 @@ def categorize_single_video(db: Session, ai_service: AIService, video: Video) ->
             thread_db.close()
 
     except Exception as e:
-        print(f"Error categorizing video {video.id}: {e}")
+        api_logger.error(f"Error categorizing video {video.id}: {e}")
         return False

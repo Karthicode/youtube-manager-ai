@@ -68,6 +68,7 @@ async def youtube_callback(
 
         # Redirect to frontend with tokens
         from fastapi.responses import RedirectResponse
+        from app.config import settings
         import urllib.parse
         import json
 
@@ -78,18 +79,20 @@ async def youtube_callback(
             "name": user.name,
             "picture": user.picture_url,
             "youtube_channel_id": user.youtube_id,
-            "last_sync_at": user.last_sync_at.isoformat() if user.last_sync_at else None,
+            "last_sync_at": (
+                user.last_sync_at.isoformat() if user.last_sync_at else None
+            ),
         }
 
-        # Build redirect URL with tokens
-        frontend_url = "http://localhost:3000/auth/callback"
+        # Build redirect URL with tokens using configured frontend URL
+        frontend_callback_url = f"{settings.frontend_url}/auth/callback"
         params = {
             "access_token": tokens["access_token"],
             "refresh_token": tokens["refresh_token"],
             "user": urllib.parse.quote(json.dumps(user_data)),
         }
 
-        redirect_url = f"{frontend_url}?{urllib.parse.urlencode(params)}"
+        redirect_url = f"{frontend_callback_url}?{urllib.parse.urlencode(params)}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:

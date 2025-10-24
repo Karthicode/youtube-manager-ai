@@ -8,6 +8,9 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
 
+    # Environment
+    environment: str = "local"  # local, production
+
     # Application
     app_name: str = "YouTube Manager API"
     debug: bool = False
@@ -39,14 +42,30 @@ class Settings(BaseSettings):
     # OpenAI
     openai_api_key: str
     openai_model: str = "gpt-5-mini"
-    openai_max_tokens: int = 16384  # GPT-5 mini supports up to 128k, using 16k for safety
+    openai_max_tokens: int = (
+        16384  # GPT-5 mini supports up to 128k, using 16k for safety
+    )
+    openai_temperature: float = 0.3
 
-    # CORS
+    # CORS - Support multiple origins (comma-separated string or list)
     cors_origins: list[str] = ["http://localhost:3000"]
+
+    # Frontend URL (for OAuth redirects)
+    frontend_url: str = "http://localhost:3000"
 
     # Pagination
     default_page_size: int = 20
     max_page_size: int = 100
+
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production environment."""
+        return self.environment == "production"
+
+    @property
+    def is_local(self) -> bool:
+        """Check if running in local environment."""
+        return self.environment == "local"
 
 
 settings = Settings()

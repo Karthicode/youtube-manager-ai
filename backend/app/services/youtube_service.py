@@ -11,6 +11,7 @@ from googleapiclient.errors import HttpError
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.logger import api_logger
 from app.models.user import User
 from app.models.video import Video
 from app.models.playlist import Playlist, PlaylistVideo
@@ -95,7 +96,7 @@ class YouTubeService:
             return videos, total_fetched
 
         except HttpError as e:
-            print(f"YouTube API error: {e}")
+            api_logger.error(f"YouTube API error: {e}")
             raise
 
     def fetch_liked_videos_paginated(
@@ -134,7 +135,7 @@ class YouTubeService:
             return videos, next_page_token
 
         except HttpError as e:
-            print(f"YouTube API error: {e}")
+            api_logger.error(f"YouTube API error: {e}")
             raise
 
     def fetch_user_playlists(
@@ -179,7 +180,7 @@ class YouTubeService:
             return playlists, total_fetched
 
         except HttpError as e:
-            print(f"YouTube API error: {e}")
+            api_logger.error(f"YouTube API error: {e}")
             raise
 
     def fetch_playlist_videos(
@@ -257,7 +258,7 @@ class YouTubeService:
             return videos
 
         except HttpError as e:
-            print(f"YouTube API error: {e}")
+            api_logger.error(f"YouTube API error: {e}")
             raise
 
     def _process_video_item(self, db: Session, item: Dict[str, Any]) -> Video | None:
@@ -317,7 +318,7 @@ class YouTubeService:
             return video
 
         except Exception as e:
-            print(f"Error processing video item: {e}")
+            api_logger.error(f"Error processing video item: {e}")
             return None
 
     def _process_playlist_item(
@@ -369,7 +370,7 @@ class YouTubeService:
             return playlist
 
         except Exception as e:
-            print(f"Error processing playlist item: {e}")
+            api_logger.error(f"Error processing playlist item: {e}")
             return None
 
     def get_user_info(self) -> Dict[str, Any] | None:
@@ -389,5 +390,5 @@ class YouTubeService:
             return None
 
         except HttpError as e:
-            print(f"YouTube API error: {e}")
+            api_logger.error(f"YouTube API error: {e}")
             return None

@@ -39,14 +39,16 @@ async def get_categories(
             .scalar()
         ) or 0
 
-        result.append({
-            "id": category.id,
-            "name": category.name,
-            "slug": category.slug,
-            "description": category.description,
-            "color": category.color,
-            "video_count": video_count,
-        })
+        result.append(
+            {
+                "id": category.id,
+                "name": category.name,
+                "slug": category.slug,
+                "description": category.description,
+                "color": category.color,
+                "video_count": video_count,
+            }
+        )
 
     # Sort by video count descending
     result.sort(key=lambda x: x["video_count"], reverse=True)

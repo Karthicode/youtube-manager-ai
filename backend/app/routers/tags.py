@@ -54,12 +54,14 @@ async def get_tags(
             .scalar()
         ) or 0
 
-        result.append({
-            "id": tag.id,
-            "name": tag.name,
-            "slug": tag.slug,
-            "usage_count": video_count,
-        })
+        result.append(
+            {
+                "id": tag.id,
+                "name": tag.name,
+                "slug": tag.slug,
+                "usage_count": video_count,
+            }
+        )
 
     # Sort by usage count descending
     result.sort(key=lambda x: x["usage_count"], reverse=True)
