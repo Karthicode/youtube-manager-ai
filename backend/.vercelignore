@@ -1,0 +1,26 @@
+# Ignore development files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+.env.local
+*.log
+
+# Ignore test files
+tests/
+.pytest_cache/
+.coverage
+
+# Ignore IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore git
+.git/
+.gitignore
