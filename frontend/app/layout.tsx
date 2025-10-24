@@ -6,20 +6,21 @@ import { Providers } from "./providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "YouTube Manager - AI-Powered Video Organization",
-  description: "Manage and organize your YouTube liked videos and playlists with AI-powered categorization",
+	title: "YouTube Manager - AI-Powered Video Organization",
+	description:
+		"Manage and organize your YouTube liked videos and playlists with AI-powered categorization",
 };
 
 export default function RootLayout({
-  children,
+	children,
 }: Readonly<{
-  children: React.ReactNode;
+	children: React.ReactNode;
 }>) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <Providers>{children}</Providers>
-      </body>
-    </html>
-  );
+	return (
+		<html lang="en" suppressHydrationWarning>
+			<body className={inter.className}>
+				<Providers>{children}</Providers>
+			</body>
+		</html>
+	);
 }

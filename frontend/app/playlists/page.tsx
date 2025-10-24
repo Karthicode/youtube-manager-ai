@@ -1,235 +1,227 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
-  Card,
-  CardBody,
-  CardFooter,
-  Image,
-  Button,
-  Spinner,
-  Chip,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
+	Button,
+	Card,
+	CardBody,
+	CardFooter,
+	Chip,
+	Image,
+	Modal,
+	ModalBody,
+	ModalContent,
+	ModalHeader,
+	Spinner,
 } from "@heroui/react";
-import { useAuthStore } from "@/store/auth";
-import { playlistsApi } from "@/api/api";
-import { Playlist } from "@/types";
-import Navbar from "@/components/Navbar";
 import { formatDistanceToNow } from "date-fns";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { playlistsApi } from "@/api/api";
+import Navbar from "@/components/Navbar";
+import { useAuthStore } from "@/store/auth";
+import type { Playlist } from "@/types";
 
 export default function PlaylistsPage() {
-  const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+	const router = useRouter();
+	const { isAuthenticated } = useAuthStore();
 
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
+	const [playlists, setPlaylists] = useState<Playlist[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [syncing, setSyncing] = useState(false);
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/");
-      return;
-    }
+	useEffect(() => {
+		if (!isAuthenticated) {
+			router.push("/");
+			return;
+		}
 
-    fetchPlaylists();
-  }, [isAuthenticated, router]);
+		fetchPlaylists();
+	}, [isAuthenticated, router]);
 
-  const fetchPlaylists = async () => {
-    setLoading(true);
-    try {
-      const response = await playlistsApi.getPlaylists({ page_size: 50 });
-      setPlaylists(response.data);
-    } catch (error) {
-      console.error("Failed to fetch playlists:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+	const fetchPlaylists = async () => {
+		setLoading(true);
+		try {
+			const response = await playlistsApi.getPlaylists({ page_size: 50 });
+			setPlaylists(response.data);
+		} catch (error) {
+			console.error("Failed to fetch playlists:", error);
+		} finally {
+			setLoading(false);
+		}
+	};
 
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      await playlistsApi.syncPlaylists({ max_results: 50 });
-      await fetchPlaylists();
-    } catch (error) {
-      console.error("Failed to sync playlists:", error);
-      alert("Failed to sync playlists. Please try again.");
-    } finally {
-      setSyncing(false);
-    }
-  };
+	const handleSync = async () => {
+		setSyncing(true);
+		try {
+			await playlistsApi.syncPlaylists({ max_results: 50 });
+			await fetchPlaylists();
+		} catch (error) {
+			console.error("Failed to sync playlists:", error);
+			alert("Failed to sync playlists. Please try again.");
+		} finally {
+			setSyncing(false);
+		}
+	};
 
-  const handleViewPlaylist = (playlistId: number) => {
-    router.push(`/playlists/${playlistId}`);
-  };
+	const handleViewPlaylist = (playlistId: number) => {
+		router.push(`/playlists/${playlistId}`);
+	};
 
-  const openYouTubePlaylist = (youtubeId: string) => {
-    window.open(
-      `https://www.youtube.com/playlist?list=${youtubeId}`,
-      "_blank"
-    );
-  };
+	const openYouTubePlaylist = (youtubeId: string) => {
+		window.open(`https://www.youtube.com/playlist?list=${youtubeId}`, "_blank");
+	};
 
-  if (!isAuthenticated) {
-    return null;
-  }
+	if (!isAuthenticated) {
+		return null;
+	}
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Navbar />
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold">Playlists</h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
-                {playlists.length > 0 && `${playlists.length} playlists`}
-              </p>
-            </div>
+	return (
+		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+			<Navbar />
+			<div className="container mx-auto px-4 py-8 max-w-7xl">
+				<div className="space-y-6">
+					{/* Header */}
+					<div className="flex justify-between items-center">
+						<div>
+							<h1 className="text-3xl font-bold">Playlists</h1>
+							<p className="text-gray-600 dark:text-gray-400 mt-1">
+								{playlists.length > 0 && `${playlists.length} playlists`}
+							</p>
+						</div>
 
-            <Button
-              color="primary"
-              size="lg"
-              onPress={handleSync}
-            >
-              Sync Playlists
-            </Button>
-          </div>
+						<Button color="primary" size="lg" onPress={handleSync}>
+							Sync Playlists
+						</Button>
+					</div>
 
-          {/* Sync Modal */}
-          <Modal
-            isOpen={syncing}
-            isDismissable={false}
-            isKeyboardDismissDisabled={true}
-            hideCloseButton={true}
-            size="md"
-            backdrop="blur"
-          >
-            <ModalContent>
-              <ModalHeader className="flex flex-col gap-1">
-                Syncing Playlists
-              </ModalHeader>
-              <ModalBody className="py-8">
-                <div className="flex flex-col items-center gap-4">
-                  <Spinner size="lg" color="primary" />
-                  <div className="text-center space-y-2">
-                    <p className="text-lg font-semibold">Please wait...</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Fetching your playlists from YouTube.
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      This may take a moment.
-                    </p>
-                  </div>
-                </div>
-              </ModalBody>
-            </ModalContent>
-          </Modal>
+					{/* Sync Modal */}
+					<Modal
+						isOpen={syncing}
+						isDismissable={false}
+						isKeyboardDismissDisabled={true}
+						hideCloseButton={true}
+						size="md"
+						backdrop="blur"
+					>
+						<ModalContent>
+							<ModalHeader className="flex flex-col gap-1">
+								Syncing Playlists
+							</ModalHeader>
+							<ModalBody className="py-8">
+								<div className="flex flex-col items-center gap-4">
+									<Spinner size="lg" color="primary" />
+									<div className="text-center space-y-2">
+										<p className="text-lg font-semibold">Please wait...</p>
+										<p className="text-sm text-gray-600 dark:text-gray-400">
+											Fetching your playlists from YouTube.
+										</p>
+										<p className="text-sm text-gray-600 dark:text-gray-400">
+											This may take a moment.
+										</p>
+									</div>
+								</div>
+							</ModalBody>
+						</ModalContent>
+					</Modal>
 
-          {/* Content */}
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <Spinner size="lg" />
-            </div>
-          ) : playlists.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {playlists.map((playlist) => (
-                <Card
-                  key={playlist.id}
-                  className="w-full hover:shadow-lg transition-shadow"
-                >
-                  <CardBody className="p-0">
-                    <div
-                      className="relative cursor-pointer"
-                      onClick={() => handleViewPlaylist(playlist.id)}
-                    >
-                      <Image
-                        shadow="sm"
-                        radius="none"
-                        width="100%"
-                        alt={playlist.title}
-                        className="w-full object-cover h-[180px]"
-                        src={
-                          playlist.thumbnail_url ||
-                          "/placeholder-thumbnail.jpg"
-                        }
-                      />
-                      <div className="absolute top-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
-                        {playlist.video_count} videos
-                      </div>
-                    </div>
-                    <div
-                      className="p-3 space-y-2 cursor-pointer"
-                      onClick={() => handleViewPlaylist(playlist.id)}
-                    >
-                      <h3 className="font-semibold text-sm line-clamp-2">
-                        {playlist.title}
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        {playlist.channel_title}
-                      </p>
-                      {playlist.published_at && (
-                        <p className="text-xs text-gray-400">
-                          Created{" "}
-                          {formatDistanceToNow(
-                            new Date(playlist.published_at),
-                            { addSuffix: true }
-                          )}
-                        </p>
-                      )}
-                      {playlist.last_synced_at && (
-                        <p className="text-xs text-gray-400">
-                          Last synced{" "}
-                          {formatDistanceToNow(
-                            new Date(playlist.last_synced_at),
-                            { addSuffix: true }
-                          )}
-                        </p>
-                      )}
-                    </div>
-                  </CardBody>
-                  <CardFooter className="flex gap-2">
-                    <Button
-                      size="sm"
-                      color="primary"
-                      variant="flat"
-                      className="flex-1"
-                      onPress={() => {
-                        handleViewPlaylist(playlist.id);
-                      }}
-                      radius="md"
-                    >
-                      View Videos
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="bordered"
-                      onPress={() => {
-                        handleViewPlaylist(playlist.id);
-                      }}
-                      radius="md"
-                    >
-                      YouTube
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No playlists found</p>
-              <p className="text-gray-400 text-sm mt-2">
-                Click "Sync Playlists" to fetch your YouTube playlists
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+					{/* Content */}
+					{loading ? (
+						<div className="flex justify-center items-center h-64">
+							<Spinner size="lg" />
+						</div>
+					) : playlists.length > 0 ? (
+						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+							{playlists.map((playlist) => (
+								<Card
+									key={playlist.id}
+									className="w-full hover:shadow-lg transition-shadow"
+								>
+									<CardBody className="p-0">
+										<div
+											className="relative cursor-pointer"
+											onClick={() => handleViewPlaylist(playlist.id)}
+										>
+											<Image
+												shadow="sm"
+												radius="none"
+												width="100%"
+												alt={playlist.title}
+												className="w-full object-cover h-[180px]"
+												src={
+													playlist.thumbnail_url || "/placeholder-thumbnail.jpg"
+												}
+											/>
+											<div className="absolute top-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+												{playlist.video_count} videos
+											</div>
+										</div>
+										<div
+											className="p-3 space-y-2 cursor-pointer"
+											onClick={() => handleViewPlaylist(playlist.id)}
+										>
+											<h3 className="font-semibold text-sm line-clamp-2">
+												{playlist.title}
+											</h3>
+											<p className="text-xs text-gray-500">
+												{playlist.channel_title}
+											</p>
+											{playlist.published_at && (
+												<p className="text-xs text-gray-400">
+													Created{" "}
+													{formatDistanceToNow(
+														new Date(playlist.published_at),
+														{ addSuffix: true },
+													)}
+												</p>
+											)}
+											{playlist.last_synced_at && (
+												<p className="text-xs text-gray-400">
+													Last synced{" "}
+													{formatDistanceToNow(
+														new Date(playlist.last_synced_at),
+														{ addSuffix: true },
+													)}
+												</p>
+											)}
+										</div>
+									</CardBody>
+									<CardFooter className="flex gap-2">
+										<Button
+											size="sm"
+											color="primary"
+											variant="flat"
+											className="flex-1"
+											onPress={() => {
+												handleViewPlaylist(playlist.id);
+											}}
+											radius="md"
+										>
+											View Videos
+										</Button>
+										<Button
+											size="sm"
+											variant="bordered"
+											onPress={() => {
+												handleViewPlaylist(playlist.id);
+											}}
+											radius="md"
+										>
+											YouTube
+										</Button>
+									</CardFooter>
+								</Card>
+							))}
+						</div>
+					) : (
+						<div className="text-center py-12">
+							<p className="text-gray-500 text-lg">No playlists found</p>
+							<p className="text-gray-400 text-sm mt-2">
+								Click "Sync Playlists" to fetch your YouTube playlists
+							</p>
+						</div>
+					)}
+				</div>
+			</div>
+		</div>
+	);
 }
