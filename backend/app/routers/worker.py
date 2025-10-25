@@ -196,14 +196,21 @@ async def _process_one_batch(
         job_data["current_video"] = None
         set_job_data(job_id, job_data, expire=7200)
 
+        # Count actual results for final stats
+        actual_completed = len(job_data.get("results", []))
+        actual_failed = sum(
+            1 for r in job_data.get("results", []) if not r.get("success", True)
+        )
+        actual_successful = actual_completed - actual_failed
+
         # Update user progress to completed
         ProgressService.set_progress(
             user_id,
             {
                 "status": "completed",
                 "total": job_data["total"],
-                "completed": job_data["completed"],
-                "failed": job_data["failed"],
+                "completed": actual_successful,
+                "failed": actual_failed,
                 "current_video": None,
             },
         )
@@ -212,8 +219,9 @@ async def _process_one_batch(
         invalidate_user_stats_cache(user_id)
 
         api_logger.info(
-            f"Job {job_id} completed! {job_data['completed']} videos categorized, "
-            f"{job_data['failed']} failed. Cache invalidated for user {user_id}"
+            f"Job {job_id} completed! {actual_successful} videos categorized successfully, "
+            f"{actual_failed} failed out of {actual_completed} total processed. "
+            f"Cache invalidated for user {user_id}"
         )
         return {"processed": 0, "complete": True}
 
@@ -301,27 +309,38 @@ async def _process_one_batch(
 
     set_job_data(job_id, job_data)
 
-    # Update user-specific progress for SSE endpoint
-    ProgressService.set_progress(
-        user_id,
-        {
-            "status": job_data["status"],
-            "total": job_data["total"],
-            "completed": job_data["completed"],
-            "failed": job_data["failed"],
-            "current_video": f"Processed {job_data['completed']} of {job_data['total']} videos",
-        },
-    )
+    # Re-fetch job data to get accurate count (in case other workers updated)
+    latest_job_data = get_job_data(job_id)
+    if latest_job_data:
+        # Count actual processed videos from results array (source of truth)
+        actual_completed = len(latest_job_data.get("results", []))
+        actual_failed = sum(
+            1 for r in latest_job_data.get("results", []) if not r.get("success", True)
+        )
+        actual_successful = actual_completed - actual_failed
+
+        # Update user-specific progress for SSE endpoint
+        ProgressService.set_progress(
+            user_id,
+            {
+                "status": latest_job_data["status"],
+                "total": latest_job_data["total"],
+                "completed": actual_successful,
+                "failed": actual_failed,
+                "current_video": f"Processed {actual_completed} of {latest_job_data['total']} videos",
+            },
+        )
+
+        api_logger.info(
+            f"Job {job_id}: Progress {actual_completed}/{latest_job_data['total']} "
+            f"({(actual_completed/latest_job_data['total']*100):.1f}%) - "
+            f"{actual_successful} successful, {actual_failed} failed"
+        )
 
     # Invalidate cache after each batch so stats update in real-time
     from app.routers.videos import invalidate_user_stats_cache
 
     invalidate_user_stats_cache(user_id)
-
-    api_logger.info(
-        f"Job {job_id}: Progress {job_data['completed']}/{job_data['total']} "
-        f"({(job_data['completed']/job_data['total']*100):.1f}%)"
-    )
 
     # Check if more batches remaining
     still_remaining = len(remaining_ids) > len(batch_ids)
