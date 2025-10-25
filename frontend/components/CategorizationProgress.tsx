@@ -38,7 +38,7 @@ export default function CategorizationProgress({
 				setProgress(data);
 
 				// If categorization is complete or idle, stop polling
-				if (data.status === "idle" || data.status === "completed") {
+				if (data.status === "in_progress" || data.status === "completed") {
 					setIsPolling(false);
 					if (data.status === "completed" && onComplete) {
 						onComplete();
