@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     qstash_token: str = ""  # Optional, leave empty if not using QStash
     qstash_current_signing_key: str = ""  # For webhook verification
     qstash_next_signing_key: str = ""  # For webhook verification
+    qstash_queue_name: str = "categorize-videos"  # Queue name in QStash
 
     @property
     def is_production(self) -> bool:

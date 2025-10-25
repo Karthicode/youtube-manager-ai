@@ -56,20 +56,20 @@ async def trigger_categorization_job(
         "max_concurrent": max_concurrent,
     }
 
-    # Publish to QStash
+    # Publish to QStash queue
+    queue_name = settings.qstash_queue_name
+    queue_url = f"https://qstash.upstash.io/v2/enqueue/{queue_name}/{worker_url}"
+
+    api_logger.info(f"Triggering QStash queue '{queue_name}' for job {job_id}")
+
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            settings.qstash_url,
-            json={
-                "url": worker_url,
-                "body": payload,
-                "headers": {
-                    "Content-Type": "application/json",
-                },
-            },
+            queue_url,
+            json=payload,
             headers={
                 "Authorization": f"Bearer {settings.qstash_token}",
                 "Content-Type": "application/json",
+                "Upstash-Forward-Authorization": "Bearer token-placeholder",  # Will be replaced by worker auth
             },
             timeout=30.0,
         )
@@ -77,6 +77,6 @@ async def trigger_categorization_job(
         result = response.json()
 
         api_logger.info(
-            f"QStash job triggered: {job_id}, message_id={result.get('messageId')}"
+            f"QStash job enqueued: {job_id}, message_id={result.get('messageId')}, queue={queue_name}"
         )
         return result
