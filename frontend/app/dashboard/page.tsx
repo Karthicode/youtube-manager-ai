@@ -23,7 +23,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { videosApi } from "@/api/api";
-import CategorizationProgress from "@/components/CategorizationProgress";
+//import CategorizationProgress from "@/components/CategorizationProgress";
 import Navbar from "@/components/Navbar";
 import { useAuthStore } from "@/store/auth";
 import type { VideoStats } from "@/types";
@@ -186,7 +186,7 @@ export default function Dashboard() {
 					</div>
 
 					{/* Progress Tracking */}
-					<CategorizationProgress onComplete={fetchStats} />
+					{/* <CategorizationProgress onComplete={fetchStats} /> */}
 
 					{/* Sync Modal */}
 					<Modal
