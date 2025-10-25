@@ -954,81 +954,107 @@ async def run_batch_categorization(
         ai_service = AIService()
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def categorize_with_progress(video_id: int):
-            """Categorize a single video and update progress."""
-            api_logger.debug(f"Starting categorization for video {video_id}")
+        # Process videos in batches of 10 for GPT batching efficiency
+        batch_size = 10
+
+        async def categorize_batch_with_progress(batch_video_ids: list[int]):
+            """Categorize a batch of videos with a single API call."""
             async with semaphore:
-                # Create a new session for this task to avoid detachment issues
-                task_db = SessionLocal()
-                video = None  # Initialize to None
                 try:
-                    # Check if job is paused before processing
+                    # Check if job is paused/cancelled
                     data = get_job_data(job_id)
                     if not data:
-                        api_logger.warning(f"Job {job_id} not found in Redis, stopping video {video_id}")
-                        return  # Job deleted
+                        api_logger.warning(f"Job {job_id} not found in Redis")
+                        return
 
                     # Wait while paused
                     while data.get("paused", False):
-                        await asyncio.sleep(1)  # Check every second
+                        await asyncio.sleep(1)
                         data = get_job_data(job_id)
                         if not data or data["status"] in ["completed", "error", "cancelled"]:
-                            return  # Job deleted, stopped, or cancelled
+                            return
 
-                    # Fetch video fresh from database with this task's session
-                    video = task_db.query(Video).filter(Video.id == video_id).first()
-                    if not video:
-                        api_logger.error(f"Video {video_id} not found in database")
+                    # Fetch all videos in this batch
+                    videos = db.query(Video).filter(Video.id.in_(batch_video_ids)).all()
+                    if not videos:
+                        api_logger.error(f"No videos found for batch: {batch_video_ids}")
                         return
 
-                    api_logger.info(f"Categorizing video {video_id}: {video.title[:50]}")
+                    api_logger.info(f"Batch categorizing {len(videos)} videos with 1 API call")
 
                     # Update current video in Redis
-                    data["current_video"] = video.title[:50]
-                    set_job_data(job_id, data)
-
-                    categorization = await ai_service.categorize_video_async(video)
-                    ai_service.apply_categorization(task_db, video, categorization)
-
-                    api_logger.info(f"Successfully categorized video {video_id}")
-
-                    # Update progress in Redis
                     data = get_job_data(job_id)
                     if data:
-                        data["completed"] += 1
-                        data["results"].append(
-                            {
-                                "video_id": video.id,
-                                "title": video.title,
-                                "success": True,
-                                "categories": categorization.primary_categories
-                                + categorization.secondary_categories,
-                                "tags": categorization.tags,
-                            }
-                        )
+                        data["current_video"] = f"Batch of {len(videos)} videos"
                         set_job_data(job_id, data)
+
+                    # Single API call for all videos in batch!
+                    categorizations = await ai_service.categorize_videos_batch_async(videos)
+
+                    # Apply categorizations to all videos
+                    for video, categorization in zip(videos, categorizations):
+                        try:
+                            ai_service.apply_categorization(db, video, categorization)
+
+                            # Update progress
+                            data = get_job_data(job_id)
+                            if data:
+                                data["completed"] += 1
+                                data["results"].append(
+                                    {
+                                        "video_id": video.id,
+                                        "title": video.title,
+                                        "success": True,
+                                        "categories": categorization.primary_categories
+                                        + categorization.secondary_categories,
+                                        "tags": categorization.tags,
+                                    }
+                                )
+                                set_job_data(job_id, data)
+                        except Exception as e:
+                            api_logger.error(f"Failed to apply categorization for video {video.id}: {e}")
+                            data = get_job_data(job_id)
+                            if data:
+                                data["failed"] += 1
+                                data["results"].append(
+                                    {
+                                        "video_id": video.id,
+                                        "title": video.title,
+                                        "success": False,
+                                        "error": str(e),
+                                    }
+                                )
+                                set_job_data(job_id, data)
+
+                    api_logger.info(f"Successfully categorized batch of {len(videos)} videos")
 
                 except Exception as e:
-                    # Update failure count in Redis
+                    api_logger.error(f"Failed to categorize batch: {e}", exc_info=True)
+                    # Mark all videos in batch as failed
                     data = get_job_data(job_id)
                     if data:
-                        data["failed"] += 1
-                        data["results"].append(
-                            {
-                                "video_id": video_id,
-                                "title": video.title if video else f"Video {video_id}",
-                                "success": False,
-                                "error": str(e),
-                            }
-                        )
+                        for vid_id in batch_video_ids:
+                            data["failed"] += 1
+                            data["results"].append(
+                                {
+                                    "video_id": vid_id,
+                                    "title": f"Video {vid_id}",
+                                    "success": False,
+                                    "error": str(e),
+                                }
+                            )
                         set_job_data(job_id, data)
-                    api_logger.error(f"Failed to categorize video {video_id}: {e}")
-                finally:
-                    # Always close the task's database session
-                    task_db.close()
 
-        # Run all categorizations in parallel
-        tasks = [categorize_with_progress(video_id) for video_id in video_ids]
+        # Split videos into batches of 10
+        video_batches = [
+            video_ids[i:i + batch_size]
+            for i in range(0, len(video_ids), batch_size)
+        ]
+
+        api_logger.info(f"Split {len(video_ids)} videos into {len(video_batches)} batches of ~{batch_size}")
+
+        # Run batch categorizations in parallel (max_concurrent batches at a time)
+        tasks = [categorize_batch_with_progress(batch) for batch in video_batches]
         await asyncio.gather(*tasks, return_exceptions=True)
 
         # Mark job as complete in Redis

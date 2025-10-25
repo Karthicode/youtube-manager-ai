@@ -235,6 +235,89 @@ Rules:
 
         return tag
 
+    async def categorize_videos_batch_async(self, videos: List[Video]) -> List[VideoCategorization]:
+        """
+        Categorize multiple videos in a single API call (much faster!).
+
+        Args:
+            videos: List of Video objects to categorize (up to 10 recommended)
+
+        Returns:
+            List of VideoCategorization results, one per video
+        """
+        if not videos:
+            return []
+
+        # Build batch prompt with all videos
+        videos_info = []
+        for i, video in enumerate(videos, 1):
+            duration = self._format_duration(video.duration_seconds)
+            desc = video.description[:200] if video.description else "No description"
+            videos_info.append(
+                f"{i}. **{video.title}** | {video.channel_title or 'Unknown'} | {duration}\n   {desc}"
+            )
+
+        batch_prompt = f"Categorize these {len(videos)} videos:\n\n" + "\n\n".join(videos_info)
+
+        try:
+            # Define batch response model
+            class BatchCategorization(BaseModel):
+                videos: List[VideoCategorization]
+
+            completion = await self.async_client.beta.chat.completions.parse(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": f"""You are an expert video content analyzer. Categorize ALL videos in the batch.
+
+Available categories: {', '.join(self.AVAILABLE_CATEGORIES)}
+
+For EACH video, provide:
+1. Choose 1-2 primary categories
+2. Optionally add 0-2 secondary categories
+3. Generate EXACTLY 5 relevant tags
+4. Assign confidence (0.0-1.0)
+
+Return results in the SAME ORDER as input.""",
+                    },
+                    {"role": "user", "content": batch_prompt},
+                ],
+                response_format=BatchCategorization,
+                max_completion_tokens=settings.openai_max_tokens,
+            )
+
+            result = completion.choices[0].message.parsed
+
+            # Ensure we got results for all videos
+            if len(result.videos) != len(videos):
+                api_logger.warning(
+                    f"Batch categorization returned {len(result.videos)} results for {len(videos)} videos"
+                )
+                # Pad with defaults if needed
+                while len(result.videos) < len(videos):
+                    result.videos.append(
+                        VideoCategorization(
+                            primary_categories=["Entertainment"],
+                            tags=["video"],
+                            confidence=0.0,
+                        )
+                    )
+
+            return result.videos
+
+        except Exception as e:
+            api_logger.error(f"Error batch categorizing {len(videos)} videos: {str(e)}")
+            # Return default categorizations
+            return [
+                VideoCategorization(
+                    primary_categories=["Entertainment"],
+                    tags=["video"],
+                    confidence=0.0,
+                )
+                for _ in videos
+            ]
+
     async def categorize_video_async(self, video: Video) -> VideoCategorization:
         """
         Async version of categorize_video for parallel batch processing.
