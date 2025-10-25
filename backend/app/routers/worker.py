@@ -1,15 +1,13 @@
 """Worker endpoints for background job processing via QStash."""
 
 import asyncio
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel
 from qstash import Receiver
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import get_db
 from app.logger import api_logger
 from app.models.video import Video
 from app.services.ai_service import AIService
@@ -22,14 +20,19 @@ router = APIRouter(prefix="/worker", tags=["worker"])
 # Redis helper functions (same as in videos.py)
 def get_job_data(job_id: str) -> dict | None:
     """Get job data from Redis."""
+    import json
+
     redis_client = get_redis()
-    return redis_client.get_json(f"job:{job_id}")
+    data = redis_client.get(f"categorization_job:{job_id}")
+    return json.loads(data) if data else None
 
 
 def set_job_data(job_id: str, data: dict, expire: int = 3600) -> None:
     """Set job data in Redis with expiration (default 1 hour)."""
+    import json
+
     redis_client = get_redis()
-    redis_client.set_json(f"job:{job_id}", data, expire=expire)
+    redis_client.set(f"categorization_job:{job_id}", json.dumps(data), expire=expire)
 
 
 class JobPayload(BaseModel):
