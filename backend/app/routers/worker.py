@@ -175,11 +175,17 @@ async def _process_one_batch(
     remaining_ids = [vid for vid in video_ids if vid not in processed_ids]
 
     if not remaining_ids:
-        # Job complete!
+        # Job complete! Invalidate user stats cache
+        from app.routers.videos import invalidate_user_stats_cache
+
         job_data["status"] = "completed"
         job_data["current_video"] = None
         set_job_data(job_id, job_data, expire=7200)
-        api_logger.info(f"Job {job_id} completed!")
+
+        # Clear cache so dashboard shows updated stats
+        invalidate_user_stats_cache(user_id)
+
+        api_logger.info(f"Job {job_id} completed! Cache invalidated for user {user_id}")
         return {"processed": 0, "complete": True}
 
     # Take next batch
@@ -209,6 +215,12 @@ async def _process_one_batch(
     # Apply and update progress
     for video, categorization in zip(uncategorized_videos, categorizations):
         try:
+            # Double-check if already categorized (race condition)
+            db.refresh(video)
+            if video.is_categorized:
+                api_logger.warning(f"Video {video.id} already categorized, skipping")
+                continue
+
             ai_service.apply_categorization(db, video, categorization)
             job_data["completed"] += 1
             job_data["results"].append(
@@ -222,18 +234,33 @@ async def _process_one_batch(
                 }
             )
         except Exception as e:
-            api_logger.error(f"Failed to categorize video {video.id}: {e}")
-            job_data["failed"] += 1
-            job_data["results"].append(
-                {
-                    "video_id": video.id,
-                    "title": video.title,
-                    "success": False,
-                    "error": str(e),
-                }
-            )
+            # Check if it's a duplicate key error (already categorized by another worker)
+            if "duplicate key" in str(e).lower() or "uniqueviolation" in str(e).lower():
+                api_logger.warning(
+                    f"Video {video.id} already categorized by another worker, skipping"
+                )
+                # Rollback the transaction and continue
+                db.rollback()
+                continue
+            else:
+                api_logger.error(f"Failed to categorize video {video.id}: {e}")
+                db.rollback()
+                job_data["failed"] += 1
+                job_data["results"].append(
+                    {
+                        "video_id": video.id,
+                        "title": video.title,
+                        "success": False,
+                        "error": str(e),
+                    }
+                )
 
     set_job_data(job_id, job_data)
+
+    # Invalidate cache after each batch so stats update in real-time
+    from app.routers.videos import invalidate_user_stats_cache
+
+    invalidate_user_stats_cache(user_id)
 
     # Check if more batches remaining
     still_remaining = len(remaining_ids) > len(batch_ids)
