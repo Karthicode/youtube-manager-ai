@@ -59,12 +59,12 @@ export default function VideoCard({
 	if (viewMode === "list") {
 		return (
 			<Card className="w-full hover:shadow-lg transition-shadow">
-				<CardBody className="p-4">
-					<div className="flex items-center justify-between gap-4">
+				<CardBody className="p-3 sm:p-4">
+					<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
 						<div
 							role="button"
 							tabIndex={0}
-							className="flex-1 min-w-0 cursor-pointer"
+							className="flex-1 min-w-0 cursor-pointer w-full"
 							onClick={openYouTube}
 							onKeyDown={(e) => {
 								if (e.key === "Enter" || e.key === " ") {
@@ -73,10 +73,10 @@ export default function VideoCard({
 								}
 							}}
 						>
-							<h3 className="font-semibold text-base line-clamp-1 mb-1">
+							<h3 className="font-semibold text-sm sm:text-base line-clamp-2 sm:line-clamp-1 mb-1">
 								{video.title}
 							</h3>
-							<div className="flex items-center gap-3 text-sm text-gray-500">
+							<div className="flex items-center flex-wrap gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500">
 								<span className="truncate">{video.channel_title}</span>
 								{video.duration_seconds && (
 									<>
@@ -103,9 +103,9 @@ export default function VideoCard({
 							</div>
 						</div>
 
-						<div className="flex items-center gap-2 shrink-0">
+						<div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
 							{video.is_categorized ? (
-								<div className="flex flex-wrap gap-1 justify-end max-w-md">
+								<div className="flex flex-wrap gap-1 justify-start sm:justify-end max-w-full sm:max-w-md">
 									{video.categories.slice(0, 2).map((category) => (
 										<Chip
 											key={category.id}
@@ -156,26 +156,26 @@ export default function VideoCard({
 
 	// Grid view - original with image
 	return (
-		<Card className="w-full hover:scale-105 transition-transform">
+		<Card className="w-full hover:scale-102 sm:hover:scale-105 transition-transform">
 			<CardBody className="p-0">
 				<div
-				role="button"
-				tabIndex={0}
-				className="relative cursor-pointer"
-				onClick={openYouTube}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" || e.key === " ") {
-						e.preventDefault();
-						openYouTube();
-					}
-				}}
-			>
+					role="button"
+					tabIndex={0}
+					className="relative cursor-pointer"
+					onClick={openYouTube}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" || e.key === " ") {
+							e.preventDefault();
+							openYouTube();
+						}
+					}}
+				>
 					<Image
 						shadow="sm"
 						radius="none"
 						width="100%"
 						alt={video.title}
-						className="w-full object-cover h-[200px]"
+						className="w-full object-cover h-[160px] sm:h-[200px]"
 						src={video.thumbnail_url || "/placeholder-thumbnail.jpg"}
 					/>
 					{video.duration_seconds && (
@@ -185,24 +185,26 @@ export default function VideoCard({
 					)}
 				</div>
 				<div
-				role="button"
-				tabIndex={0}
-				className="p-3 space-y-2 cursor-pointer"
-				onClick={openYouTube}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" || e.key === " ") {
-						e.preventDefault();
-						openYouTube();
-					}
-				}}
-			>
+					role="button"
+					tabIndex={0}
+					className="p-2 sm:p-3 space-y-1 sm:space-y-2 cursor-pointer"
+					onClick={openYouTube}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" || e.key === " ") {
+							e.preventDefault();
+							openYouTube();
+						}
+					}}
+				>
 					<Tooltip content={video.title}>
-						<h3 className="font-semibold text-sm line-clamp-2">
+						<h3 className="font-semibold text-xs sm:text-sm line-clamp-2">
 							{video.title}
 						</h3>
 					</Tooltip>
-					<p className="text-xs text-gray-500">{video.channel_title}</p>
-					<div className="flex items-center gap-2 text-xs text-gray-400">
+					<p className="text-xs text-gray-500 truncate">
+						{video.channel_title}
+					</p>
+					<div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-400 flex-wrap">
 						{video.view_count && (
 							<span>{formatViews(video.view_count)} views</span>
 						)}

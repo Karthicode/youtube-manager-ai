@@ -70,8 +70,8 @@ export default function FilterPanel({
 
 	return (
 		<Card className="w-full shadow-md">
-			<CardHeader className="flex justify-between items-center pb-3">
-				<h3 className="text-lg font-semibold">Filters</h3>
+			<CardHeader className="flex justify-between items-center pb-2 sm:pb-3">
+				<h3 className="text-base sm:text-lg font-semibold">Filters</h3>
 				{hasActiveFilters && (
 					<Button
 						size="sm"
@@ -85,7 +85,7 @@ export default function FilterPanel({
 				)}
 			</CardHeader>
 			<Divider />
-			<CardBody className="gap-6 pt-4">
+			<CardBody className="gap-4 sm:gap-6 pt-3 sm:pt-4">
 				{/* Search */}
 				<div>
 					<Input

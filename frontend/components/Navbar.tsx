@@ -10,6 +10,9 @@ import {
 	NavbarBrand,
 	NavbarContent,
 	NavbarItem,
+	NavbarMenu,
+	NavbarMenuItem,
+	NavbarMenuToggle,
 } from "@heroui/react";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import PlaylistPlayIcon from "@mui/icons-material/PlaylistPlay";
@@ -17,6 +20,7 @@ import SmartDisplayIcon from "@mui/icons-material/SmartDisplay";
 import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import React from "react";
 import { useAuthStore } from "@/store/auth";
 import ThemeToggle from "./ThemeToggle";
 
@@ -24,6 +28,7 @@ export default function Navbar() {
 	const router = useRouter();
 	const pathname = usePathname();
 	const { user, clearAuth } = useAuthStore();
+	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
 	const handleLogout = () => {
 		clearAuth();
@@ -34,20 +39,35 @@ export default function Navbar() {
 
 	const isActive = (path: string) => pathname === path;
 
+	const menuItems = [
+		{ label: "Dashboard", path: "/dashboard", icon: <DashboardIcon /> },
+		{ label: "Liked Videos", path: "/videos", icon: <VideoLibraryIcon /> },
+		{ label: "Playlists", path: "/playlists", icon: <PlaylistPlayIcon /> },
+	];
+
 	return (
 		<HeroNavbar
 			isBordered
 			isBlurred
 			className="bg-white/95 dark:bg-gray-900/95"
 			maxWidth="xl"
+			isMenuOpen={isMenuOpen}
+			onMenuOpenChange={setIsMenuOpen}
 		>
+			<NavbarContent className="sm:hidden" justify="start">
+				<NavbarMenuToggle
+					aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+				/>
+			</NavbarContent>
+
 			<NavbarBrand>
 				<Link
 					href="/dashboard"
-					className="font-bold text-xl text-gray-900 dark:text-white flex items-center gap-2"
+					className="font-bold text-base sm:text-xl text-gray-900 dark:text-white flex items-center gap-2"
 				>
-					<SmartDisplayIcon />
-					YouTube Manager
+					<SmartDisplayIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />
+					<span className="hidden xs:inline">YouTube Manager</span>
+					<span className="xs:hidden">YT Manager</span>
 				</Link>
 			</NavbarBrand>
 
@@ -134,6 +154,25 @@ export default function Navbar() {
 					</DropdownMenu>
 				</Dropdown>
 			</NavbarContent>
+
+			<NavbarMenu>
+				{menuItems.map((item, index) => (
+					<NavbarMenuItem key={`${item.label}-${index}`}>
+						<Link
+							className={`w-full flex items-center gap-3 py-2 ${
+								isActive(item.path)
+									? "text-primary font-semibold"
+									: "text-foreground"
+							}`}
+							href={item.path}
+							onClick={() => setIsMenuOpen(false)}
+						>
+							{item.icon}
+							{item.label}
+						</Link>
+					</NavbarMenuItem>
+				))}
+			</NavbarMenu>
 		</HeroNavbar>
 	);
 }
