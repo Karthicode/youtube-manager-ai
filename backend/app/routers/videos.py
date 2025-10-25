@@ -946,6 +946,8 @@ async def run_batch_categorization(
     """
     from app.database import SessionLocal
 
+    api_logger.info(f"Starting batch categorization job {job_id} with {len(video_ids)} videos, concurrency={max_concurrent}")
+
     db = SessionLocal()
 
     try:
@@ -954,13 +956,16 @@ async def run_batch_categorization(
 
         async def categorize_with_progress(video_id: int):
             """Categorize a single video and update progress."""
+            api_logger.debug(f"Starting categorization for video {video_id}")
             async with semaphore:
                 # Create a new session for this task to avoid detachment issues
                 task_db = SessionLocal()
+                video = None  # Initialize to None
                 try:
                     # Check if job is paused before processing
                     data = get_job_data(job_id)
                     if not data:
+                        api_logger.warning(f"Job {job_id} not found in Redis, stopping video {video_id}")
                         return  # Job deleted
 
                     # Wait while paused
@@ -973,8 +978,10 @@ async def run_batch_categorization(
                     # Fetch video fresh from database with this task's session
                     video = task_db.query(Video).filter(Video.id == video_id).first()
                     if not video:
-                        api_logger.error(f"Video {video_id} not found")
+                        api_logger.error(f"Video {video_id} not found in database")
                         return
+
+                    api_logger.info(f"Categorizing video {video_id}: {video.title[:50]}")
 
                     # Update current video in Redis
                     data["current_video"] = video.title[:50]
@@ -982,6 +989,8 @@ async def run_batch_categorization(
 
                     categorization = await ai_service.categorize_video_async(video)
                     ai_service.apply_categorization(task_db, video, categorization)
+
+                    api_logger.info(f"Successfully categorized video {video_id}")
 
                     # Update progress in Redis
                     data = get_job_data(job_id)
