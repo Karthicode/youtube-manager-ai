@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -6,13 +8,58 @@ from app.config import settings
 from app.logger import app_logger, db_logger, redis_logger
 from app.routers import auth, videos, playlists, categories, tags, progress
 
-# Create FastAPI app
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler for startup and shutdown."""
+    # Startup
+    app_logger.info(f"Starting {settings.app_name}")
+    app_logger.info(f"Environment: {settings.environment}")
+    app_logger.info(f"Debug mode: {settings.debug}")
+
+    # Test database connection
+    try:
+        from app.database import engine
+
+        with engine.connect():
+            db_logger.info("Database connection successful")
+    except Exception as e:
+        db_logger.error(f"Database connection failed: {e}")
+
+    # Test Redis connection
+    try:
+        from app.redis_client import redis_client
+
+        if redis_client.client:
+            redis_logger.info("Redis connection successful")
+        else:
+            redis_logger.warning("Redis not available (caching disabled)")
+    except Exception as e:
+        redis_logger.error(f"Redis connection failed: {e}")
+
+    yield
+
+    # Shutdown
+    app_logger.info("Shutting down application")
+
+    # Close Redis connection
+    try:
+        from app.redis_client import redis_client
+
+        redis_client.close()
+        redis_logger.info("Redis connection closed")
+    except Exception as e:
+        redis_logger.warning(f"Error closing Redis connection: {e}")
+
+
+# Create FastAPI app with lifespan handler
 app = FastAPI(
     title=settings.app_name,
     debug=settings.debug,
     docs_url=f"{settings.api_prefix}/docs" if not settings.is_production else None,
     redoc_url=f"{settings.api_prefix}/redoc" if not settings.is_production else None,
     openapi_url=f"{settings.api_prefix}/openapi.json",
+    lifespan=lifespan,
 )
 
 # Configure CORS for local and production
@@ -46,49 +93,6 @@ app.include_router(playlists.router, prefix=settings.api_prefix, tags=["Playlist
 app.include_router(categories.router, prefix=settings.api_prefix, tags=["Categories"])
 app.include_router(tags.router, prefix=settings.api_prefix, tags=["Tags"])
 app.include_router(progress.router, prefix=settings.api_prefix, tags=["Progress"])
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Run on application startup."""
-    app_logger.info(f"Starting {settings.app_name}")
-    app_logger.info(f"Environment: {settings.environment}")
-    app_logger.info(f"Debug mode: {settings.debug}")
-
-    # Test database connection
-    try:
-        from app.database import engine
-
-        with engine.connect():
-            db_logger.info("Database connection successful")
-    except Exception as e:
-        db_logger.error(f"Database connection failed: {e}")
-
-    # Test Redis connection
-    try:
-        from app.redis_client import redis_client
-
-        if redis_client.client:
-            redis_logger.info("Redis connection successful")
-        else:
-            redis_logger.warning("Redis not available (caching disabled)")
-    except Exception as e:
-        redis_logger.error(f"Redis connection failed: {e}")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Run on application shutdown."""
-    app_logger.info("Shutting down application")
-
-    # Close Redis connection
-    try:
-        from app.redis_client import redis_client
-
-        redis_client.close()
-        redis_logger.info("Redis connection closed")
-    except Exception as e:
-        redis_logger.warning(f"Error closing Redis connection: {e}")
 
 
 @app.get("/")
