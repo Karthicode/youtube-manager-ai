@@ -760,7 +760,8 @@ async def stream_categorization_progress(
 
         except Exception as e:
             api_logger.error(f"SSE stream error for job {job_id}: {e}", exc_info=True)
-            yield f"data: {json.dumps({{'status': 'error', 'error': str(e)}})}\\n\\n"
+            error_data = {"status": "error", "error": str(e)}
+            yield f"data: {json.dumps(error_data)}\n\n"
 
     return StreamingResponse(
         event_generator(),
