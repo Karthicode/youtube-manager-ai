@@ -20,6 +20,7 @@ from app.schemas.video import VideoResponse, PaginatedVideosResponse
 from app.services.youtube_service import YouTubeService
 from app.services.ai_service import AIService
 from app.logger import api_logger
+from app.utils.qstash_client import trigger_categorization_job
 import math
 
 router = APIRouter(prefix="/videos")
@@ -684,18 +685,38 @@ async def start_batch_categorization(
             "completed": 0,
             "failed": 0,
             "current_video": None,
-            "status": "running",
+            "status": "queued",  # Changed from "running" - job is queued for worker
             "paused": False,
             "results": [],
         },
     )
 
-    # Start categorization in background (pass video IDs, not ORM objects)
-    asyncio.create_task(
-        run_batch_categorization(
-            job_id, video_ids, max_concurrent, current_user.id
+    # Trigger QStash job (or run locally if QStash not configured)
+    try:
+        qstash_result = await trigger_categorization_job(
+            job_id=job_id,
+            user_id=current_user.id,
+            video_ids=video_ids,
+            max_concurrent=max_concurrent,
         )
-    )
+
+        # If running locally (dev mode), start background task
+        if qstash_result.get("mode") == "local":
+            asyncio.create_task(
+                run_batch_categorization(
+                    job_id, video_ids, max_concurrent, current_user.id
+                )
+            )
+        else:
+            api_logger.info(f"QStash job triggered: {qstash_result}")
+
+    except Exception as e:
+        api_logger.error(f"Failed to trigger QStash job: {e}", exc_info=True)
+        # Fallback to local processing
+        api_logger.info("Falling back to local background processing")
+        asyncio.create_task(
+            run_batch_categorization(job_id, video_ids, max_concurrent, current_user.id)
+        )
 
     return {"job_id": job_id, "total_videos": total_count}
 
@@ -760,7 +781,9 @@ async def stream_categorization_progress(
                     await asyncio.sleep(0.5)  # Update every 500ms
 
             except Exception as e:
-                api_logger.error(f"SSE stream error for job {job_id}: {e}", exc_info=True)
+                api_logger.error(
+                    f"SSE stream error for job {job_id}: {e}", exc_info=True
+                )
                 error_data = {"status": "error", "error": str(e)}
                 yield f"data: {json.dumps(error_data)}\n\n"
 
@@ -772,10 +795,12 @@ async def stream_categorization_progress(
     except HTTPException:
         raise
     except Exception as e:
-        api_logger.error(f"Failed to initialize SSE stream for job {job_id}: {e}", exc_info=True)
+        api_logger.error(
+            f"Failed to initialize SSE stream for job {job_id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to start progress stream: {str(e)}"
+            detail=f"Failed to start progress stream: {str(e)}",
         )
 
 
@@ -946,7 +971,9 @@ async def run_batch_categorization(
     """
     from app.database import SessionLocal
 
-    api_logger.info(f"Starting batch categorization job {job_id} with {len(video_ids)} videos, concurrency={max_concurrent}")
+    api_logger.info(
+        f"Starting batch categorization job {job_id} with {len(video_ids)} videos, concurrency={max_concurrent}"
+    )
 
     db = SessionLocal()
 
@@ -979,16 +1006,28 @@ async def run_batch_categorization(
                     while data.get("paused", False):
                         await asyncio.sleep(1)
                         data = get_job_data(job_id)
-                        if not data or data["status"] in ["completed", "error", "cancelled"]:
+                        if not data or data["status"] in [
+                            "completed",
+                            "error",
+                            "cancelled",
+                        ]:
                             return
 
                     # Get videos from the pre-loaded map
-                    videos = [video_map[vid_id] for vid_id in batch_video_ids if vid_id in video_map]
+                    videos = [
+                        video_map[vid_id]
+                        for vid_id in batch_video_ids
+                        if vid_id in video_map
+                    ]
                     if not videos:
-                        api_logger.error(f"No videos found for batch: {batch_video_ids}")
+                        api_logger.error(
+                            f"No videos found for batch: {batch_video_ids}"
+                        )
                         return
 
-                    api_logger.info(f"Batch categorizing {len(videos)} videos with 1 API call")
+                    api_logger.info(
+                        f"Batch categorizing {len(videos)} videos with 1 API call"
+                    )
 
                     # Update current video in Redis
                     data = get_job_data(job_id)
@@ -997,7 +1036,9 @@ async def run_batch_categorization(
                         set_job_data(job_id, data)
 
                     # Single API call for all videos in batch!
-                    categorizations = await ai_service.categorize_videos_batch_async(videos)
+                    categorizations = await ai_service.categorize_videos_batch_async(
+                        videos
+                    )
 
                     # Apply categorizations to all videos
                     for video, categorization in zip(videos, categorizations):
@@ -1020,7 +1061,9 @@ async def run_batch_categorization(
                                 )
                                 set_job_data(job_id, data)
                         except Exception as e:
-                            api_logger.error(f"Failed to apply categorization for video {video.id}: {e}")
+                            api_logger.error(
+                                f"Failed to apply categorization for video {video.id}: {e}"
+                            )
                             data = get_job_data(job_id)
                             if data:
                                 data["failed"] += 1
@@ -1034,7 +1077,9 @@ async def run_batch_categorization(
                                 )
                                 set_job_data(job_id, data)
 
-                    api_logger.info(f"Successfully categorized batch of {len(videos)} videos")
+                    api_logger.info(
+                        f"Successfully categorized batch of {len(videos)} videos"
+                    )
 
                 except Exception as e:
                     api_logger.error(f"Failed to categorize batch: {e}", exc_info=True)
@@ -1055,11 +1100,12 @@ async def run_batch_categorization(
 
         # Split videos into batches of 10
         video_batches = [
-            video_ids[i:i + batch_size]
-            for i in range(0, len(video_ids), batch_size)
+            video_ids[i : i + batch_size] for i in range(0, len(video_ids), batch_size)
         ]
 
-        api_logger.info(f"Split {len(video_ids)} videos into {len(video_batches)} batches of ~{batch_size}")
+        api_logger.info(
+            f"Split {len(video_ids)} videos into {len(video_batches)} batches of ~{batch_size}"
+        )
 
         # Run batch categorizations in parallel (max_concurrent batches at a time)
         tasks = [categorize_batch_with_progress(batch) for batch in video_batches]

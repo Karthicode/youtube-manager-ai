@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     default_page_size: int = 20
     max_page_size: int = 100
 
+    # QStash (Upstash background jobs)
+    qstash_url: str = "https://qstash.upstash.io/v2/publish"
+    qstash_token: str = ""  # Optional, leave empty if not using QStash
+    qstash_current_signing_key: str = ""  # For webhook verification
+    qstash_next_signing_key: str = ""  # For webhook verification
+
     @property
     def is_production(self) -> bool:
         """Check if running in production environment."""

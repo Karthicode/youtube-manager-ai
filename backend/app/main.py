@@ -6,7 +6,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import settings
 from app.logger import app_logger, db_logger, redis_logger
-from app.routers import auth, videos, playlists, categories, tags, progress
+from app.routers import auth, videos, playlists, categories, tags, progress, worker
 
 
 @asynccontextmanager
@@ -93,6 +93,7 @@ app.include_router(playlists.router, prefix=settings.api_prefix, tags=["Playlist
 app.include_router(categories.router, prefix=settings.api_prefix, tags=["Categories"])
 app.include_router(tags.router, prefix=settings.api_prefix, tags=["Tags"])
 app.include_router(progress.router, prefix=settings.api_prefix, tags=["Progress"])
+app.include_router(worker.router, prefix=settings.api_prefix, tags=["Worker"])
 
 
 @app.get("/")
