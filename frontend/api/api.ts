@@ -102,8 +102,15 @@ export const videosApi = {
 	syncBatch: (params?: { auto_categorize?: boolean }) =>
 		api.post("/videos/sync/batch", null, { params }),
 
-	categorizeBatch: (params?: { batch_size?: number; max_videos?: number }) =>
-		api.post("/videos/categorize-batch", null, { params }),
+	categorizeBatch: (params?: {
+		max_concurrent?: number;
+		max_videos?: number;
+	}) => api.post("/videos/categorize-batch", null, { params }),
+
+	categorizeBatchBackground: (params?: {
+		max_concurrent?: number;
+		max_videos?: number;
+	}) => api.post("/videos/categorize-batch/background", null, { params }),
 
 	categorizeVideo: (videoId: number) =>
 		api.post(`/videos/${videoId}/categorize`),

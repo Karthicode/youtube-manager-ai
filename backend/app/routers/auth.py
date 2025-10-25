@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas.auth import Token, YouTubeAuthURL
+from app.schemas.auth import Token, YouTubeAuthURL, RefreshTokenRequest
 from app.services.auth_service import AuthService
 from app.services.youtube_service import YouTubeService
 
@@ -104,14 +104,14 @@ async def youtube_callback(
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
-    refresh_token: str,
+    request: RefreshTokenRequest,
     db: Annotated[Session, Depends(get_db)],
 ):
     """
     Refresh access token using refresh token.
 
     Args:
-        refresh_token: Valid refresh token
+        request: Request containing the refresh token
 
     Returns:
         New access and refresh tokens
@@ -123,7 +123,7 @@ async def refresh_token(
     try:
         # Decode refresh token
         payload = jwt.decode(
-            refresh_token, settings.secret_key, algorithms=[settings.algorithm]
+            request.refresh_token, settings.secret_key, algorithms=[settings.algorithm]
         )
 
         user_id: int = int(payload.get("sub"))

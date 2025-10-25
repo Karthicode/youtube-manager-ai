@@ -26,3 +26,9 @@ class YouTubeCallback(BaseModel):
 
     code: str
     state: str | None = None
+
+
+class RefreshTokenRequest(BaseModel):
+    """Request body for token refresh."""
+
+    refresh_token: str

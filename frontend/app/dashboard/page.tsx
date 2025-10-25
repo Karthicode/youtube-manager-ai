@@ -7,6 +7,10 @@ import {
 	CardHeader,
 	Chip,
 	Divider,
+	Dropdown,
+	DropdownItem,
+	DropdownMenu,
+	DropdownTrigger,
 	Modal,
 	ModalBody,
 	ModalContent,
@@ -104,11 +108,18 @@ export default function Dashboard() {
 		}
 	};
 
-	const handleBatchCategorize = async () => {
+	const handleBatchCategorize = async (
+		maxConcurrent = 10,
+		background = false,
+	) => {
 		setBatchCategorizing(true);
 		setCategorizationResult(null);
 		try {
-			const response = await videosApi.categorizeBatch({ batch_size: 10 });
+			const response = background
+				? await videosApi.categorizeBatchBackground({
+						max_concurrent: maxConcurrent,
+					})
+				: await videosApi.categorizeBatch({ max_concurrent: maxConcurrent });
 			setCategorizationResult(response.data);
 			await fetchStats();
 		} catch (error) {
@@ -317,15 +328,17 @@ export default function Dashboard() {
 												Categorizing all uncategorized videos...
 											</p>
 											<p className="text-sm text-gray-600 dark:text-gray-400">
-												Processing videos in parallel batches of 10 for maximum
-												efficiency.
+												Using async parallel processing with OpenAI for maximum
+												speed.
 											</p>
 											<p className="text-sm text-gray-600 dark:text-gray-400">
-												This may take several minutes for large numbers of
-												videos.
+												Processing multiple videos concurrently - much faster
+												than before!
 											</p>
 											<p className="text-xs text-gray-500 dark:text-gray-500 mt-4">
-												You can check the browser console for progress updates.
+												{categorizationResult?.status === "started"
+													? "Background task started. Check logs for completion."
+													: "Please wait while we categorize your videos..."}
 											</p>
 										</div>
 									</div>
@@ -333,7 +346,9 @@ export default function Dashboard() {
 									<div className="space-y-4">
 										<div className="text-center">
 											<p className="text-2xl mb-4">
-												{(categorizationResult.total_failed ?? 0) === 0 ? "✅" : "⚠️"}
+												{(categorizationResult.total_failed ?? 0) === 0
+													? "✅"
+													: "⚠️"}
 											</p>
 											<p className="text-lg font-semibold mb-2">
 												{categorizationResult.message}
@@ -557,16 +572,42 @@ export default function Dashboard() {
 											View Uncategorized
 										</Button>
 										{stats && stats.uncategorized > 0 && (
-											<Button
-												color="warning"
-												variant="solid"
-												onPress={handleBatchCategorize}
-												isLoading={batchCategorizing}
-												radius="md"
-												size="md"
-											>
-												Categorize All ({stats.uncategorized})
-											</Button>
+											<Dropdown>
+												<DropdownTrigger>
+													<Button
+														color="warning"
+														variant="solid"
+														isLoading={batchCategorizing}
+														radius="md"
+														size="md"
+													>
+														Categorize All ({stats.uncategorized})
+													</Button>
+												</DropdownTrigger>
+												<DropdownMenu aria-label="Categorization options">
+													<DropdownItem
+														key="fast"
+														description="10 concurrent requests (~10x faster)"
+														onPress={() => handleBatchCategorize(10, false)}
+													>
+														Fast (Recommended)
+													</DropdownItem>
+													<DropdownItem
+														key="faster"
+														description="20 concurrent requests (~15x faster)"
+														onPress={() => handleBatchCategorize(20, false)}
+													>
+														Faster (May hit rate limits)
+													</DropdownItem>
+													<DropdownItem
+														key="background"
+														description="Returns immediately, processes in background"
+														onPress={() => handleBatchCategorize(10, true)}
+													>
+														Background Mode
+													</DropdownItem>
+												</DropdownMenu>
+											</Dropdown>
 										)}
 									</div>
 								</CardBody>

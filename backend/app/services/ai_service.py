@@ -1,9 +1,10 @@
 """AI service using OpenAI SDK for video categorization and tagging."""
 
+import asyncio
 from datetime import datetime
 from typing import List
 
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -54,6 +55,7 @@ class AIService:
     def __init__(self):
         """Initialize OpenAI client."""
         self.client = OpenAI(api_key=settings.openai_api_key)
+        self.async_client = AsyncOpenAI(api_key=settings.openai_api_key)
         self.model = settings.openai_model
 
     def categorize_video(self, db: Session, video: Video) -> VideoCategorization:
@@ -233,21 +235,68 @@ Rules:
 
         return tag
 
-    async def categorize_video_async(
-        self, db: Session, video: Video
-    ) -> VideoCategorization:
+    async def categorize_video_async(self, video: Video) -> VideoCategorization:
         """
-        Async version of categorize_video for batch processing.
+        Async version of categorize_video for parallel batch processing.
 
-        This wraps the sync method - in production, use OpenAI's async client.
+        Uses AsyncOpenAI client for true async I/O.
+
+        Args:
+            video: Video object to categorize (no db needed for categorization)
+
+        Returns:
+            VideoCategorization with categories and tags
         """
-        return self.categorize_video(db, video)
+        # Build prompt with video information
+        prompt = self._build_categorization_prompt(video)
+
+        # Call OpenAI API with structured output using async client
+        try:
+            completion = await self.async_client.beta.chat.completions.parse(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": f"""You are an expert video content analyzer. Your task is to categorize YouTube videos and generate relevant tags.
+
+Available categories: {', '.join(self.AVAILABLE_CATEGORIES)}
+
+Rules:
+1. Choose 1-2 primary categories that best describe the video
+2. Optionally add 0-2 secondary categories
+3. Generate EXACTLY 5 most relevant and specific tags (no more, no less)
+4. Tags should be lowercase, specific topics/concepts (e.g., "machine learning", "recipe", "tutorial")
+5. Choose only the TOP 5 most important tags that best represent the video content
+6. Assign a confidence score (0.0-1.0) based on how clear the video's content is
+7. Use only categories from the available list""",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                response_format=VideoCategorization,
+                max_completion_tokens=settings.openai_max_tokens,
+            )
+
+            result = completion.choices[0].message.parsed
+            return result
+
+        except Exception as e:
+            import traceback
+
+            api_logger.error(f"Error categorizing video {video.id}: {str(e)}")
+            api_logger.debug(f"Full traceback: {traceback.format_exc()}")
+            # Return default categorization on error
+            return VideoCategorization(
+                primary_categories=["Entertainment"],
+                secondary_categories=[],
+                tags=["video"],
+                confidence=0.0,
+            )
 
     def batch_categorize_videos(
         self, db: Session, videos: List[Video], max_concurrent: int = 5
     ) -> int:
         """
-        Categorize multiple videos in batch.
+        Categorize multiple videos in batch (synchronous version).
 
         Args:
             db: Database session
@@ -272,3 +321,99 @@ Rules:
                 continue
 
         return success_count
+
+    async def batch_categorize_videos_async(
+        self, db: Session, videos: List[Video], max_concurrent: int = 10
+    ) -> dict:
+        """
+        Categorize multiple videos in parallel using AsyncOpenAI.
+
+        This is much faster than sequential processing for I/O-bound operations.
+
+        Args:
+            db: Database session
+            videos: List of videos to categorize
+            max_concurrent: Maximum concurrent API calls (default 10)
+
+        Returns:
+            Dictionary with success_count, failed_count, and results
+        """
+        # Filter out already categorized videos
+        uncategorized = [v for v in videos if not v.is_categorized]
+
+        if not uncategorized:
+            return {"success_count": 0, "failed_count": 0, "results": []}
+
+        api_logger.info(
+            f"Starting parallel categorization of {len(uncategorized)} videos with concurrency={max_concurrent}"
+        )
+
+        # Create semaphore to limit concurrent API calls
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def categorize_with_semaphore(video: Video):
+            """Categorize a single video with rate limiting."""
+            async with semaphore:
+                try:
+                    categorization = await self.categorize_video_async(video)
+                    return (video, categorization, None)
+                except Exception as e:
+                    api_logger.error(f"Failed to categorize video {video.id}: {e}")
+                    return (video, None, str(e))
+
+        # Run all categorizations in parallel with rate limiting
+        tasks = [categorize_with_semaphore(video) for video in uncategorized]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Apply categorizations to database
+        success_count = 0
+        failed_count = 0
+        categorization_results = []
+
+        for result in results:
+            if isinstance(result, Exception):
+                failed_count += 1
+                api_logger.error(f"Exception during categorization: {result}")
+                continue
+
+            video, categorization, error = result
+
+            if error:
+                failed_count += 1
+                categorization_results.append(
+                    {"video_id": video.id, "success": False, "error": error}
+                )
+                continue
+
+            try:
+                # Apply categorization to video
+                self.apply_categorization(db, video, categorization)
+                success_count += 1
+                categorization_results.append(
+                    {
+                        "video_id": video.id,
+                        "success": True,
+                        "categories": categorization.primary_categories
+                        + categorization.secondary_categories,
+                        "tags": categorization.tags,
+                        "confidence": categorization.confidence,
+                    }
+                )
+            except Exception as e:
+                failed_count += 1
+                api_logger.error(
+                    f"Failed to apply categorization for video {video.id}: {e}"
+                )
+                categorization_results.append(
+                    {"video_id": video.id, "success": False, "error": str(e)}
+                )
+
+        api_logger.info(
+            f"Parallel categorization complete: {success_count} successful, {failed_count} failed"
+        )
+
+        return {
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "results": categorization_results,
+        }
