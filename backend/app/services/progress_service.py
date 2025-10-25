@@ -21,7 +21,9 @@ class ProgressService:
         try:
             redis_client = get_redis()
             key = f"categorization_progress:{user_id}"
-            redis_client.set(key, json.dumps(task_data), expire=3600)  # Expire after 1 hour
+            redis_client.set(
+                key, json.dumps(task_data), expire=3600
+            )  # Expire after 1 hour
         except Exception as e:
             api_logger.error(f"Failed to set progress for user {user_id}: {e}")
 

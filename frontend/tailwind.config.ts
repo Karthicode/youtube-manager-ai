@@ -14,6 +14,12 @@ const config: Config = {
 				background: "var(--background)",
 				foreground: "var(--foreground)",
 			},
+			fontFamily: {
+				jost: ["var(--font-jost)", "sans-serif"],
+				"work-sans": ["var(--font-work-sans)", "sans-serif"],
+				"red-hat": ["var(--font-red-hat)", "sans-serif"],
+				alata: ["var(--font-alata)", "sans-serif"],
+			},
 		},
 	},
 	darkMode: "class",

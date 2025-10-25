@@ -7,6 +7,12 @@
 	--foreground: #1a1a1a; /* Darker for better contrast (AAA) */
 	--muted: #6b7280; /* Gray-500 for secondary text */
 	--border: #e5e7eb; /* Gray-200 for borders */
+
+	/* Font families */
+	--font-jost: "Jost", sans-serif;
+	--font-work-sans: "Work Sans", sans-serif;
+	--font-red-hat: "Red Hat Display", sans-serif;
+	--font-alata: "Alata", sans-serif;
 }
 
 /* Dark mode colors - WCAG AA compliant contrast ratios */
@@ -20,8 +26,8 @@
 body {
 	color: var(--foreground);
 	background: var(--background);
-	font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-		sans-serif;
+	font-family: var(--font-jost), -apple-system, BlinkMacSystemFont, "Segoe UI",
+		Roboto, sans-serif;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
