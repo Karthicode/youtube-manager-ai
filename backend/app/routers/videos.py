@@ -954,6 +954,14 @@ async def run_batch_categorization(
         ai_service = AIService()
         semaphore = asyncio.Semaphore(max_concurrent)
 
+        # Fetch ALL videos upfront to avoid connection pool issues
+        api_logger.info(f"Fetching all {len(video_ids)} videos from database...")
+        all_videos = db.query(Video).filter(Video.id.in_(video_ids)).all()
+
+        # Create a mapping of video_id -> video for quick lookup
+        video_map = {video.id: video for video in all_videos}
+        api_logger.info(f"Loaded {len(video_map)} videos into memory")
+
         # Process videos in batches of 10 for GPT batching efficiency
         batch_size = 10
 
@@ -974,8 +982,8 @@ async def run_batch_categorization(
                         if not data or data["status"] in ["completed", "error", "cancelled"]:
                             return
 
-                    # Fetch all videos in this batch
-                    videos = db.query(Video).filter(Video.id.in_(batch_video_ids)).all()
+                    # Get videos from the pre-loaded map
+                    videos = [video_map[vid_id] for vid_id in batch_video_ids if vid_id in video_map]
                     if not videos:
                         api_logger.error(f"No videos found for batch: {batch_video_ids}")
                         return
