@@ -28,7 +28,8 @@ export default function Home() {
 			window.location.href = response.data.auth_url;
 		} catch (error) {
 			console.error("Failed to get login URL:", error);
-			const errorMessage = error instanceof Error ? error.message : "Unknown error";
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown error";
 			alert(
 				`Login failed: ${errorMessage}\n\nPlease check the console for details.`,
 			);
@@ -45,14 +46,14 @@ export default function Home() {
 							{/* Header */}
 							<div className="text-center space-y-2">
 								<div className="flex justify-center mb-4">
-									<div className="p-3 bg-linear-to-br from-blue-600 to-purple-600 rounded-2xl">
+									<div className="p-3 bg-gradient-to-br from-red-600 to-red-700 rounded-2xl shadow-lg">
 										<SmartDisplayIcon
 											className="text-white"
 											sx={{ fontSize: 40 }}
 										/>
 									</div>
 								</div>
-								<h1 className="text-3xl font-bold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+								<h1 className="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">
 									Welcome Back
 								</h1>
 								<p className="text-gray-600 dark:text-gray-400">
@@ -69,26 +70,6 @@ export default function Home() {
 									startContent={<GoogleIcon />}
 								>
 									Continue with Google
-								</Button>
-
-								<div className="relative">
-									<div className="absolute inset-0 flex items-center">
-										<div className="w-full border-t border-gray-300 dark:border-gray-700" />
-									</div>
-									<div className="relative flex justify-center text-sm">
-										<span className="px-4 bg-white dark:bg-gray-800 text-gray-500 font-medium">
-											OR
-										</span>
-									</div>
-								</div>
-
-								<Button
-									size="lg"
-									className="w-full bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
-									onPress={handleLogin}
-									startContent={<SmartDisplayIcon />}
-								>
-									Continue with YouTube
 								</Button>
 							</div>
 
@@ -109,114 +90,116 @@ export default function Home() {
 			</div>
 
 			{/* Right Side - Feature Showcase */}
-			<div className="hidden md:flex md:w-1/2 bg-linear-to-br from-blue-600 via-purple-600 to-pink-600 relative overflow-hidden">
-				{/* Animated Background Pattern */}
-				<div className="absolute inset-0 opacity-10">
-					<div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl animate-pulse" />
-					<div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl animate-pulse animation-delay-2000" />
-				</div>
+			<div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-black via-gray-900 to-red-950 relative overflow-hidden p-4">
+				<div className="w-full bg-gradient-to-br from-red-600 to-black rounded-3xl relative overflow-hidden">
+					{/* Animated Background Pattern */}
+					<div className="absolute inset-0 opacity-10">
+						<div className="absolute top-0 left-0 w-96 h-96 bg-red-500 rounded-full blur-3xl animate-pulse" />
+						<div className="absolute bottom-0 right-0 w-96 h-96 bg-red-500 rounded-full blur-3xl animate-pulse animation-delay-2000" />
+					</div>
 
-				<div className="relative z-10 flex flex-col justify-between p-12 lg:p-16 text-white w-full">
-					{/* Header */}
-					<div className="space-y-6">
-						<div className="inline-block">
-							<div className="flex items-center gap-3 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-								<SmartDisplayIcon />
-								<span className="font-bold text-lg">YouTube Manager AI</span>
+					<div className="relative z-10 flex flex-col justify-between p-12 lg:p-16 text-white w-full">
+						{/* Header */}
+						<div className="space-y-6">
+							<div className="inline-block">
+								<div className="flex items-center gap-3 bg-red-600/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg">
+									<SmartDisplayIcon />
+									<span className="font-bold text-lg">YouTube Manager AI</span>
+								</div>
+							</div>
+
+							<h2 className="text-5xl lg:text-6xl font-bold leading-tight">
+								Organize Your
+								<br />
+								YouTube Library
+								<br />
+								<span className="text-red-300">with AI Magic</span>
+							</h2>
+
+							<p className="text-xl text-white/90 max-w-lg">
+								Automatically categorize, tag, and organize your liked videos
+								and playlists with the power of artificial intelligence.
+							</p>
+						</div>
+
+						{/* Features */}
+						<div className="space-y-6">
+							<div className="grid grid-cols-1 gap-4">
+								<div className="flex items-center gap-4 bg-black/40 backdrop-blur-sm p-4 rounded-xl border border-red-500/30 hover:bg-red-500/20 transition-all">
+									<div className="p-3 bg-red-600/80 rounded-lg">
+										<AutoFixHighIcon sx={{ fontSize: 28 }} />
+									</div>
+									<div>
+										<p className="font-semibold text-lg">
+											AI-Powered Categorization
+										</p>
+										<p className="text-white/80 text-sm">
+											Smart categorization using GPT-4
+										</p>
+									</div>
+								</div>
+
+								<div className="flex items-center gap-4 bg-black/40 backdrop-blur-sm p-4 rounded-xl border border-red-500/30 hover:bg-red-500/20 transition-all">
+									<div className="p-3 bg-red-600/80 rounded-lg">
+										<CategoryIcon sx={{ fontSize: 28 }} />
+									</div>
+									<div>
+										<p className="font-semibold text-lg">Smart Organization</p>
+										<p className="text-white/80 text-sm">
+											Intelligent tags and categories
+										</p>
+									</div>
+								</div>
+
+								<div className="flex items-center gap-4 bg-black/40 backdrop-blur-sm p-4 rounded-xl border border-red-500/30 hover:bg-red-500/20 transition-all">
+									<div className="p-3 bg-red-600/80 rounded-lg">
+										<SearchIcon sx={{ fontSize: 28 }} />
+									</div>
+									<div>
+										<p className="font-semibold text-lg">Advanced Search</p>
+										<p className="text-white/80 text-sm">
+											Find any video instantly
+										</p>
+									</div>
+								</div>
+
+								<div className="flex items-center gap-4 bg-black/40 backdrop-blur-sm p-4 rounded-xl border border-red-500/30 hover:bg-red-500/20 transition-all">
+									<div className="p-3 bg-red-600/80 rounded-lg">
+										<BarChartIcon sx={{ fontSize: 28 }} />
+									</div>
+									<div>
+										<p className="font-semibold text-lg">Analytics Dashboard</p>
+										<p className="text-white/80 text-sm">
+											Track your viewing patterns
+										</p>
+									</div>
+								</div>
 							</div>
 						</div>
 
-						<h2 className="text-5xl lg:text-6xl font-bold leading-tight">
-							Organize Your
-							<br />
-							YouTube Library
-							<br />
-							<span className="text-blue-200">with AI Magic</span>
-						</h2>
-
-						<p className="text-xl text-white/90 max-w-lg">
-							Automatically categorize, tag, and organize your liked videos and
-							playlists with the power of artificial intelligence.
-						</p>
-					</div>
-
-					{/* Features */}
-					<div className="space-y-6">
-						<div className="grid grid-cols-1 gap-4">
-							<div className="flex items-center gap-4 bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20 hover:bg-white/20 transition-all">
-								<div className="p-3 bg-white/20 rounded-lg">
-									<AutoFixHighIcon sx={{ fontSize: 28 }} />
-								</div>
-								<div>
-									<p className="font-semibold text-lg">
-										AI-Powered Categorization
-									</p>
-									<p className="text-white/80 text-sm">
-										Smart categorization using GPT-4
-									</p>
-								</div>
+						{/* Footer */}
+						<div className="flex items-center justify-between text-sm text-white/60">
+							<p>© 2025 YouTube Manager AI</p>
+							<div className="flex gap-4">
+								<button
+									type="button"
+									className="hover:text-white transition-colors"
+									onClick={() => {
+										/* Privacy policy handler */
+									}}
+								>
+									Privacy
+								</button>
+								<button
+									type="button"
+									className="hover:text-white transition-colors"
+									onClick={() => {
+										/* Terms handler */
+									}}
+								>
+									Terms
+								</button>
 							</div>
-
-							<div className="flex items-center gap-4 bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20 hover:bg-white/20 transition-all">
-								<div className="p-3 bg-white/20 rounded-lg">
-									<CategoryIcon sx={{ fontSize: 28 }} />
-								</div>
-								<div>
-									<p className="font-semibold text-lg">Smart Organization</p>
-									<p className="text-white/80 text-sm">
-										Intelligent tags and categories
-									</p>
-								</div>
-							</div>
-
-							<div className="flex items-center gap-4 bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20 hover:bg-white/20 transition-all">
-								<div className="p-3 bg-white/20 rounded-lg">
-									<SearchIcon sx={{ fontSize: 28 }} />
-								</div>
-								<div>
-									<p className="font-semibold text-lg">Advanced Search</p>
-									<p className="text-white/80 text-sm">
-										Find any video instantly
-									</p>
-								</div>
-							</div>
-
-							<div className="flex items-center gap-4 bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20 hover:bg-white/20 transition-all">
-								<div className="p-3 bg-white/20 rounded-lg">
-									<BarChartIcon sx={{ fontSize: 28 }} />
-								</div>
-								<div>
-									<p className="font-semibold text-lg">Analytics Dashboard</p>
-									<p className="text-white/80 text-sm">
-										Track your viewing patterns
-									</p>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					{/* Footer */}
-					<div className="flex items-center justify-between text-sm text-white/60">
-						<p>© 2025 YouTube Manager AI</p>
-						<div className="flex gap-4">
-							<button
-								type="button"
-								className="hover:text-white transition-colors"
-								onClick={() => {
-									/* Privacy policy handler */
-								}}
-							>
-								Privacy
-							</button>
-							<button
-								type="button"
-								className="hover:text-white transition-colors"
-								onClick={() => {
-									/* Terms handler */
-								}}
-							>
-								Terms
-							</button>
 						</div>
 					</div>
 				</div>

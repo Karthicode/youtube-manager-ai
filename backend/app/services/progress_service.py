@@ -1,7 +1,7 @@
 """Progress tracking service for long-running tasks."""
 
 from typing import Dict, Any
-from app.services.redis_client import get_redis_client
+from app.redis_client import get_redis
 from app.logger import api_logger
 import json
 
@@ -19,9 +19,9 @@ class ProgressService:
             task_data: Dictionary containing progress information
         """
         try:
-            redis_client = get_redis_client()
+            redis_client = get_redis()
             key = f"categorization_progress:{user_id}"
-            redis_client.setex(key, 3600, json.dumps(task_data))  # Expire after 1 hour
+            redis_client.set(key, json.dumps(task_data), expire=3600)  # Expire after 1 hour
         except Exception as e:
             api_logger.error(f"Failed to set progress for user {user_id}: {e}")
 
@@ -37,7 +37,7 @@ class ProgressService:
             Progress data or None if no active task
         """
         try:
-            redis_client = get_redis_client()
+            redis_client = get_redis()
             key = f"categorization_progress:{user_id}"
             data = redis_client.get(key)
             if data:
@@ -56,7 +56,7 @@ class ProgressService:
             user_id: User ID
         """
         try:
-            redis_client = get_redis_client()
+            redis_client = get_redis()
             key = f"categorization_progress:{user_id}"
             redis_client.delete(key)
         except Exception as e:
