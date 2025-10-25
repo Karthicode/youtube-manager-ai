@@ -83,9 +83,7 @@ def verify_qstash_signature(
 
 @router.post("/categorize-batch")
 async def process_categorization_job(
-    payload: JobPayload,
     request: Request,
-    db: Annotated[Session, Depends(get_db)],
     upstash_signature: str | None = Header(None, alias="Upstash-Signature"),
 ):
     """
@@ -95,14 +93,19 @@ async def process_categorization_job(
 
     Flow:
     1. Verify QStash signature (security)
-    2. Fetch job data from Redis
-    3. Process videos in batches with OpenAI
-    4. Update progress in Redis
-    5. Save results to database
+    2. Parse request body
+    3. Fetch job data from Redis
+    4. Process videos in batches with OpenAI
+    5. Update progress in Redis
+    6. Save results to database
     """
+    from app.database import SessionLocal
+
+    # Read raw body for signature verification
+    body = await request.body()
+
     # Verify signature if QStash is configured
     if settings.qstash_token and settings.qstash_current_signing_key:
-        body = await request.body()
         if not verify_qstash_signature(
             body,
             upstash_signature,
@@ -114,6 +117,19 @@ async def process_categorization_job(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid signature",
             )
+
+    # Parse JSON payload
+    try:
+        import json
+
+        payload_dict = json.loads(body.decode("utf-8"))
+        payload = JobPayload(**payload_dict)
+    except Exception as e:
+        api_logger.error(f"Failed to parse payload: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid payload: {str(e)}",
+        )
 
     job_id = payload.job_id
     api_logger.info(
@@ -131,6 +147,9 @@ async def process_categorization_job(
     # Update status to running
     job_data["status"] = "running"
     set_job_data(job_id, job_data)
+
+    # Create database session
+    db = SessionLocal()
 
     try:
         await _process_batch_categorization(
@@ -150,6 +169,8 @@ async def process_categorization_job(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Job processing failed: {str(e)}",
         )
+    finally:
+        db.close()
 
 
 async def _process_batch_categorization(
