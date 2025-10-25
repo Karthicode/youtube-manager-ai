@@ -112,6 +112,21 @@ export const videosApi = {
 		max_videos?: number;
 	}) => api.post("/videos/categorize-batch/background", null, { params }),
 
+	// New SSE-based categorization
+	startBatchCategorization: (params?: {
+		max_concurrent?: number;
+		max_videos?: number;
+	}) => api.post("/videos/categorize-batch/start", null, { params }),
+
+	getBatchResult: (jobId: string) =>
+		api.get(`/videos/categorize-batch/result/${jobId}`),
+
+	pauseCategorizationJob: (jobId: string) =>
+		api.post(`/videos/categorize-batch/pause/${jobId}`),
+
+	resumeCategorizationJob: (jobId: string) =>
+		api.post(`/videos/categorize-batch/resume/${jobId}`),
+
 	categorizeVideo: (videoId: number) =>
 		api.post(`/videos/${videoId}/categorize`),
 

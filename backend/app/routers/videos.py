@@ -2,9 +2,13 @@
 
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from datetime import datetime, timezone
+import json
+import asyncio
+import uuid
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -548,6 +552,367 @@ async def categorize_in_background(
         "max_concurrent": max_concurrent,
         "note": "Check Vercel logs or query your videos to see when categorization completes",
     }
+
+
+# Redis-based job progress store for persistence and multi-instance scaling
+from app.redis_client import get_redis
+
+
+def get_job_data(job_id: str) -> dict | None:
+    """Get job data from Redis."""
+    redis_client = get_redis()
+    data = redis_client.get(f"categorization_job:{job_id}")
+    return json.loads(data) if data else None
+
+
+def set_job_data(job_id: str, data: dict, expire: int = 3600) -> None:
+    """Set job data in Redis with expiration (default 1 hour)."""
+    redis_client = get_redis()
+    redis_client.set(f"categorization_job:{job_id}", json.dumps(data), expire=expire)
+
+
+def delete_job_data(job_id: str) -> None:
+    """Delete job data from Redis."""
+    redis_client = get_redis()
+    redis_client.delete(f"categorization_job:{job_id}")
+
+
+@router.post("/categorize-batch/start")
+async def start_batch_categorization(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    max_concurrent: int = Query(
+        10, ge=1, le=50, description="Maximum concurrent API calls"
+    ),
+    max_videos: int | None = Query(
+        None, ge=1, description="Limit total videos to categorize"
+    ),
+):
+    """
+    Start batch categorization job and return a job_id for progress tracking.
+
+    This endpoint immediately returns a job_id that can be used to stream progress
+    via the /categorize-batch/stream/{job_id} endpoint.
+
+    Args:
+        max_concurrent: Maximum concurrent OpenAI API calls (1-50, default 10)
+        max_videos: Optional limit on total videos to categorize
+
+    Returns:
+        job_id: Unique identifier for tracking this categorization job
+    """
+    # Get uncategorized videos
+    query = (
+        db.query(Video)
+        .filter(Video.user_id == current_user.id, ~Video.is_categorized)
+        .order_by(Video.liked_at.desc())
+    )
+
+    if max_videos:
+        query = query.limit(max_videos)
+
+    uncategorized_videos = query.all()
+    total_count = len(uncategorized_videos)
+
+    if total_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No uncategorized videos found",
+        )
+
+    # Generate unique job ID
+    job_id = str(uuid.uuid4())
+
+    # Initialize job progress in Redis
+    set_job_data(
+        job_id,
+        {
+            "user_id": current_user.id,
+            "total": total_count,
+            "completed": 0,
+            "failed": 0,
+            "current_video": None,
+            "status": "running",
+            "paused": False,
+            "results": [],
+        },
+    )
+
+    # Start categorization in background
+    asyncio.create_task(
+        run_batch_categorization(
+            job_id, uncategorized_videos, max_concurrent, current_user.id
+        )
+    )
+
+    return {"job_id": job_id, "total_videos": total_count}
+
+
+@router.get("/categorize-batch/stream/{job_id}")
+async def stream_categorization_progress(
+    job_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Stream real-time progress updates for a categorization job using Server-Sent Events.
+
+    Args:
+        job_id: The job ID returned from /categorize-batch/start
+        current_user: Authenticated user (validates ownership)
+
+    Returns:
+        StreamingResponse with real-time progress updates
+    """
+    data = get_job_data(job_id)
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+        )
+
+    # Verify job belongs to current user
+    if data.get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this job",
+        )
+
+    async def event_generator():
+        """Generate SSE events for job progress."""
+        try:
+            while True:
+                data = get_job_data(job_id)
+                if not data:
+                    break
+
+                yield f"data: {json.dumps(data)}\n\n"
+
+                # Stop streaming if job is complete
+                if data["status"] in ["completed", "error"]:
+                    break
+
+                await asyncio.sleep(0.5)  # Update every 500ms
+
+        except Exception as e:
+            api_logger.error(f"SSE stream error for job {job_id}: {e}")
+            yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/categorize-batch/result/{job_id}")
+async def get_categorization_result(job_id: str):
+    """
+    Get the final result of a categorization job.
+
+    Args:
+        job_id: The job ID returned from /categorize-batch/start
+
+    Returns:
+        Final job result with all categorized videos
+    """
+    data = get_job_data(job_id)
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+        )
+
+    return data
+
+
+@router.post("/categorize-batch/pause/{job_id}")
+async def pause_categorization_job(
+    job_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Pause a running categorization job.
+
+    Args:
+        job_id: The job ID to pause
+        current_user: Authenticated user (validates ownership)
+
+    Returns:
+        Updated job data with paused status
+    """
+    data = get_job_data(job_id)
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+        )
+
+    # Verify job belongs to current user
+    if data.get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this job",
+        )
+
+    # Can only pause running jobs
+    if data["status"] != "running":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot pause job with status: {data['status']}",
+        )
+
+    # Update pause state
+    data["paused"] = True
+    data["status"] = "paused"
+    set_job_data(job_id, data)
+
+    api_logger.info(f"Job {job_id} paused by user {current_user.id}")
+    return {"message": "Job paused successfully", "job_id": job_id}
+
+
+@router.post("/categorize-batch/resume/{job_id}")
+async def resume_categorization_job(
+    job_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Resume a paused categorization job.
+
+    Args:
+        job_id: The job ID to resume
+        current_user: Authenticated user (validates ownership)
+
+    Returns:
+        Updated job data with running status
+    """
+    data = get_job_data(job_id)
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+        )
+
+    # Verify job belongs to current user
+    if data.get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this job",
+        )
+
+    # Can only resume paused jobs
+    if data["status"] != "paused":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot resume job with status: {data['status']}",
+        )
+
+    # Update pause state
+    data["paused"] = False
+    data["status"] = "running"
+    set_job_data(job_id, data)
+
+    api_logger.info(f"Job {job_id} resumed by user {current_user.id}")
+    return {"message": "Job resumed successfully", "job_id": job_id}
+
+
+async def run_batch_categorization(
+    job_id: str, videos: list, max_concurrent: int, user_id: int
+):
+    """
+    Background task to categorize videos and update job progress.
+
+    Args:
+        job_id: Unique job identifier
+        videos: List of Video objects to categorize
+        max_concurrent: Maximum concurrent API calls
+        user_id: User ID for database operations
+    """
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+
+    try:
+        ai_service = AIService()
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def categorize_with_progress(video):
+            """Categorize a single video and update progress."""
+            async with semaphore:
+                try:
+                    # Check if job is paused before processing
+                    data = get_job_data(job_id)
+                    if not data:
+                        return  # Job deleted
+
+                    # Wait while paused
+                    while data.get("paused", False):
+                        await asyncio.sleep(1)  # Check every second
+                        data = get_job_data(job_id)
+                        if not data or data["status"] in ["completed", "error"]:
+                            return  # Job deleted or stopped
+
+                    # Update current video in Redis
+                    data["current_video"] = video.title[:50]
+                    set_job_data(job_id, data)
+
+                    categorization = await ai_service.categorize_video_async(video)
+                    ai_service.apply_categorization(db, video, categorization)
+
+                    # Update progress in Redis
+                    data = get_job_data(job_id)
+                    if data:
+                        data["completed"] += 1
+                        data["results"].append(
+                            {
+                                "video_id": video.id,
+                                "title": video.title,
+                                "success": True,
+                                "categories": categorization.primary_categories
+                                + categorization.secondary_categories,
+                                "tags": categorization.tags,
+                            }
+                        )
+                        set_job_data(job_id, data)
+
+                except Exception as e:
+                    # Update failure count in Redis
+                    data = get_job_data(job_id)
+                    if data:
+                        data["failed"] += 1
+                        data["results"].append(
+                            {
+                                "video_id": video.id,
+                                "title": video.title,
+                                "success": False,
+                                "error": str(e),
+                            }
+                        )
+                        set_job_data(job_id, data)
+                    api_logger.error(f"Failed to categorize video {video.id}: {e}")
+
+        # Run all categorizations in parallel
+        tasks = [categorize_with_progress(video) for video in videos]
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Mark job as complete in Redis
+        data = get_job_data(job_id)
+        if data:
+            data["status"] = "completed"
+            data["current_video"] = None
+            set_job_data(job_id, data, expire=7200)  # Keep result for 2 hours
+
+        api_logger.info(
+            f"Job {job_id} completed: {data['completed'] if data else 0} successful, "
+            f"{data['failed'] if data else 0} failed"
+        )
+
+    except Exception as e:
+        # Mark job as error in Redis
+        data = get_job_data(job_id)
+        if data:
+            data["status"] = "error"
+            data["error"] = str(e)
+            set_job_data(job_id, data)
+        api_logger.error(f"Job {job_id} failed: {e}")
+
+    finally:
+        db.close()
 
 
 async def background_categorize_videos(
