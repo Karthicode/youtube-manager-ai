@@ -124,29 +124,21 @@ async def process_categorization_job(
     job_data["status"] = "running"
     set_job_data(job_id, job_data)
 
-    # Start processing in background and return immediately
-    # Vercel has 10s timeout, so we can't wait for completion
-    asyncio.create_task(
-        _run_categorization_job(
-            job_id, payload.user_id, payload.video_ids, payload.max_concurrent
-        )
-    )
-
-    api_logger.info(f"Job {job_id} started in background")
-    return {"status": "accepted", "job_id": job_id}
-
-
-async def _run_categorization_job(
-    job_id: str, user_id: int, video_ids: list[int], max_concurrent: int
-):
-    """Run categorization job in background."""
+    # Process videos synchronously - Vercel limits to ~10s, so we process ONE batch only
+    # Each QStash call will process one batch
     from app.database import SessionLocal
 
     db = SessionLocal()
+
     try:
-        await _process_batch_categorization(
-            db, job_id, user_id, video_ids, max_concurrent
+        # Process just ONE batch (10 videos) per QStash invocation
+        result = await _process_one_batch(
+            db, job_id, payload.user_id, payload.video_ids
         )
+
+        api_logger.info(f"Job {job_id} batch processed: {result}")
+        return {"status": "success", "job_id": job_id, **result}
+
     except Exception as e:
         api_logger.error(f"Worker job {job_id} failed: {e}", exc_info=True)
         job_data = get_job_data(job_id)
@@ -154,8 +146,91 @@ async def _run_categorization_job(
             job_data["status"] = "error"
             job_data["error"] = str(e)
             set_job_data(job_id, job_data)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Job processing failed: {str(e)}",
+        )
     finally:
         db.close()
+
+
+async def _process_one_batch(
+    db: Session, job_id: str, user_id: int, video_ids: list[int]
+) -> dict:
+    """
+    Process ONE batch of 10 videos.
+
+    Returns:
+        dict with processed count and whether job is complete
+    """
+    ai_service = AIService()
+    batch_size = 10
+
+    # Get already processed video IDs from job data
+    job_data = get_job_data(job_id)
+    if not job_data:
+        return {"processed": 0, "complete": False, "error": "Job not found"}
+
+    processed_ids = {r["video_id"] for r in job_data.get("results", [])}
+    remaining_ids = [vid for vid in video_ids if vid not in processed_ids]
+
+    if not remaining_ids:
+        # Job complete!
+        job_data["status"] = "completed"
+        job_data["current_video"] = None
+        set_job_data(job_id, job_data, expire=7200)
+        api_logger.info(f"Job {job_id} completed!")
+        return {"processed": 0, "complete": True}
+
+    # Take next batch
+    batch_ids = remaining_ids[:batch_size]
+    api_logger.info(f"Processing batch of {len(batch_ids)} videos from job {job_id}")
+
+    # Fetch videos
+    videos = db.query(Video).filter(Video.id.in_(batch_ids)).all()
+    video_map = {v.id: v for v in videos}
+
+    # Categorize with single API call
+    videos_list = [video_map[vid] for vid in batch_ids if vid in video_map]
+    categorizations = await ai_service.categorize_videos_batch_async(videos_list)
+
+    # Apply and update progress
+    for video, categorization in zip(videos_list, categorizations):
+        try:
+            ai_service.apply_categorization(db, video, categorization)
+            job_data["completed"] += 1
+            job_data["results"].append(
+                {
+                    "video_id": video.id,
+                    "title": video.title,
+                    "success": True,
+                    "categories": categorization.primary_categories
+                    + categorization.secondary_categories,
+                    "tags": categorization.tags,
+                }
+            )
+        except Exception as e:
+            api_logger.error(f"Failed to categorize video {video.id}: {e}")
+            job_data["failed"] += 1
+            job_data["results"].append(
+                {
+                    "video_id": video.id,
+                    "title": video.title,
+                    "success": False,
+                    "error": str(e),
+                }
+            )
+
+    set_job_data(job_id, job_data)
+
+    # Check if more batches remaining
+    still_remaining = len(remaining_ids) > len(batch_ids)
+
+    return {
+        "processed": len(batch_ids),
+        "complete": not still_remaining,
+        "remaining": len(remaining_ids) - len(batch_ids),
+    }
 
 
 async def _process_batch_categorization(

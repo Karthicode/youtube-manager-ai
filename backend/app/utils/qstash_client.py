@@ -48,7 +48,7 @@ async def trigger_categorization_job(
             # Local development
             worker_url = "http://localhost:8000/api/v1/worker/categorize-batch"
 
-    # Prepare payload
+    # Prepare payload - send ALL video_ids, worker will process incrementally
     payload = {
         "job_id": job_id,
         "user_id": user_id,
@@ -57,26 +57,43 @@ async def trigger_categorization_job(
     }
 
     # Publish to QStash queue
+    # We send ONE message with all video IDs
+    # Worker processes one batch (10 videos) per invocation
+    # QStash will retry/requeue automatically based on response
     queue_name = settings.qstash_queue_name
     queue_url = f"https://qstash.upstash.io/v2/enqueue/{queue_name}/{worker_url}"
 
-    api_logger.info(f"Triggering QStash queue '{queue_name}' for job {job_id}")
+    api_logger.info(
+        f"Triggering QStash queue '{queue_name}' for job {job_id} with {len(video_ids)} videos"
+    )
+
+    # Send 84 messages (one per batch) to QStash
+    # This ensures all batches are queued and processed with parallelism=2
+    batch_size = 10
+    total_batches = (len(video_ids) + batch_size - 1) // batch_size
 
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            queue_url,
-            json=payload,
-            headers={
-                "Authorization": f"Bearer {settings.qstash_token}",
-                "Content-Type": "application/json",
-                "Upstash-Forward-Authorization": "Bearer token-placeholder",  # Will be replaced by worker auth
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        result = response.json()
+        # Queue all batches at once
+        for batch_num in range(total_batches):
+            try:
+                response = await client.post(
+                    queue_url,
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {settings.qstash_token}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=30.0,
+                )
+                response.raise_for_status()
+            except Exception as e:
+                api_logger.error(f"Failed to queue batch {batch_num}: {e}")
 
         api_logger.info(
-            f"QStash job enqueued: {job_id}, message_id={result.get('messageId')}, queue={queue_name}"
+            f"QStash: Queued {total_batches} batch jobs for job_id={job_id}"
         )
-        return result
+        return {
+            "mode": "qstash",
+            "batches_queued": total_batches,
+            "job_id": job_id,
+        }
