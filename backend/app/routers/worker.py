@@ -190,12 +190,24 @@ async def _process_one_batch(
     videos = db.query(Video).filter(Video.id.in_(batch_ids)).all()
     video_map = {v.id: v for v in videos}
 
+    # Filter out already categorized videos (race condition protection)
+    uncategorized_videos = [
+        video_map[vid]
+        for vid in batch_ids
+        if vid in video_map and not video_map[vid].is_categorized
+    ]
+
+    if not uncategorized_videos:
+        api_logger.info(f"All videos in batch already categorized, skipping")
+        return {"processed": 0, "complete": False, "remaining": len(remaining_ids)}
+
     # Categorize with single API call
-    videos_list = [video_map[vid] for vid in batch_ids if vid in video_map]
-    categorizations = await ai_service.categorize_videos_batch_async(videos_list)
+    categorizations = await ai_service.categorize_videos_batch_async(
+        uncategorized_videos
+    )
 
     # Apply and update progress
-    for video, categorization in zip(videos_list, categorizations):
+    for video, categorization in zip(uncategorized_videos, categorizations):
         try:
             ai_service.apply_categorization(db, video, categorization)
             job_data["completed"] += 1
