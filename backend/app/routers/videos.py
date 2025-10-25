@@ -715,59 +715,68 @@ async def stream_categorization_progress(
     Returns:
         StreamingResponse with real-time progress updates
     """
-    data = get_job_data(job_id)
-    if not data:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+    try:
+        data = get_job_data(job_id)
+        if not data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+            )
+
+        # Verify job belongs to current user
+        if data.get("user_id") != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to access this job",
+            )
+
+        async def event_generator():
+            """Generate SSE events for job progress."""
+            try:
+                while True:
+                    data = get_job_data(job_id)
+                    if not data:
+                        break
+
+                    # Ensure all required fields exist
+                    progress_data = {
+                        "status": data.get("status", "running"),
+                        "total": data.get("total", 0),
+                        "completed": data.get("completed", 0),
+                        "failed": data.get("failed", 0),
+                        "current_video": data.get("current_video"),
+                        "paused": data.get("paused", False),
+                    }
+
+                    # Include error message if present
+                    if "error" in data:
+                        progress_data["error"] = data["error"]
+
+                    yield f"data: {json.dumps(progress_data)}\n\n"
+
+                    # Stop streaming if job is complete, cancelled, or errored
+                    if data.get("status") in ["completed", "error", "cancelled"]:
+                        break
+
+                    await asyncio.sleep(0.5)  # Update every 500ms
+
+            except Exception as e:
+                api_logger.error(f"SSE stream error for job {job_id}: {e}", exc_info=True)
+                error_data = {"status": "error", "error": str(e)}
+                yield f"data: {json.dumps(error_data)}\n\n"
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
-
-    # Verify job belongs to current user
-    if data.get("user_id") != current_user.id:
+    except HTTPException:
+        raise
+    except Exception as e:
+        api_logger.error(f"Failed to initialize SSE stream for job {job_id}: {e}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this job",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start progress stream: {str(e)}"
         )
-
-    async def event_generator():
-        """Generate SSE events for job progress."""
-        try:
-            while True:
-                data = get_job_data(job_id)
-                if not data:
-                    break
-
-                # Ensure all required fields exist
-                progress_data = {
-                    "status": data.get("status", "running"),
-                    "total": data.get("total", 0),
-                    "completed": data.get("completed", 0),
-                    "failed": data.get("failed", 0),
-                    "current_video": data.get("current_video"),
-                    "paused": data.get("paused", False),
-                }
-
-                # Include error message if present
-                if "error" in data:
-                    progress_data["error"] = data["error"]
-
-                yield f"data: {json.dumps(progress_data)}\n\n"
-
-                # Stop streaming if job is complete, cancelled, or errored
-                if data.get("status") in ["completed", "error", "cancelled"]:
-                    break
-
-                await asyncio.sleep(0.5)  # Update every 500ms
-
-        except Exception as e:
-            api_logger.error(f"SSE stream error for job {job_id}: {e}", exc_info=True)
-            error_data = {"status": "error", "error": str(e)}
-            yield f"data: {json.dumps(error_data)}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
 
 
 @router.get("/categorize-batch/result/{job_id}")
