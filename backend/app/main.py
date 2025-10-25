@@ -4,7 +4,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import settings
 from app.logger import app_logger, db_logger, redis_logger
-from app.routers import auth, videos, playlists, categories, tags
+from app.routers import auth, videos, playlists, categories, tags, progress
 
 # Create FastAPI app
 app = FastAPI(
@@ -45,6 +45,7 @@ app.include_router(videos.router, prefix=settings.api_prefix, tags=["Videos"])
 app.include_router(playlists.router, prefix=settings.api_prefix, tags=["Playlists"])
 app.include_router(categories.router, prefix=settings.api_prefix, tags=["Categories"])
 app.include_router(tags.router, prefix=settings.api_prefix, tags=["Tags"])
+app.include_router(progress.router, prefix=settings.api_prefix, tags=["Progress"])
 
 
 @app.on_event("startup")

@@ -323,10 +323,14 @@ Rules:
         return success_count
 
     async def batch_categorize_videos_async(
-        self, db: Session, videos: List[Video], max_concurrent: int = 10
+        self,
+        db: Session,
+        videos: List[Video],
+        max_concurrent: int = 10,
+        user_id: int | None = None,
     ) -> dict:
         """
-        Categorize multiple videos in parallel using AsyncOpenAI.
+        Categorize multiple videos in parallel using AsyncOpenAI with progress tracking.
 
         This is much faster than sequential processing for I/O-bound operations.
 
@@ -334,30 +338,78 @@ Rules:
             db: Database session
             videos: List of videos to categorize
             max_concurrent: Maximum concurrent API calls (default 10)
+            user_id: Optional user ID for progress tracking
 
         Returns:
             Dictionary with success_count, failed_count, and results
         """
+        from app.services.progress_service import ProgressService
+
         # Filter out already categorized videos
         uncategorized = [v for v in videos if not v.is_categorized]
 
         if not uncategorized:
             return {"success_count": 0, "failed_count": 0, "results": []}
 
+        total_count = len(uncategorized)
         api_logger.info(
-            f"Starting parallel categorization of {len(uncategorized)} videos with concurrency={max_concurrent}"
+            f"Starting parallel categorization of {total_count} videos with concurrency={max_concurrent}"
         )
+
+        # Initialize progress tracking
+        if user_id:
+            ProgressService.set_progress(
+                user_id,
+                {
+                    "status": "in_progress",
+                    "total": total_count,
+                    "completed": 0,
+                    "failed": 0,
+                    "current_video": None,
+                },
+            )
 
         # Create semaphore to limit concurrent API calls
         semaphore = asyncio.Semaphore(max_concurrent)
+        completed_count = 0
 
         async def categorize_with_semaphore(video: Video):
-            """Categorize a single video with rate limiting."""
+            """Categorize a single video with rate limiting and progress tracking."""
+            nonlocal completed_count
             async with semaphore:
                 try:
+                    # Update progress with current video
+                    if user_id:
+                        ProgressService.set_progress(
+                            user_id,
+                            {
+                                "status": "in_progress",
+                                "total": total_count,
+                                "completed": completed_count,
+                                "failed": 0,
+                                "current_video": video.title[:50],
+                            },
+                        )
+
                     categorization = await self.categorize_video_async(video)
+                    completed_count += 1
+
+                    # Update progress after completion
+                    if user_id:
+                        ProgressService.set_progress(
+                            user_id,
+                            {
+                                "status": "in_progress",
+                                "total": total_count,
+                                "completed": completed_count,
+                                "failed": 0,
+                                "current_video": None,
+                            },
+                        )
+
                     return (video, categorization, None)
                 except Exception as e:
+                    completed_count += 1
                     api_logger.error(f"Failed to categorize video {video.id}: {e}")
                     return (video, None, str(e))
 
@@ -411,6 +463,10 @@ Rules:
         api_logger.info(
             f"Parallel categorization complete: {success_count} successful, {failed_count} failed"
         )
+
+        # Clear progress on completion
+        if user_id:
+            ProgressService.clear_progress(user_id)
 
         return {
             "success_count": success_count,

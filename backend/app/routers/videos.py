@@ -99,17 +99,16 @@ async def get_liked_videos(
 async def sync_liked_videos(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-    max_results: int = Query(50, ge=1, le=100),
-    auto_categorize: bool = Query(
-        True, description="Automatically categorize new videos"
-    ),
+    max_results: int = Query(20, ge=1, le=50),
 ):
     """
-    Sync liked videos from YouTube and optionally categorize them with AI.
+    Sync latest liked videos from YouTube (only fetches new/recent videos).
 
     Args:
-        max_results: Maximum number of videos to fetch (1-100)
-        auto_categorize: Whether to automatically categorize new videos with AI
+        max_results: Maximum number of recent videos to fetch (1-50, default 20)
+
+    Note: This only syncs videos, does not categorize.
+          Use /categorize-batch to categorize uncategorized videos.
     """
     try:
         # Fetch videos from YouTube
@@ -122,25 +121,11 @@ async def sync_liked_videos(
         current_user.last_sync_at = datetime.now(timezone.utc)
         db.commit()
 
-        # Categorize uncategorized videos if requested
-        categorized_count = 0
-        if auto_categorize:
-            ai_service = AIService()
-            uncategorized = [v for v in videos if not v.is_categorized]
-
-            for video in uncategorized:
-                try:
-                    categorization = ai_service.categorize_video(db, video)
-                    ai_service.apply_categorization(db, video, categorization)
-                    categorized_count += 1
-                except Exception as e:
-                    api_logger.error(f"Failed to categorize video {video.id}: {e}")
-
         return {
             "status": "success",
             "videos_synced": count,
-            "videos_categorized": categorized_count,
             "total_videos": len(videos),
+            "message": f"Synced {count} latest videos from YouTube",
         }
 
     except Exception as e:
@@ -463,10 +448,13 @@ async def categorize_all_uncategorized(
             f"Starting async parallel categorization of {total_count} videos with max_concurrent={max_concurrent}"
         )
 
-        # Use new async batch categorization
+        # Use new async batch categorization with progress tracking
         ai_service = AIService()
         result = await ai_service.batch_categorize_videos_async(
-            db, uncategorized_videos, max_concurrent=max_concurrent
+            db,
+            uncategorized_videos,
+            max_concurrent=max_concurrent,
+            user_id=current_user.id,
         )
 
         categorized_count = result["success_count"]
@@ -599,10 +587,10 @@ async def background_categorize_videos(
             api_logger.info(f"No uncategorized videos found for user {user_id}")
             return
 
-        # Run async categorization
+        # Run async categorization with progress tracking
         ai_service = AIService()
         result = await ai_service.batch_categorize_videos_async(
-            db, uncategorized_videos, max_concurrent=max_concurrent
+            db, uncategorized_videos, max_concurrent=max_concurrent, user_id=user_id
         )
 
         api_logger.info(
