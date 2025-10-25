@@ -96,7 +96,7 @@ export const videosApi = {
 		sort_order?: string;
 	}) => api.get("/videos/liked", { params }),
 
-	syncVideos: (params?: { max_results?: number; auto_categorize?: boolean }) =>
+	syncVideos: (params?: { max_results?: number }) =>
 		api.post("/videos/sync", null, { params }),
 
 	syncBatch: (params?: { auto_categorize?: boolean }) =>
@@ -168,4 +168,8 @@ export const tagsApi = {
 		tagId: number,
 		params?: { page?: number; page_size?: number },
 	) => api.get(`/tags/${tagId}/videos/`, { params }),
+};
+
+export const progressApi = {
+	getCategorizationProgress: () => api.get("/progress/categorization"),
 };

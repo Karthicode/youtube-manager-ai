@@ -23,6 +23,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { videosApi } from "@/api/api";
+import CategorizationProgress from "@/components/CategorizationProgress";
 import Navbar from "@/components/Navbar";
 import { useAuthStore } from "@/store/auth";
 import type { VideoStats } from "@/types";
@@ -83,7 +84,7 @@ export default function Dashboard() {
 	const handleSync = async () => {
 		setSyncing(true);
 		try {
-			await videosApi.syncVideos({ max_results: 50, auto_categorize: true });
+			await videosApi.syncVideos({ max_results: 20 });
 			await fetchStats();
 		} catch (error) {
 			console.error("Failed to sync videos:", error);
@@ -166,14 +167,6 @@ export default function Dashboard() {
 						</div>
 						<div className="flex gap-3">
 							<Button
-								color="primary"
-								size="lg"
-								onPress={handleSync}
-								isLoading={syncing}
-							>
-								Sync Videos (50)
-							</Button>
-							<Button
 								color="secondary"
 								size="lg"
 								onPress={handleBatchSync}
@@ -181,8 +174,19 @@ export default function Dashboard() {
 							>
 								Sync All Videos
 							</Button>
+							<Button
+								color="primary"
+								size="lg"
+								onPress={handleSync}
+								isLoading={syncing}
+							>
+								Sync Latest (20)
+							</Button>
 						</div>
 					</div>
+
+					{/* Progress Tracking */}
+					<CategorizationProgress onComplete={fetchStats} />
 
 					{/* Sync Modal */}
 					<Modal
