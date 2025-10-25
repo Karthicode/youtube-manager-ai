@@ -23,7 +23,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { videosApi } from "@/api/api";
-//import CategorizationProgress from "@/components/CategorizationProgress";
+import CategorizationProgressSSE from "@/components/CategorizationProgressSSE";
 import Navbar from "@/components/Navbar";
 import { useAuthStore } from "@/store/auth";
 import type { VideoStats } from "@/types";
@@ -36,19 +36,14 @@ export default function Dashboard() {
 	const [syncing, setSyncing] = useState(false);
 	const [batchSyncing, setBatchSyncing] = useState(false);
 	const [batchCategorizing, setBatchCategorizing] = useState(false);
+	const [categorizationJobId, setCategorizationJobId] = useState<string | null>(
+		null,
+	);
 	const [batchSyncResult, setBatchSyncResult] = useState<{
 		message?: string;
 		total_videos_synced?: number;
 		videos_categorized?: number;
 		pages_fetched?: number;
-		[key: string]: unknown;
-	} | null>(null);
-	const [categorizationResult, setCategorizationResult] = useState<{
-		message?: string;
-		total_categorized?: number;
-		total_failed?: number;
-		total_videos?: number;
-		success_rate?: number;
 		[key: string]: unknown;
 	} | null>(null);
 	const [mounted, setMounted] = useState(false);
@@ -109,24 +104,17 @@ export default function Dashboard() {
 		}
 	};
 
-	const handleBatchCategorize = async (
-		maxConcurrent = 10,
-		background = false,
-	) => {
+	const handleBatchCategorize = async (maxConcurrent = 10) => {
 		setBatchCategorizing(true);
-		setCategorizationResult(null);
 		try {
-			const response = background
-				? await videosApi.categorizeBatchBackground({
-						max_concurrent: maxConcurrent,
-					})
-				: await videosApi.categorizeBatch({ max_concurrent: maxConcurrent });
-			setCategorizationResult(response.data);
-			await fetchStats();
+			// Start SSE job
+			const response = await videosApi.startBatchCategorization({
+				max_concurrent: maxConcurrent,
+			});
+			setCategorizationJobId(response.data.job_id);
 		} catch (error) {
-			console.error("Failed to batch categorize:", error);
-			alert("Failed to batch categorize videos. Please try again.");
-		} finally {
+			console.error("Failed to start batch categorization:", error);
+			alert("Failed to start batch categorization. Please try again.");
 			setBatchCategorizing(false);
 		}
 	};
@@ -189,7 +177,22 @@ export default function Dashboard() {
 					</div>
 
 					{/* Progress Tracking */}
-					{/* <CategorizationProgress onComplete={fetchStats} /> */}
+					{categorizationJobId && (
+						<CategorizationProgressSSE
+							jobId={categorizationJobId}
+							onComplete={() => {
+								setBatchCategorizing(false);
+								setCategorizationJobId(null);
+								fetchStats();
+							}}
+							onError={(error) => {
+								console.error("Categorization error:", error);
+								setBatchCategorizing(false);
+								setCategorizationJobId(null);
+								alert(`Categorization failed: ${error}`);
+							}}
+						/>
+					)}
 
 					{/* Sync Modal */}
 					<Modal
@@ -310,108 +313,6 @@ export default function Dashboard() {
 						</ModalContent>
 					</Modal>
 
-					{/* Batch Categorization Modal */}
-					<Modal
-						isOpen={batchCategorizing || categorizationResult !== null}
-						onClose={() => setCategorizationResult(null)}
-						isDismissable={!batchCategorizing}
-						isKeyboardDismissDisabled={batchCategorizing}
-						hideCloseButton={batchCategorizing}
-						size="lg"
-						backdrop="blur"
-					>
-						<ModalContent>
-							<ModalHeader className="flex flex-col gap-1">
-								{batchCategorizing
-									? "Categorizing Videos"
-									: "Categorization Complete"}
-							</ModalHeader>
-							<ModalBody className="py-8">
-								{batchCategorizing ? (
-									<div className="flex flex-col items-center gap-4">
-										<Spinner size="lg" color="success" />
-										<div className="text-center space-y-2">
-											<p className="text-lg font-semibold">
-												Categorizing all uncategorized videos...
-											</p>
-											<p className="text-sm text-gray-600 dark:text-gray-400">
-												Using async parallel processing with OpenAI for maximum
-												speed.
-											</p>
-											<p className="text-sm text-gray-600 dark:text-gray-400">
-												Processing multiple videos concurrently - much faster
-												than before!
-											</p>
-											<p className="text-xs text-gray-500 dark:text-gray-500 mt-4">
-												{categorizationResult?.status === "started"
-													? "Background task started. Check logs for completion."
-													: "Please wait while we categorize your videos..."}
-											</p>
-										</div>
-									</div>
-								) : categorizationResult ? (
-									<div className="space-y-4">
-										<div className="text-center">
-											<p className="text-2xl mb-4">
-												{(categorizationResult.total_failed ?? 0) === 0
-													? "✅"
-													: "⚠️"}
-											</p>
-											<p className="text-lg font-semibold mb-2">
-												{categorizationResult.message}
-											</p>
-										</div>
-										<div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 space-y-2">
-											<div className="flex justify-between">
-												<span className="text-gray-600 dark:text-gray-400">
-													Total Videos:
-												</span>
-												<span className="font-semibold">
-													{categorizationResult.total_videos}
-												</span>
-											</div>
-											<div className="flex justify-between">
-												<span className="text-green-600 dark:text-green-400">
-													Categorized:
-												</span>
-												<span className="font-semibold text-green-600 dark:text-green-400">
-													{categorizationResult.total_categorized}
-												</span>
-											</div>
-											{(categorizationResult.total_failed ?? 0) > 0 && (
-												<div className="flex justify-between">
-													<span className="text-red-600 dark:text-red-400">
-														Failed:
-													</span>
-													<span className="font-semibold text-red-600 dark:text-red-400">
-														{categorizationResult.total_failed}
-													</span>
-												</div>
-											)}
-											<div className="flex justify-between pt-2 border-t border-gray-300 dark:border-gray-600">
-												<span className="text-gray-600 dark:text-gray-400">
-													Success Rate:
-												</span>
-												<span className="font-semibold">
-													{categorizationResult.success_rate}%
-												</span>
-											</div>
-										</div>
-									</div>
-								) : null}
-							</ModalBody>
-							{categorizationResult && (
-								<ModalFooter>
-									<Button
-										color="primary"
-										onPress={() => setCategorizationResult(null)}
-									>
-										Close
-									</Button>
-								</ModalFooter>
-							)}
-						</ModalContent>
-					</Modal>
 
 					{loading ? (
 						<div className="flex justify-center items-center h-64">
@@ -601,24 +502,24 @@ export default function Dashboard() {
 												<DropdownMenu aria-label="Categorization options">
 													<DropdownItem
 														key="fast"
-														description="10 concurrent requests (~10x faster)"
-														onPress={() => handleBatchCategorize(10, false)}
+														description="10 concurrent requests with real-time progress"
+														onPress={() => handleBatchCategorize(10)}
 													>
 														Fast (Recommended)
 													</DropdownItem>
 													<DropdownItem
 														key="faster"
-														description="20 concurrent requests (~15x faster)"
-														onPress={() => handleBatchCategorize(20, false)}
+														description="20 concurrent requests (May hit rate limits)"
+														onPress={() => handleBatchCategorize(20)}
 													>
-														Faster (May hit rate limits)
+														Faster
 													</DropdownItem>
 													<DropdownItem
-														key="background"
-														description="Returns immediately, processes in background"
-														onPress={() => handleBatchCategorize(10, true)}
+														key="fastest"
+														description="30 concurrent requests (Higher rate limit risk)"
+														onPress={() => handleBatchCategorize(30)}
 													>
-														Background Mode
+														Fastest
 													</DropdownItem>
 												</DropdownMenu>
 											</Dropdown>
