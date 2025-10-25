@@ -269,44 +269,65 @@ async def _process_one_batch(
     batch_results = []
 
     for video, categorization in zip(uncategorized_videos, categorizations):
+        video_id = video.id
+        video_title = video.title
+
         try:
-            # Double-check if already categorized (race condition)
-            db.refresh(video)
-            if video.is_categorized:
-                api_logger.warning(f"Video {video.id} already categorized, skipping")
+            # Re-fetch video to ensure fresh state (especially after rollbacks)
+            fresh_video = db.query(Video).filter(Video.id == video_id).first()
+            if not fresh_video:
+                api_logger.warning(f"Video {video_id} not found, skipping")
                 continue
 
-            ai_service.apply_categorization(db, video, categorization)
-            batch_results.append(
-                {
-                    "video_id": video.id,
-                    "title": video.title,
-                    "success": True,
-                    "categories": categorization.primary_categories
-                    + categorization.secondary_categories,
-                    "tags": categorization.tags,
-                }
-            )
-        except Exception as e:
-            # Check if it's a duplicate key error (already categorized by another worker)
-            if "duplicate key" in str(e).lower() or "uniqueviolation" in str(e).lower():
-                api_logger.warning(
-                    f"Video {video.id} already categorized by another worker, skipping"
-                )
-                # Rollback the transaction and continue
-                db.rollback()
+            # Double-check if already categorized (race condition)
+            if fresh_video.is_categorized:
+                api_logger.info(f"Video {video_id} already categorized, skipping")
                 continue
-            else:
-                api_logger.error(f"Failed to categorize video {video.id}: {e}")
-                db.rollback()
+
+            # Apply categorization - this may fail if another worker got there first
+            try:
+                ai_service.apply_categorization(db, fresh_video, categorization)
+
+                # Success! Add to results
                 batch_results.append(
                     {
-                        "video_id": video.id,
-                        "title": video.title,
-                        "success": False,
-                        "error": str(e),
+                        "video_id": video_id,
+                        "title": video_title,
+                        "success": True,
+                        "categories": categorization.primary_categories
+                        + categorization.secondary_categories,
+                        "tags": categorization.tags,
                     }
                 )
+                api_logger.info(f"Successfully categorized video {video_id}")
+
+            except Exception as apply_error:
+                # Check if it's a duplicate key error during commit
+                error_str = str(apply_error).lower()
+                if "duplicate key" in error_str or "uniqueviolation" in error_str or "integrity" in error_str:
+                    api_logger.info(
+                        f"Video {video_id} already categorized by concurrent worker, skipping (expected behavior)"
+                    )
+                    # Rollback to clean session state
+                    db.rollback()
+                    # Don't add to batch_results - this video is already processed
+                    continue
+                else:
+                    # Some other error during apply - re-raise to outer catch
+                    raise
+
+        except Exception as e:
+            # Unexpected error - log and mark as failed
+            api_logger.error(f"Unexpected error categorizing video {video_id}: {e}", exc_info=True)
+            db.rollback()
+            batch_results.append(
+                {
+                    "video_id": video_id,
+                    "title": video_title,
+                    "success": False,
+                    "error": str(e),
+                }
+            )
 
     # Re-fetch latest job data and append batch results atomically
     latest_job_data = get_job_data(job_id)
