@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { videosApi } from "@/api/api";
 
 interface ProgressData {
-	status: "running" | "completed" | "error" | "paused" | "cancelled";
+	status: "queued" | "running" | "completed" | "error" | "paused" | "cancelled";
 	total: number;
 	completed: number;
 	failed: number;
@@ -245,6 +245,12 @@ export default function CategorizationProgressSSE({
 					className="w-full"
 					showValueLabel
 				/>
+
+				{progress.status === "queued" && (
+					<p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+						⏳ Queued - Worker will start processing shortly...
+					</p>
+				)}
 
 				{progress.paused && (
 					<p className="text-sm text-warning font-medium">
