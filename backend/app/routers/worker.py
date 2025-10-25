@@ -1,12 +1,11 @@
 """Worker endpoints for background job processing via QStash."""
 
 import asyncio
-import hashlib
-import hmac
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel
+from qstash import Receiver
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -42,45 +41,6 @@ class JobPayload(BaseModel):
     max_concurrent: int = 10
 
 
-def verify_qstash_signature(
-    body: bytes,
-    signature: str | None,
-    current_signing_key: str,
-    next_signing_key: str,
-) -> bool:
-    """
-    Verify QStash webhook signature.
-
-    Args:
-        body: Raw request body bytes
-        signature: QStash signature from header
-        current_signing_key: Current signing key
-        next_signing_key: Next signing key (for key rotation)
-
-    Returns:
-        True if signature is valid
-    """
-    if not signature:
-        return False
-
-    # Try current key first
-    expected_sig = hmac.new(
-        current_signing_key.encode(), body, hashlib.sha256
-    ).hexdigest()
-
-    if hmac.compare_digest(signature, expected_sig):
-        return True
-
-    # Try next key (for key rotation)
-    if next_signing_key:
-        expected_sig = hmac.new(
-            next_signing_key.encode(), body, hashlib.sha256
-        ).hexdigest()
-        return hmac.compare_digest(signature, expected_sig)
-
-    return False
-
-
 @router.post("/categorize-batch")
 async def process_categorization_job(
     request: Request,
@@ -104,15 +64,28 @@ async def process_categorization_job(
     # Read raw body for signature verification
     body = await request.body()
 
-    # Verify signature if QStash is configured
+    # Verify signature using QStash SDK
     if settings.qstash_token and settings.qstash_current_signing_key:
-        if not verify_qstash_signature(
-            body,
-            upstash_signature,
-            settings.qstash_current_signing_key,
-            settings.qstash_next_signing_key,
-        ):
-            api_logger.warning("Invalid QStash signature")
+        try:
+            receiver = Receiver(
+                current_signing_key=settings.qstash_current_signing_key,
+                next_signing_key=settings.qstash_next_signing_key,
+            )
+
+            # Construct the full URL for verification
+            base_url = settings.frontend_url.rstrip("/")
+            full_url = f"{base_url}/api/v1/worker/categorize-batch"
+
+            # Verify the signature - QStash SDK handles the verification
+            receiver.verify(
+                signature=upstash_signature,
+                body=body.decode("utf-8"),
+                url=full_url,
+            )
+            api_logger.info("QStash signature verified successfully")
+
+        except Exception as e:
+            api_logger.error(f"QStash signature verification failed: {e}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid signature",
