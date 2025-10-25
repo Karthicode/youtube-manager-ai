@@ -18,6 +18,7 @@ import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Navbar() {
 	const router = useRouter();
@@ -34,11 +35,16 @@ export default function Navbar() {
 	const isActive = (path: string) => pathname === path;
 
 	return (
-		<HeroNavbar isBordered isBlurred className="bg-gray-900/95" maxWidth="xl">
+		<HeroNavbar
+			isBordered
+			isBlurred
+			className="bg-white/95 dark:bg-gray-900/95"
+			maxWidth="xl"
+		>
 			<NavbarBrand>
 				<Link
 					href="/dashboard"
-					className="font-bold text-xl text-white flex items-center gap-2"
+					className="font-bold text-xl text-gray-900 dark:text-white flex items-center gap-2"
 				>
 					<SmartDisplayIcon />
 					YouTube Manager
@@ -88,6 +94,9 @@ export default function Navbar() {
 			</NavbarContent>
 
 			<NavbarContent justify="end">
+				<NavbarItem>
+					<ThemeToggle />
+				</NavbarItem>
 				<Dropdown placement="bottom-end">
 					<DropdownTrigger>
 						<Avatar
