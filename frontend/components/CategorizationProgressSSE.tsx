@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { videosApi } from "@/api/api";
 
 interface ProgressData {
-	status: "running" | "completed" | "error" | "paused";
+	status: "running" | "completed" | "error" | "paused" | "cancelled";
 	total: number;
 	completed: number;
 	failed: number;
@@ -102,6 +102,13 @@ export default function CategorizationProgressSSE({
 									isCancelled = true;
 									break;
 								}
+
+								// Handle cancellation
+								if (data.status === "cancelled") {
+									onComplete?.(); // Still refresh stats to show partial progress
+									isCancelled = true;
+									break;
+								}
 							} catch (error) {
 								console.error("Failed to parse SSE data:", error);
 							}
@@ -153,6 +160,20 @@ export default function CategorizationProgressSSE({
 		}
 	};
 
+	const handleCancel = async () => {
+		if (!jobId) return;
+		if (!confirm("Are you sure you want to cancel categorization? This cannot be undone.")) {
+			return;
+		}
+		try {
+			await videosApi.cancelCategorizationJob(jobId);
+			// The SSE will automatically close when it receives cancelled status
+		} catch (error) {
+			console.error("Failed to cancel job:", error);
+			alert("Failed to cancel job. Please try again.");
+		}
+	};
+
 	// Don't show anything if no job
 	if (!jobId) return null;
 
@@ -167,29 +188,42 @@ export default function CategorizationProgressSSE({
 						Categorization Progress
 					</h3>
 					<div className="flex items-center gap-2 sm:gap-3">
-						{progress.status === "running" && !progress.paused && (
-							<Button
-								size="sm"
-								color="warning"
-								variant="flat"
-								onPress={handlePause}
-								isLoading={pauseLoading}
-								className="min-w-20"
-							>
-								Pause
-							</Button>
-						)}
-						{progress.paused && (
-							<Button
-								size="sm"
-								color="success"
-								variant="flat"
-								onPress={handleResume}
-								isLoading={pauseLoading}
-								className="min-w-20"
-							>
-								Resume
-							</Button>
+						{(progress.status === "running" || progress.paused) && (
+							<>
+								{progress.status === "running" && !progress.paused && (
+									<Button
+										size="sm"
+										color="warning"
+										variant="flat"
+										onPress={handlePause}
+										isLoading={pauseLoading}
+										className="min-w-20"
+									>
+										Pause
+									</Button>
+								)}
+								{progress.paused && (
+									<Button
+										size="sm"
+										color="success"
+										variant="flat"
+										onPress={handleResume}
+										isLoading={pauseLoading}
+										className="min-w-20"
+									>
+										Resume
+									</Button>
+								)}
+								<Button
+									size="sm"
+									color="danger"
+									variant="flat"
+									onPress={handleCancel}
+									className="min-w-20"
+								>
+									Cancel
+								</Button>
+							</>
 						)}
 						<span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
 							{progress.completed} / {progress.total}
@@ -259,6 +293,19 @@ export default function CategorizationProgressSSE({
 						{progress.error && (
 							<p className="text-xs text-gray-500">{progress.error}</p>
 						)}
+					</div>
+				)}
+
+				{progress.status === "cancelled" && (
+					<div className="space-y-2">
+						<p className="text-sm text-warning font-medium">
+							⊘ Categorization cancelled
+						</p>
+						<p className="text-xs text-gray-500">
+							Processed {progress.completed} out of {progress.total} videos
+							before cancellation
+							{progress.failed > 0 && ` (${progress.failed} failed)`}
+						</p>
 					</div>
 				)}
 			</CardBody>

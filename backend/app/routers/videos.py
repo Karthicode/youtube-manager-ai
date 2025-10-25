@@ -125,6 +125,10 @@ async def sync_liked_videos(
         current_user.last_sync_at = datetime.now(timezone.utc)
         db.commit()
 
+        # Invalidate stats cache since videos were synced
+        if count > 0:
+            invalidate_user_stats_cache(current_user.id)
+
         return {
             "status": "success",
             "videos_synced": count,
@@ -167,6 +171,9 @@ async def categorize_video(
         ai_service = AIService()
         categorization = ai_service.categorize_video(db, video)
         updated_video = ai_service.apply_categorization(db, video, categorization)
+
+        # Invalidate stats cache since video was categorized
+        invalidate_user_stats_cache(current_user.id)
 
         return updated_video
 
@@ -231,12 +238,26 @@ async def search_videos(
 async def get_video_stats(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
+    force_refresh: bool = Query(False, description="Force refresh cache"),
 ):
     """
-    Get statistics about user's videos.
+    Get statistics about user's videos (cached for 5 minutes).
 
     Returns counts, categorization status, top categories, etc.
+
+    Args:
+        force_refresh: Skip cache and fetch fresh data from database
     """
+    # Try to get from cache first
+    if not force_refresh:
+        cached_stats = get_cached_stats(current_user.id)
+        if cached_stats:
+            api_logger.debug(f"Returning cached stats for user {current_user.id}")
+            return cached_stats
+
+    # Cache miss or force refresh - query database
+    api_logger.info(f"Fetching fresh stats for user {current_user.id}")
+
     total_videos = db.query(Video).filter(Video.user_id == current_user.id).count()
 
     categorized = (
@@ -269,7 +290,7 @@ async def get_video_stats(
         .all()
     )
 
-    return {
+    stats = {
         "total_videos": total_videos,
         "categorized": categorized,
         "uncategorized": uncategorized,
@@ -281,6 +302,11 @@ async def get_video_stats(
         ],
         "top_tags": [{"name": name, "count": count} for name, count in top_tags],
     }
+
+    # Cache the results for 5 minutes
+    set_cached_stats(current_user.id, stats, expire=300)
+
+    return stats
 
 
 @router.get("/{video_id}", response_model=VideoResponse)
@@ -380,6 +406,10 @@ async def sync_all_liked_videos(
                     categorized_count += 1
                 except Exception as e:
                     api_logger.error(f"Failed to categorize video {video.id}: {e}")
+
+        # Invalidate stats cache since videos were synced/categorized
+        if total_synced > 0 or categorized_count > 0:
+            invalidate_user_stats_cache(current_user.id)
 
         return {
             "status": "success",
@@ -577,6 +607,25 @@ def delete_job_data(job_id: str) -> None:
     redis_client.delete(f"categorization_job:{job_id}")
 
 
+def get_cached_stats(user_id: int) -> dict | None:
+    """Get cached stats from Redis."""
+    redis_client = get_redis()
+    data = redis_client.get(f"user_stats:{user_id}")
+    return json.loads(data) if data else None
+
+
+def set_cached_stats(user_id: int, stats: dict, expire: int = 300) -> None:
+    """Set cached stats in Redis with expiration (default 5 minutes)."""
+    redis_client = get_redis()
+    redis_client.set(f"user_stats:{user_id}", json.dumps(stats), expire=expire)
+
+
+def invalidate_user_stats_cache(user_id: int) -> None:
+    """Invalidate cached stats for a user."""
+    redis_client = get_redis()
+    redis_client.delete(f"user_stats:{user_id}")
+
+
 @router.post("/categorize-batch/start")
 async def start_batch_categorization(
     db: Annotated[Session, Depends(get_db)],
@@ -620,6 +669,9 @@ async def start_batch_categorization(
             detail="No uncategorized videos found",
         )
 
+    # Extract video IDs (to avoid session detachment issues)
+    video_ids = [video.id for video in uncategorized_videos]
+
     # Generate unique job ID
     job_id = str(uuid.uuid4())
 
@@ -638,10 +690,10 @@ async def start_batch_categorization(
         },
     )
 
-    # Start categorization in background
+    # Start categorization in background (pass video IDs, not ORM objects)
     asyncio.create_task(
         run_batch_categorization(
-            job_id, uncategorized_videos, max_concurrent, current_user.id
+            job_id, video_ids, max_concurrent, current_user.id
         )
     )
 
@@ -811,15 +863,60 @@ async def resume_categorization_job(
     return {"message": "Job resumed successfully", "job_id": job_id}
 
 
+@router.post("/categorize-batch/cancel/{job_id}")
+async def cancel_categorization_job(
+    job_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Cancel a running or paused categorization job.
+
+    Args:
+        job_id: The job ID to cancel
+        current_user: Authenticated user (validates ownership)
+
+    Returns:
+        Confirmation message
+    """
+    data = get_job_data(job_id)
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+        )
+
+    # Verify job belongs to current user
+    if data.get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this job",
+        )
+
+    # Can only cancel running or paused jobs
+    if data["status"] not in ["running", "paused"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot cancel job with status: {data['status']}",
+        )
+
+    # Mark job as cancelled
+    data["status"] = "cancelled"
+    data["paused"] = False
+    data["current_video"] = None
+    set_job_data(job_id, data, expire=7200)  # Keep for 2 hours for review
+
+    api_logger.info(f"Job {job_id} cancelled by user {current_user.id}")
+    return {"message": "Job cancelled successfully", "job_id": job_id}
+
+
 async def run_batch_categorization(
-    job_id: str, videos: list, max_concurrent: int, user_id: int
+    job_id: str, video_ids: list[int], max_concurrent: int, user_id: int
 ):
     """
     Background task to categorize videos and update job progress.
 
     Args:
         job_id: Unique job identifier
-        videos: List of Video objects to categorize
+        video_ids: List of video IDs to categorize
         max_concurrent: Maximum concurrent API calls
         user_id: User ID for database operations
     """
@@ -831,9 +928,11 @@ async def run_batch_categorization(
         ai_service = AIService()
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def categorize_with_progress(video):
+        async def categorize_with_progress(video_id: int):
             """Categorize a single video and update progress."""
             async with semaphore:
+                # Create a new session for this task to avoid detachment issues
+                task_db = SessionLocal()
                 try:
                     # Check if job is paused before processing
                     data = get_job_data(job_id)
@@ -844,15 +943,21 @@ async def run_batch_categorization(
                     while data.get("paused", False):
                         await asyncio.sleep(1)  # Check every second
                         data = get_job_data(job_id)
-                        if not data or data["status"] in ["completed", "error"]:
-                            return  # Job deleted or stopped
+                        if not data or data["status"] in ["completed", "error", "cancelled"]:
+                            return  # Job deleted, stopped, or cancelled
+
+                    # Fetch video fresh from database with this task's session
+                    video = task_db.query(Video).filter(Video.id == video_id).first()
+                    if not video:
+                        api_logger.error(f"Video {video_id} not found")
+                        return
 
                     # Update current video in Redis
                     data["current_video"] = video.title[:50]
                     set_job_data(job_id, data)
 
                     categorization = await ai_service.categorize_video_async(video)
-                    ai_service.apply_categorization(db, video, categorization)
+                    ai_service.apply_categorization(task_db, video, categorization)
 
                     # Update progress in Redis
                     data = get_job_data(job_id)
@@ -877,17 +982,20 @@ async def run_batch_categorization(
                         data["failed"] += 1
                         data["results"].append(
                             {
-                                "video_id": video.id,
-                                "title": video.title,
+                                "video_id": video_id,
+                                "title": video.title if video else f"Video {video_id}",
                                 "success": False,
                                 "error": str(e),
                             }
                         )
                         set_job_data(job_id, data)
-                    api_logger.error(f"Failed to categorize video {video.id}: {e}")
+                    api_logger.error(f"Failed to categorize video {video_id}: {e}")
+                finally:
+                    # Always close the task's database session
+                    task_db.close()
 
         # Run all categorizations in parallel
-        tasks = [categorize_with_progress(video) for video in videos]
+        tasks = [categorize_with_progress(video_id) for video_id in video_ids]
         await asyncio.gather(*tasks, return_exceptions=True)
 
         # Mark job as complete in Redis
@@ -896,6 +1004,9 @@ async def run_batch_categorization(
             data["status"] = "completed"
             data["current_video"] = None
             set_job_data(job_id, data, expire=7200)  # Keep result for 2 hours
+
+        # Invalidate stats cache since videos were categorized
+        invalidate_user_stats_cache(user_id)
 
         api_logger.info(
             f"Job {job_id} completed: {data['completed'] if data else 0} successful, "

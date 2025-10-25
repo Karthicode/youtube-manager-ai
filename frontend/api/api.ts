@@ -127,6 +127,9 @@ export const videosApi = {
 	resumeCategorizationJob: (jobId: string) =>
 		api.post(`/videos/categorize-batch/resume/${jobId}`),
 
+	cancelCategorizationJob: (jobId: string) =>
+		api.post(`/videos/categorize-batch/cancel/${jobId}`),
+
 	categorizeVideo: (videoId: number) =>
 		api.post(`/videos/${videoId}/categorize`),
 
