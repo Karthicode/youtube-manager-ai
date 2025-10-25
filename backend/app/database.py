@@ -12,11 +12,12 @@ if settings.is_production:
     # Format: postgresql://postgres.[project]:password@aws-0-[region].pooler.supabase.com:6543/postgres
     engine = create_engine(
         settings.database_url,
-        pool_pre_ping=True,  # Verify connections before using
-        pool_size=1,  # Single connection per serverless instance
-        max_overflow=0,  # No overflow - Supabase pooler handles scaling
-        pool_recycle=300,  # Recycle connections after 5 minutes
-        echo=False,  # Don't log SQL queries in production
+        pool_pre_ping=True,
+        pool_size=5,          # allow parallel requests
+        max_overflow=10,      # allow spike load briefly
+        pool_timeout=30,      # timeout before erroring
+        pool_recycle=1800,    # recycle every 30min to avoid stale connections
+        echo=False,
     )
 else:
     # Local development - Larger pool
@@ -25,7 +26,7 @@ else:
         pool_pre_ping=True,
         pool_size=10,
         max_overflow=20,
-        echo=settings.debug,  # Log SQL queries in debug mode
+        echo=settings.debug,
     )
 
 # Create session factory
