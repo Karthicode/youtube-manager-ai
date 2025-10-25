@@ -41,9 +41,9 @@ class Settings(BaseSettings):
 
     # OpenAI
     openai_api_key: str
-    openai_model: str = "gpt-5-mini"
+    openai_model: str = "gpt-4.1-mini-2025-04-14"
     openai_max_tokens: int = (
-        16384  # GPT-5 mini supports up to 128k, using 16k for safety
+        16384  # GPT-4.1 mini supports up to 1M tokens, using 16k for safety
     )
     openai_temperature: float = 0.3
 

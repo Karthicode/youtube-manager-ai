@@ -736,17 +736,31 @@ async def stream_categorization_progress(
                 if not data:
                     break
 
-                yield f"data: {json.dumps(data)}\n\n"
+                # Ensure all required fields exist
+                progress_data = {
+                    "status": data.get("status", "running"),
+                    "total": data.get("total", 0),
+                    "completed": data.get("completed", 0),
+                    "failed": data.get("failed", 0),
+                    "current_video": data.get("current_video"),
+                    "paused": data.get("paused", False),
+                }
 
-                # Stop streaming if job is complete
-                if data["status"] in ["completed", "error"]:
+                # Include error message if present
+                if "error" in data:
+                    progress_data["error"] = data["error"]
+
+                yield f"data: {json.dumps(progress_data)}\n\n"
+
+                # Stop streaming if job is complete, cancelled, or errored
+                if data.get("status") in ["completed", "error", "cancelled"]:
                     break
 
                 await asyncio.sleep(0.5)  # Update every 500ms
 
         except Exception as e:
-            api_logger.error(f"SSE stream error for job {job_id}: {e}")
-            yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
+            api_logger.error(f"SSE stream error for job {job_id}: {e}", exc_info=True)
+            yield f"data: {json.dumps({{'status': 'error', 'error': str(e)}})}\\n\\n"
 
     return StreamingResponse(
         event_generator(),
