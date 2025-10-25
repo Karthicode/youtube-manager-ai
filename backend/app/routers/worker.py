@@ -11,6 +11,7 @@ from app.config import settings
 from app.logger import api_logger
 from app.models.video import Video
 from app.services.ai_service import AIService
+from app.services.progress_service import ProgressService
 from app.redis_client import get_redis
 
 
@@ -146,6 +147,19 @@ async def process_categorization_job(
             job_data["status"] = "error"
             job_data["error"] = str(e)
             set_job_data(job_id, job_data)
+
+            # Update user progress to error state
+            ProgressService.set_progress(
+                payload.user_id,
+                {
+                    "status": "error",
+                    "total": job_data.get("total", 0),
+                    "completed": job_data.get("completed", 0),
+                    "failed": job_data.get("failed", 0),
+                    "current_video": None,
+                    "error": str(e),
+                },
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Job processing failed: {str(e)}",
@@ -182,15 +196,45 @@ async def _process_one_batch(
         job_data["current_video"] = None
         set_job_data(job_id, job_data, expire=7200)
 
+        # Update user progress to completed
+        ProgressService.set_progress(
+            user_id,
+            {
+                "status": "completed",
+                "total": job_data["total"],
+                "completed": job_data["completed"],
+                "failed": job_data["failed"],
+                "current_video": None,
+            },
+        )
+
         # Clear cache so dashboard shows updated stats
         invalidate_user_stats_cache(user_id)
 
-        api_logger.info(f"Job {job_id} completed! Cache invalidated for user {user_id}")
+        api_logger.info(
+            f"Job {job_id} completed! {job_data['completed']} videos categorized, "
+            f"{job_data['failed']} failed. Cache invalidated for user {user_id}"
+        )
         return {"processed": 0, "complete": True}
 
     # Take next batch
     batch_ids = remaining_ids[:batch_size]
-    api_logger.info(f"Processing batch of {len(batch_ids)} videos from job {job_id}")
+    api_logger.info(
+        f"Processing batch of {len(batch_ids)} videos from job {job_id}. "
+        f"Progress: {len(processed_ids)}/{len(video_ids)} completed"
+    )
+
+    # Update user progress to show we're processing
+    ProgressService.set_progress(
+        user_id,
+        {
+            "status": "running",
+            "total": job_data["total"],
+            "completed": job_data["completed"],
+            "failed": job_data["failed"],
+            "current_video": f"Processing batch of {len(batch_ids)} videos...",
+        },
+    )
 
     # Fetch videos
     videos = db.query(Video).filter(Video.id.in_(batch_ids)).all()
@@ -257,10 +301,27 @@ async def _process_one_batch(
 
     set_job_data(job_id, job_data)
 
+    # Update user-specific progress for SSE endpoint
+    ProgressService.set_progress(
+        user_id,
+        {
+            "status": job_data["status"],
+            "total": job_data["total"],
+            "completed": job_data["completed"],
+            "failed": job_data["failed"],
+            "current_video": f"Processed {job_data['completed']} of {job_data['total']} videos",
+        },
+    )
+
     # Invalidate cache after each batch so stats update in real-time
     from app.routers.videos import invalidate_user_stats_cache
 
     invalidate_user_stats_cache(user_id)
+
+    api_logger.info(
+        f"Job {job_id}: Progress {job_data['completed']}/{job_data['total']} "
+        f"({(job_data['completed']/job_data['total']*100):.1f}%)"
+    )
 
     # Check if more batches remaining
     still_remaining = len(remaining_ids) > len(batch_ids)
