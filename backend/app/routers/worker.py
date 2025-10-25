@@ -121,27 +121,36 @@ async def process_categorization_job(
     job_data["status"] = "running"
     set_job_data(job_id, job_data)
 
-    # Create database session
-    db = SessionLocal()
+    # Start processing in background and return immediately
+    # Vercel has 10s timeout, so we can't wait for completion
+    asyncio.create_task(
+        _run_categorization_job(
+            job_id, payload.user_id, payload.video_ids, payload.max_concurrent
+        )
+    )
 
+    api_logger.info(f"Job {job_id} started in background")
+    return {"status": "accepted", "job_id": job_id}
+
+
+async def _run_categorization_job(
+    job_id: str, user_id: int, video_ids: list[int], max_concurrent: int
+):
+    """Run categorization job in background."""
+    from app.database import SessionLocal
+
+    db = SessionLocal()
     try:
         await _process_batch_categorization(
-            db, job_id, payload.user_id, payload.video_ids, payload.max_concurrent
+            db, job_id, user_id, video_ids, max_concurrent
         )
-        return {"status": "success", "job_id": job_id}
-
     except Exception as e:
         api_logger.error(f"Worker job {job_id} failed: {e}", exc_info=True)
-        # Update job status in Redis
         job_data = get_job_data(job_id)
         if job_data:
             job_data["status"] = "error"
             job_data["error"] = str(e)
             set_job_data(job_id, job_data)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Job processing failed: {str(e)}",
-        )
     finally:
         db.close()
 
