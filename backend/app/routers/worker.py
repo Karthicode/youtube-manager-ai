@@ -265,6 +265,9 @@ async def _process_one_batch(
     )
 
     # Apply and update progress
+    # Collect results for this batch first
+    batch_results = []
+
     for video, categorization in zip(uncategorized_videos, categorizations):
         try:
             # Double-check if already categorized (race condition)
@@ -274,8 +277,7 @@ async def _process_one_batch(
                 continue
 
             ai_service.apply_categorization(db, video, categorization)
-            job_data["completed"] += 1
-            job_data["results"].append(
+            batch_results.append(
                 {
                     "video_id": video.id,
                     "title": video.title,
@@ -297,8 +299,7 @@ async def _process_one_batch(
             else:
                 api_logger.error(f"Failed to categorize video {video.id}: {e}")
                 db.rollback()
-                job_data["failed"] += 1
-                job_data["results"].append(
+                batch_results.append(
                     {
                         "video_id": video.id,
                         "title": video.title,
@@ -307,7 +308,25 @@ async def _process_one_batch(
                     }
                 )
 
-    set_job_data(job_id, job_data)
+    # Re-fetch latest job data and append batch results atomically
+    latest_job_data = get_job_data(job_id)
+    if latest_job_data:
+        # Check which results are actually new (not already in results)
+        existing_video_ids = {r["video_id"] for r in latest_job_data.get("results", [])}
+        new_results = [r for r in batch_results if r["video_id"] not in existing_video_ids]
+
+        if new_results:
+            latest_job_data["results"].extend(new_results)
+            latest_job_data["completed"] = len(latest_job_data["results"])
+            latest_job_data["failed"] = sum(
+                1 for r in latest_job_data["results"] if not r.get("success", True)
+            )
+            set_job_data(job_id, latest_job_data)
+            api_logger.info(f"Added {len(new_results)} new results to job {job_id}")
+        else:
+            api_logger.info(f"No new results to add (all already processed by other workers)")
+    else:
+        api_logger.error(f"Could not fetch latest job data for {job_id}")
 
     # Re-fetch job data to get accurate count (in case other workers updated)
     latest_job_data = get_job_data(job_id)
