@@ -15,14 +15,8 @@ export const metadata: Metadata = {
 	description:
 		"Manage and organize your YouTube liked videos and playlists with AI-powered categorization",
 	icons: {
-		icon: [
-			{ url: "/favicon.svg", type: "image/svg+xml" },
-			{ url: "/favicon.ico", sizes: "any" },
-		],
+		icon: "/favicon.svg",
 		apple: "/favicon.svg",
-		other: [
-			{ rel: "icon", url: "/favicon.png", type: "image/png" },
-		],
 	},
 };
 
