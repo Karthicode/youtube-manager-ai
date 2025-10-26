@@ -180,6 +180,12 @@ export default function CategorizationProgressSSE({
 	const progressPercentage =
 		progress.total > 0 ? (progress.completed / progress.total) * 100 : 0;
 
+	// Format percentage to avoid showing 100% when not complete
+	const formattedPercentage =
+		progress.completed >= progress.total
+			? "100%"
+			: `${Math.floor(progressPercentage)}%`;
+
 	return (
 		<Card className="mb-4">
 			<CardBody className="space-y-3 sm:space-y-4 p-4 sm:p-6">
@@ -243,8 +249,16 @@ export default function CategorizationProgressSSE({
 									: "success"
 					}
 					className="w-full"
-					showValueLabel
+					showValueLabel={false}
+					formatOptions={{ style: "percent", minimumFractionDigits: 0 }}
 				/>
+
+				{/* Custom percentage label to avoid rounding issues */}
+				<div className="text-center">
+					<span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+						{formattedPercentage}
+					</span>
+				</div>
 
 				{progress.status === "queued" && (
 					<p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
