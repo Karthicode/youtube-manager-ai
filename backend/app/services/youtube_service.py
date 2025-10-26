@@ -189,13 +189,20 @@ class YouTubeService:
                 .all()
             )
 
+            # Batch update deleted playlists
+            deleted_count = 0
             for existing_playlist in existing_playlists:
                 if existing_playlist.youtube_id not in youtube_playlist_ids:
                     api_logger.info(
                         f"Marking playlist as deleted: {existing_playlist.title} (ID: {existing_playlist.youtube_id})"
                     )
                     existing_playlist.deleted_at = datetime.utcnow()
-                    db.commit()
+                    deleted_count += 1
+
+            # Commit all deletions at once
+            if deleted_count > 0:
+                db.commit()
+                api_logger.info(f"Marked {deleted_count} playlists as deleted")
 
             return playlists, total_fetched
 
@@ -400,6 +407,7 @@ class YouTubeService:
 
         except Exception as e:
             api_logger.error(f"Error processing playlist item: {e}")
+            db.rollback()  # Rollback failed transaction
             return None
 
     def get_user_info(self) -> Dict[str, Any] | None:
