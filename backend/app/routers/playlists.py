@@ -253,17 +253,29 @@ async def create_playlist_from_filters(
         # Build query for filtered videos
         query = db.query(Video).filter(Video.user_id == current_user.id)
 
-        # Apply filters
+        # Apply category filter using EXISTS subquery to avoid duplicates
         if request.filter_params.category_ids:
-            query = query.join(Video.categories).filter(
-                Category.id.in_(request.filter_params.category_ids)
-            )
+            from sqlalchemy import exists
+            from app.models.video import video_categories
 
+            category_subquery = exists().where(
+                video_categories.c.video_id == Video.id,
+                video_categories.c.category_id.in_(request.filter_params.category_ids),
+            )
+            query = query.filter(category_subquery)
+
+        # Apply tag filter using EXISTS subquery
         if request.filter_params.tag_ids:
-            query = query.join(Video.tags).filter(
-                Tag.id.in_(request.filter_params.tag_ids)
-            )
+            from sqlalchemy import exists
+            from app.models.video import video_tags
 
+            tag_subquery = exists().where(
+                video_tags.c.video_id == Video.id,
+                video_tags.c.tag_id.in_(request.filter_params.tag_ids),
+            )
+            query = query.filter(tag_subquery)
+
+        # Apply search filter
         if request.filter_params.search:
             search_term = f"%{request.filter_params.search}%"
             query = query.filter(
@@ -273,13 +285,14 @@ async def create_playlist_from_filters(
                 )
             )
 
+        # Apply categorization status filter
         if request.filter_params.is_categorized is not None:
             query = query.filter(
                 Video.is_categorized == request.filter_params.is_categorized
             )
 
-        # Get all matching videos (distinct to avoid duplicates from joins)
-        videos = query.distinct().order_by(Video.liked_at.desc()).all()
+        # Get all matching videos (no duplicates with subquery approach)
+        videos = query.order_by(Video.liked_at.desc()).all()
 
         if not videos:
             raise HTTPException(

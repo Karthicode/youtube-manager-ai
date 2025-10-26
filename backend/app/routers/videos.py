@@ -52,14 +52,28 @@ async def get_liked_videos(
     # Build base query
     query = db.query(Video).filter(Video.user_id == current_user.id)
 
-    # Apply filters
+    # Apply filters using EXISTS subqueries to avoid duplicate counting
     if category_ids:
+        from sqlalchemy import exists
+        from app.models.video import video_categories
+
         cat_ids = [int(cid) for cid in category_ids.split(",")]
-        query = query.join(Video.categories).filter(Category.id.in_(cat_ids))
+        category_subquery = exists().where(
+            video_categories.c.video_id == Video.id,
+            video_categories.c.category_id.in_(cat_ids),
+        )
+        query = query.filter(category_subquery)
 
     if tag_ids:
+        from sqlalchemy import exists
+        from app.models.video import video_tags
+
         t_ids = [int(tid) for tid in tag_ids.split(",")]
-        query = query.join(Video.tags).filter(Tag.id.in_(t_ids))
+        tag_subquery = exists().where(
+            video_tags.c.video_id == Video.id,
+            video_tags.c.tag_id.in_(t_ids),
+        )
+        query = query.filter(tag_subquery)
 
     if search:
         search_term = f"%{search}%"
@@ -74,7 +88,7 @@ async def get_liked_videos(
     if is_categorized is not None:
         query = query.filter(Video.is_categorized == is_categorized)
 
-    # Get total count before pagination
+    # Get total count before pagination (no duplicates with subquery approach)
     total = query.count()
 
     # Apply sorting
