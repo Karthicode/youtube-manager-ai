@@ -77,7 +77,7 @@ async def process_categorization_job(
             )
 
             # Construct the full URL for verification
-            base_url = settings.frontend_url.rstrip("/")
+            base_url = settings.backend_url.rstrip("/")
             full_url = f"{base_url}/api/v1/worker/categorize-batch"
 
             # Verify the signature - QStash SDK handles the verification

@@ -41,12 +41,8 @@ async def trigger_categorization_job(
 
     # Determine worker URL
     if not worker_url:
-        # In production, use the same domain
-        if settings.is_production:
-            worker_url = f"{settings.frontend_url}/api/v1/worker/categorize-batch"
-        else:
-            # Local development
-            worker_url = "http://localhost:8000/api/v1/worker/categorize-batch"
+        # Use backend URL for worker endpoints
+        worker_url = f"{settings.backend_url}/api/v1/worker/categorize-batch"
 
     # Publish to QStash queue
     # Split videos into batches and send one message per batch

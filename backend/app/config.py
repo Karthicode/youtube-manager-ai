@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     youtube_redirect_uri: str = "http://localhost:8000/api/v1/auth/youtube/callback"
     youtube_scopes: list[str] = [
         "openid",
-        "https://www.googleapis.com/auth/youtube.readonly",
+        "https://www.googleapis.com/auth/youtube",  # Read & write access (for playlist creation)
         "https://www.googleapis.com/auth/userinfo.email",
         "https://www.googleapis.com/auth/userinfo.profile",
     ]
@@ -52,6 +52,9 @@ class Settings(BaseSettings):
 
     # Frontend URL (for OAuth redirects)
     frontend_url: str = "http://localhost:3000"
+
+    # Backend API URL (for QStash worker callbacks)
+    backend_url: str = "http://localhost:8000"
 
     # Pagination
     default_page_size: int = 20
