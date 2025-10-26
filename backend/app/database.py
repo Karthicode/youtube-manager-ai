@@ -13,10 +13,10 @@ if settings.is_production:
     engine = create_engine(
         settings.database_url,
         pool_pre_ping=True,
-        pool_size=5,  # allow parallel requests
-        max_overflow=10,  # allow spike load briefly
-        pool_timeout=30,  # timeout before erroring
-        pool_recycle=1800,  # recycle every 30min to avoid stale connections
+        pool_size=5,          # allow parallel requests
+        max_overflow=10,      # allow spike load briefly
+        pool_timeout=30,      # timeout before erroring
+        pool_recycle=1800,    # recycle every 30min to avoid stale connections
         echo=False,
     )
 else:

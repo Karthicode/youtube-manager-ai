@@ -120,6 +120,8 @@ async def get_playlist_videos(
 
     # Build query for playlist videos
     from app.models.playlist import PlaylistVideo
+    from app.models.category import Category
+    from app.models.tag import Tag
 
     query = (
         db.query(Video)
@@ -364,7 +366,6 @@ async def create_playlist_from_filters(
 
             # Initialize job data in Redis
             import json
-
             redis_client = get_redis()
             job_data = {
                 "job_id": job_id,

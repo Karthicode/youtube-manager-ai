@@ -33,9 +33,7 @@ class Playlist(Base):
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
     last_synced_at = Column(DateTime, nullable=True)
-    deleted_at = Column(
-        DateTime, nullable=True
-    )  # Soft delete for playlists removed from YouTube
+    deleted_at = Column(DateTime, nullable=True)  # Soft delete for playlists removed from YouTube
 
     # Relationships
     user = relationship("User", back_populates="playlists")

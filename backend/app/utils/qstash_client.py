@@ -84,9 +84,7 @@ async def trigger_categorization_job(
                     timeout=30.0,
                 )
                 response.raise_for_status()
-                api_logger.debug(
-                    f"Queued batch {batch_num + 1}/{total_batches}: videos {start_idx}-{end_idx - 1}"
-                )
+                api_logger.debug(f"Queued batch {batch_num+1}/{total_batches}: videos {start_idx}-{end_idx-1}")
             except Exception as e:
                 api_logger.error(f"Failed to queue batch {batch_num}: {e}")
 
@@ -184,7 +182,7 @@ async def trigger_playlist_video_addition_job(
                 )
                 response.raise_for_status()
                 api_logger.debug(
-                    f"Queued batch {batch_num + 1}/{total_batches}: videos {start_idx}-{end_idx - 1}"
+                    f"Queued batch {batch_num+1}/{total_batches}: videos {start_idx}-{end_idx-1}"
                 )
             except Exception as e:
                 api_logger.error(f"Failed to queue batch {batch_num}: {e}")
