@@ -48,8 +48,10 @@ export default function FilterPanel({
 			try {
 				const [categoriesRes, tagsRes] = await Promise.all([
 					categoriesApi.getCategories(),
-					tagsApi.getTags({ min_usage: 1, limit: 50 }),
+					tagsApi.getTags({ limit: 50 }),
 				]);
+				console.log("Fetched categories:", categoriesRes.data);
+				console.log("Fetched tags:", tagsRes.data);
 				setCategories(categoriesRes.data);
 				setTags(tagsRes.data);
 			} catch (error) {

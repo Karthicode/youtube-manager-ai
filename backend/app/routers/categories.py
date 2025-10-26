@@ -24,21 +24,23 @@ async def get_categories(
     Get all available categories with video counts for the current user.
 
     Returns list of categories ordered by usage (most used first).
+    Only returns categories that have at least one video for this user.
     """
-    # Query all categories
-    categories = db.query(Category).all()
+    # Query categories that have videos for this user
+    categories_with_counts = (
+        db.query(
+            Category,
+            func.count(Video.id).label("video_count"),
+        )
+        .join(Video.categories)
+        .filter(Video.user_id == current_user.id)
+        .group_by(Category.id)
+        .order_by(func.count(Video.id).desc())
+        .all()
+    )
 
-    # For each category, count videos for this user
     result = []
-    for category in categories:
-        video_count = (
-            db.query(func.count(Video.id))
-            .join(Video.categories)
-            .filter(Category.id == category.id)
-            .filter(Video.user_id == current_user.id)
-            .scalar()
-        ) or 0
-
+    for category, video_count in categories_with_counts:
         result.append(
             {
                 "id": category.id,
@@ -49,9 +51,6 @@ async def get_categories(
                 "video_count": video_count,
             }
         )
-
-    # Sort by video count descending
-    result.sort(key=lambda x: x["video_count"], reverse=True)
 
     return result
 

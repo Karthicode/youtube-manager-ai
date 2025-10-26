@@ -32,28 +32,35 @@ async def get_tags(
         limit: Optional limit on number of tags returned
 
     Returns list of tags ordered by usage count (most used first).
+    Only returns tags that have at least one video for this user.
     """
-    # Query all tags
-    query = db.query(Tag)
+    # Query tags that have videos for this user
+    query = (
+        db.query(
+            Tag,
+            func.count(Video.id).label("video_count"),
+        )
+        .join(Video.tags)
+        .filter(Video.user_id == current_user.id)
+        .group_by(Tag.id)
+    )
 
     # Apply search if provided
     if search:
         search_term = f"%{search}%"
         query = query.filter(Tag.name.ilike(search_term))
 
-    tags = query.all()
+    # Order by usage count descending
+    query = query.order_by(func.count(Video.id).desc())
 
-    # For each tag, count videos for this user
+    # Apply limit if provided
+    if limit:
+        query = query.limit(limit)
+
+    tags_with_counts = query.all()
+
     result = []
-    for tag in tags:
-        video_count = (
-            db.query(func.count(Video.id))
-            .join(Video.tags)
-            .filter(Tag.id == tag.id)
-            .filter(Video.user_id == current_user.id)
-            .scalar()
-        ) or 0
-
+    for tag, video_count in tags_with_counts:
         result.append(
             {
                 "id": tag.id,
@@ -62,13 +69,6 @@ async def get_tags(
                 "usage_count": video_count,
             }
         )
-
-    # Sort by usage count descending
-    result.sort(key=lambda x: x["usage_count"], reverse=True)
-
-    # Apply limit if provided
-    if limit:
-        result = result[:limit]
 
     return result
 
