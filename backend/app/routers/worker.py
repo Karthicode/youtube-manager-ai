@@ -172,92 +172,39 @@ async def _process_one_batch(
     db: Session, job_id: str, user_id: int, video_ids: list[int]
 ) -> dict:
     """
-    Process ONE batch of 10 videos.
+    Process a batch of videos (typically 10, sent by QStash).
+
+    Args:
+        video_ids: Specific video IDs to process in this batch
 
     Returns:
         dict with processed count and whether job is complete
     """
     ai_service = AIService()
-    batch_size = 10
 
-    # Get already processed video IDs from job data
+    # Get job data
     job_data = get_job_data(job_id)
     if not job_data:
         return {"processed": 0, "complete": False, "error": "Job not found"}
 
-    processed_ids = {r["video_id"] for r in job_data.get("results", [])}
-    remaining_ids = [vid for vid in video_ids if vid not in processed_ids]
-
-    if not remaining_ids:
-        # Job complete! Invalidate user stats cache
-        from app.routers.videos import invalidate_user_stats_cache
-
-        job_data["status"] = "completed"
-        job_data["current_video"] = None
-        set_job_data(job_id, job_data, expire=7200)
-
-        # Count actual results for final stats
-        actual_completed = len(job_data.get("results", []))
-        actual_failed = sum(
-            1 for r in job_data.get("results", []) if not r.get("success", True)
-        )
-        actual_successful = actual_completed - actual_failed
-
-        # Update user progress to completed
-        ProgressService.set_progress(
-            user_id,
-            {
-                "status": "completed",
-                "total": job_data["total"],
-                "completed": actual_successful,
-                "failed": actual_failed,
-                "current_video": None,
-            },
-        )
-
-        # Clear cache so dashboard shows updated stats
-        invalidate_user_stats_cache(user_id)
-
-        api_logger.info(
-            f"Job {job_id} completed! {actual_successful} videos categorized successfully, "
-            f"{actual_failed} failed out of {actual_completed} total processed. "
-            f"Cache invalidated for user {user_id}"
-        )
-        return {"processed": 0, "complete": True}
-
-    # Take next batch
-    batch_ids = remaining_ids[:batch_size]
     api_logger.info(
-        f"Processing batch of {len(batch_ids)} videos from job {job_id}. "
-        f"Progress: {len(processed_ids)}/{len(video_ids)} completed"
+        f"Processing batch of {len(video_ids)} videos from job {job_id}: {video_ids}"
     )
 
-    # Update user progress to show we're processing
-    ProgressService.set_progress(
-        user_id,
-        {
-            "status": "running",
-            "total": job_data["total"],
-            "completed": job_data["completed"],
-            "failed": job_data["failed"],
-            "current_video": f"Processing batch of {len(batch_ids)} videos...",
-        },
-    )
-
-    # Fetch videos
-    videos = db.query(Video).filter(Video.id.in_(batch_ids)).all()
+    # Fetch videos for this batch
+    videos = db.query(Video).filter(Video.id.in_(video_ids)).all()
     video_map = {v.id: v for v in videos}
 
     # Filter out already categorized videos (race condition protection)
     uncategorized_videos = [
         video_map[vid]
-        for vid in batch_ids
+        for vid in video_ids
         if vid in video_map and not video_map[vid].is_categorized
     ]
 
     if not uncategorized_videos:
-        api_logger.info(f"All videos in batch already categorized, skipping")
-        return {"processed": 0, "complete": False, "remaining": len(remaining_ids)}
+        api_logger.info(f"All videos in this batch already categorized, skipping")
+        return {"processed": 0, "complete": False}
 
     # Categorize with single API call
     categorizations = await ai_service.categorize_videos_batch_async(
@@ -382,13 +329,44 @@ async def _process_one_batch(
 
     invalidate_user_stats_cache(user_id)
 
-    # Check if more batches remaining
-    still_remaining = len(remaining_ids) > len(batch_ids)
+    # Check if job is complete by comparing results count with total
+    is_complete = latest_job_data and latest_job_data.get("completed", 0) >= latest_job_data.get("total", 0)
+
+    if is_complete:
+        # Mark job as completed
+        final_job_data = get_job_data(job_id)
+        if final_job_data:
+            final_job_data["status"] = "completed"
+            final_job_data["current_video"] = None
+            set_job_data(job_id, final_job_data, expire=7200)
+
+            # Count actual results for final stats
+            actual_completed = len(final_job_data.get("results", []))
+            actual_failed = sum(
+                1 for r in final_job_data.get("results", []) if not r.get("success", True)
+            )
+            actual_successful = actual_completed - actual_failed
+
+            # Update user progress to completed
+            ProgressService.set_progress(
+                user_id,
+                {
+                    "status": "completed",
+                    "total": final_job_data["total"],
+                    "completed": actual_successful,
+                    "failed": actual_failed,
+                    "current_video": None,
+                },
+            )
+
+            api_logger.info(
+                f"Job {job_id} completed! {actual_successful} videos categorized successfully, "
+                f"{actual_failed} failed out of {actual_completed} total processed."
+            )
 
     return {
-        "processed": len(batch_ids),
-        "complete": not still_remaining,
-        "remaining": len(remaining_ids) - len(batch_ids),
+        "processed": len(video_ids),
+        "complete": is_complete,
     }
 
 

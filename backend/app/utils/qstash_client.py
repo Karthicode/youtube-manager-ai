@@ -48,18 +48,9 @@ async def trigger_categorization_job(
             # Local development
             worker_url = "http://localhost:8000/api/v1/worker/categorize-batch"
 
-    # Prepare payload - send ALL video_ids, worker will process incrementally
-    payload = {
-        "job_id": job_id,
-        "user_id": user_id,
-        "video_ids": video_ids,
-        "max_concurrent": max_concurrent,
-    }
-
     # Publish to QStash queue
-    # We send ONE message with all video IDs
-    # Worker processes one batch (10 videos) per invocation
-    # QStash will retry/requeue automatically based on response
+    # Split videos into batches and send one message per batch
+    # Each message contains only the video IDs for that specific batch
     queue_name = settings.qstash_queue_name
     queue_url = f"https://qstash.upstash.io/v2/enqueue/{queue_name}/{worker_url}"
 
@@ -67,14 +58,25 @@ async def trigger_categorization_job(
         f"Triggering QStash queue '{queue_name}' for job {job_id} with {len(video_ids)} videos"
     )
 
-    # Send 84 messages (one per batch) to QStash
-    # This ensures all batches are queued and processed with parallelism=2
+    # Split into batches of 10 videos each
     batch_size = 10
     total_batches = (len(video_ids) + batch_size - 1) // batch_size
 
     async with httpx.AsyncClient() as client:
-        # Queue all batches at once
+        # Queue each batch with its specific video IDs
         for batch_num in range(total_batches):
+            start_idx = batch_num * batch_size
+            end_idx = min(start_idx + batch_size, len(video_ids))
+            batch_video_ids = video_ids[start_idx:end_idx]
+
+            # Each message gets only the videos for this batch
+            payload = {
+                "job_id": job_id,
+                "user_id": user_id,
+                "video_ids": batch_video_ids,  # Only this batch's videos!
+                "max_concurrent": max_concurrent,
+            }
+
             try:
                 response = await client.post(
                     queue_url,
@@ -86,6 +88,7 @@ async def trigger_categorization_job(
                     timeout=30.0,
                 )
                 response.raise_for_status()
+                api_logger.debug(f"Queued batch {batch_num+1}/{total_batches}: videos {start_idx}-{end_idx-1}")
             except Exception as e:
                 api_logger.error(f"Failed to queue batch {batch_num}: {e}")
 
