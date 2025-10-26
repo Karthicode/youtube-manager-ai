@@ -31,7 +31,7 @@ const SORT_OPTIONS = [
 function VideosPageContent() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const { isAuthenticated } = useAuthStore();
+	const { isAuthenticated, isHydrated } = useAuthStore();
 
 	const [videos, setVideos] = useState<Video[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -225,6 +225,15 @@ function VideosPageContent() {
 	if (!mounted) {
 		return (
 			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex justify-center items-center">
+				<Spinner size="lg" />
+			</div>
+		);
+	}
+
+	// Show loading spinner until hydration is complete
+	if (!isHydrated) {
+		return (
+			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
 				<Spinner size="lg" />
 			</div>
 		);

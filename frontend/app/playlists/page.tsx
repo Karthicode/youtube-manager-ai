@@ -18,7 +18,7 @@ import type { Playlist } from "@/types";
 
 export default function PlaylistsPage() {
 	const router = useRouter();
-	const { isAuthenticated } = useAuthStore();
+	const { isAuthenticated, isHydrated } = useAuthStore();
 
 	const [playlists, setPlaylists] = useState<Playlist[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -61,6 +61,15 @@ export default function PlaylistsPage() {
 	const handleViewPlaylist = (playlistId: number) => {
 		router.push(`/playlists/${playlistId}`);
 	};
+
+	// Show loading spinner until hydration is complete
+	if (!isHydrated) {
+		return (
+			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+				<Spinner size="lg" />
+			</div>
+		);
+	}
 
 	if (!isAuthenticated) {
 		return null;
