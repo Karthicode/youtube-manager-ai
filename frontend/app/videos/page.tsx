@@ -12,10 +12,11 @@ import GridViewIcon from "@mui/icons-material/GridView";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { videosApi } from "@/api/api";
+import { videosApi, playlistsApi } from "@/api/api";
 import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
 import VideoCard from "@/components/VideoCard";
+import CreatePlaylistDialog from "@/components/CreatePlaylistDialog";
 import { useAuthStore } from "@/store/auth";
 import type { PaginatedVideosResponse, Video } from "@/types";
 
@@ -56,6 +57,11 @@ function VideosPageContent() {
 
 	// View mode
 	const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+	// Create playlist dialog
+	const [showCreatePlaylistDialog, setShowCreatePlaylistDialog] =
+		useState(false);
+	const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
 
 	// Handle hydration
 	useEffect(() => {
@@ -170,6 +176,51 @@ function VideosPageContent() {
 		setSortOrder(sortOrder === "asc" ? "desc" : "asc");
 	};
 
+	const handleCreatePlaylist = async (
+		title: string,
+		description: string,
+		privacyStatus: string,
+	) => {
+		setIsCreatingPlaylist(true);
+		try {
+			const response = await playlistsApi.createFromFilters({
+				title,
+				description,
+				privacy_status: privacyStatus,
+				filter_params: {
+					category_ids:
+						selectedCategories.length > 0 ? selectedCategories : undefined,
+					tag_ids: selectedTags.length > 0 ? selectedTags : undefined,
+					search: debouncedSearchQuery || undefined,
+					is_categorized: showOnlyCategorized ?? undefined,
+				},
+			});
+
+			// Success! Show message and navigate to playlists
+			alert(
+				`Playlist created! ${response.data.added_immediately} videos added immediately. ${response.data.queued_for_background > 0 ? `${response.data.queued_for_background} videos will be added in the background.` : ""}`,
+			);
+
+			// Close dialog
+			setShowCreatePlaylistDialog(false);
+
+			// Navigate to playlists page
+			router.push("/playlists");
+		} catch (error) {
+			console.error("Failed to create playlist:", error);
+			alert("Failed to create playlist. Please try again.");
+		} finally {
+			setIsCreatingPlaylist(false);
+		}
+	};
+
+	// Check if any filters are active
+	const hasActiveFilters =
+		selectedCategories.length > 0 ||
+		selectedTags.length > 0 ||
+		debouncedSearchQuery !== "" ||
+		showOnlyCategorized !== null;
+
 	// Don't render anything until hydrated
 	if (!mounted) {
 		return (
@@ -206,6 +257,18 @@ function VideosPageContent() {
 						</div>
 
 						<div className="flex gap-3 items-end flex-wrap">
+							{/* Create Playlist Button */}
+							{hasActiveFilters && totalVideos > 0 && (
+								<Button
+									color="success"
+									variant="shadow"
+									onPress={() => setShowCreatePlaylistDialog(true)}
+									className="h-10"
+								>
+									Create Playlist ({totalVideos})
+								</Button>
+							)}
+
 							{/* View Toggle */}
 							<div className="flex flex-col gap-1">
 								<span className="text-sm text-gray-600 dark:text-gray-400">
@@ -362,6 +425,21 @@ function VideosPageContent() {
 						</div>
 					</div>
 				</div>
+
+				{/* Create Playlist Dialog */}
+				<CreatePlaylistDialog
+					isOpen={showCreatePlaylistDialog}
+					onClose={() => setShowCreatePlaylistDialog(false)}
+					onConfirm={handleCreatePlaylist}
+					filterParams={{
+						category_ids: selectedCategories,
+						tag_ids: selectedTags,
+						search: debouncedSearchQuery,
+						is_categorized: showOnlyCategorized ?? undefined,
+					}}
+					videoCount={totalVideos}
+					isCreating={isCreatingPlaylist}
+				/>
 			</div>
 		</div>
 	);

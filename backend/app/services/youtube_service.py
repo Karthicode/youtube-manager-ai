@@ -392,3 +392,99 @@ class YouTubeService:
         except HttpError as e:
             api_logger.error(f"YouTube API error: {e}")
             return None
+
+    def create_playlist(
+        self, title: str, description: str | None = None, privacy_status: str = "private"
+    ) -> Dict[str, Any] | None:
+        """
+        Create a new YouTube playlist.
+
+        Args:
+            title: Playlist title (required)
+            description: Playlist description (optional)
+            privacy_status: "private", "unlisted", or "public" (default: "private")
+
+        Returns:
+            Playlist details from YouTube API or None if failed
+
+        Raises:
+            HttpError: If YouTube API request fails
+        """
+        try:
+            request_body = {
+                "snippet": {
+                    "title": title,
+                    "description": description or "",
+                },
+                "status": {
+                    "privacyStatus": privacy_status,
+                },
+            }
+
+            request = self.youtube.playlists().insert(
+                part="snippet,status", body=request_body
+            )
+
+            response = request.execute()
+            api_logger.info(f"Created playlist: {title} (ID: {response.get('id')})")
+            return response
+
+        except HttpError as e:
+            api_logger.error(f"Failed to create playlist '{title}': {e}")
+            raise
+
+    def add_videos_to_playlist(
+        self, playlist_id: str, video_ids: List[str], position_offset: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Add videos to a YouTube playlist in batch.
+
+        Args:
+            playlist_id: YouTube playlist ID
+            video_ids: List of YouTube video IDs to add
+            position_offset: Starting position in playlist (default: 0)
+
+        Returns:
+            Dict with success/failure counts and details:
+            {
+                "total": 10,
+                "succeeded": 8,
+                "failed": 2,
+                "failures": [{"video_id": "xyz", "error": "..."}]
+            }
+
+        Note: Each video addition costs 50 quota units
+        """
+        results = {"total": len(video_ids), "succeeded": 0, "failed": 0, "failures": []}
+
+        for i, video_id in enumerate(video_ids):
+            try:
+                request_body = {
+                    "snippet": {
+                        "playlistId": playlist_id,
+                        "resourceId": {"kind": "youtube#video", "videoId": video_id},
+                        "position": position_offset + i,
+                    }
+                }
+
+                self.youtube.playlistItems().insert(
+                    part="snippet", body=request_body
+                ).execute()
+
+                results["succeeded"] += 1
+                api_logger.debug(
+                    f"Added video {video_id} to playlist {playlist_id} at position {position_offset + i}"
+                )
+
+            except HttpError as e:
+                results["failed"] += 1
+                error_msg = str(e)
+                results["failures"].append({"video_id": video_id, "error": error_msg})
+                api_logger.warning(
+                    f"Failed to add video {video_id} to playlist {playlist_id}: {e}"
+                )
+
+        api_logger.info(
+            f"Added {results['succeeded']}/{results['total']} videos to playlist {playlist_id}"
+        )
+        return results

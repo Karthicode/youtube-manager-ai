@@ -4,15 +4,25 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+from datetime import datetime
+import uuid
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.playlist import Playlist
 from app.models.video import Video
-from app.schemas.playlist import PlaylistResponse, PlaylistWithVideos
+from app.models.category import Category
+from app.models.tag import Tag
+from app.schemas.playlist import (
+    PlaylistResponse,
+    PlaylistWithVideos,
+    CreatePlaylistFromFiltersRequest,
+    CreatePlaylistFromFiltersResponse,
+)
 from app.schemas.video import VideoResponse
 from app.services.youtube_service import YouTubeService
+from app.logger import api_logger
 
 router = APIRouter(prefix="/playlists")
 
@@ -214,4 +224,145 @@ async def sync_playlist_videos(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to sync playlist videos: {str(e)}",
+        )
+
+
+@router.post("/create-from-filters", response_model=CreatePlaylistFromFiltersResponse)
+async def create_playlist_from_filters(
+    request: CreatePlaylistFromFiltersRequest,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Create a YouTube playlist from filtered videos.
+
+    Flow:
+    1. Query videos matching the filter criteria
+    2. Create playlist on YouTube
+    3. Add first 20 videos immediately
+    4. Queue remaining videos for background processing (if > 20)
+    5. Sync playlist to local database
+
+    Args:
+        request: Playlist creation request with title, description, privacy, and filters
+
+    Returns:
+        Playlist details, video counts, and background job ID (if applicable)
+    """
+    try:
+        # Build query for filtered videos
+        query = db.query(Video).filter(Video.user_id == current_user.id)
+
+        # Apply filters
+        if request.filter_params.category_ids:
+            query = query.join(Video.categories).filter(
+                Category.id.in_(request.filter_params.category_ids)
+            )
+
+        if request.filter_params.tag_ids:
+            query = query.join(Video.tags).filter(
+                Tag.id.in_(request.filter_params.tag_ids)
+            )
+
+        if request.filter_params.search:
+            search_term = f"%{request.filter_params.search}%"
+            query = query.filter(
+                or_(
+                    Video.title.ilike(search_term),
+                    Video.description.ilike(search_term),
+                )
+            )
+
+        if request.filter_params.is_categorized is not None:
+            query = query.filter(
+                Video.is_categorized == request.filter_params.is_categorized
+            )
+
+        # Get all matching videos (distinct to avoid duplicates from joins)
+        videos = query.distinct().order_by(Video.liked_at.desc()).all()
+
+        if not videos:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No videos match the provided filters",
+            )
+
+        api_logger.info(
+            f"Creating playlist '{request.title}' with {len(videos)} filtered videos for user {current_user.id}"
+        )
+
+        # Create playlist on YouTube
+        youtube_service = YouTubeService(current_user)
+        yt_playlist = youtube_service.create_playlist(
+            title=request.title,
+            description=request.description,
+            privacy_status=request.privacy_status,
+        )
+
+        if not yt_playlist:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create playlist on YouTube",
+            )
+
+        # Extract YouTube video IDs
+        video_ids = [v.youtube_id for v in videos]
+
+        # Add first 20 videos immediately (quota: 1,000 units)
+        immediate_batch_size = 20
+        immediate_videos = video_ids[:immediate_batch_size]
+        remaining_videos = video_ids[immediate_batch_size:]
+
+        api_logger.info(
+            f"Adding {len(immediate_videos)} videos immediately to playlist {yt_playlist['id']}"
+        )
+
+        add_result = youtube_service.add_videos_to_playlist(
+            playlist_id=yt_playlist["id"],
+            video_ids=immediate_videos,
+            position_offset=0,
+        )
+
+        # Save playlist to local database
+        db_playlist = Playlist(
+            user_id=current_user.id,
+            youtube_id=yt_playlist["id"],
+            title=yt_playlist["snippet"]["title"],
+            description=yt_playlist["snippet"].get("description"),
+            thumbnail_url=None,  # Will be updated on next sync
+            video_count=len(videos),
+            published_at=datetime.utcnow(),
+            last_synced_at=datetime.utcnow(),
+        )
+        db.add(db_playlist)
+        db.commit()
+        db.refresh(db_playlist)
+
+        # Queue remaining videos for background processing
+        job_id = None
+        if remaining_videos:
+            job_id = str(uuid.uuid4())
+            api_logger.info(
+                f"Queueing {len(remaining_videos)} videos for background processing (job {job_id})"
+            )
+
+            # TODO: Queue background job via QStash
+            # For now, we'll handle this in the next step
+            # qstash_client.trigger_playlist_video_addition_job(...)
+
+        return CreatePlaylistFromFiltersResponse(
+            playlist=PlaylistResponse.model_validate(db_playlist),
+            total_videos=len(videos),
+            added_immediately=add_result["succeeded"],
+            queued_for_background=len(remaining_videos) if remaining_videos else 0,
+            job_id=job_id,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        api_logger.error(f"Failed to create playlist from filters: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create playlist: {str(e)}",
         )

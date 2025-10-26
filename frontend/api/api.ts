@@ -165,6 +165,18 @@ export const playlistsApi = {
 		playlistId: number,
 		params?: { max_results?: number; auto_categorize?: boolean },
 	) => api.post(`/playlists/${playlistId}/sync-videos`, null, { params }),
+
+	createFromFilters: (data: {
+		title: string;
+		description?: string;
+		privacy_status?: string;
+		filter_params: {
+			category_ids?: number[];
+			tag_ids?: number[];
+			search?: string;
+			is_categorized?: boolean;
+		};
+	}) => api.post("/playlists/create-from-filters", data),
 };
 
 export const categoriesApi = {

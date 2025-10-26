@@ -47,3 +47,31 @@ class PlaylistUpdate(BaseModel):
     description: str | None = None
     thumbnail_url: str | None = None
     video_count: int | None = None
+
+
+class FilterParams(BaseModel):
+    """Video filter parameters."""
+
+    category_ids: list[int] | None = None
+    tag_ids: list[int] | None = None
+    search: str | None = None
+    is_categorized: bool | None = None
+
+
+class CreatePlaylistFromFiltersRequest(BaseModel):
+    """Request schema for creating a playlist from filtered videos."""
+
+    title: str
+    description: str | None = None
+    privacy_status: str = "private"  # "private", "unlisted", "public"
+    filter_params: FilterParams
+
+
+class CreatePlaylistFromFiltersResponse(BaseModel):
+    """Response schema for playlist creation from filters."""
+
+    playlist: PlaylistResponse
+    total_videos: int
+    added_immediately: int
+    queued_for_background: int
+    job_id: str | None = None  # For tracking background progress
