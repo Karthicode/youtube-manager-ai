@@ -36,6 +36,23 @@ def set_job_data(job_id: str, data: dict, expire: int = 3600) -> None:
     redis_client.set(f"categorization_job:{job_id}", json.dumps(data), expire=expire)
 
 
+def get_playlist_job_data(job_id: str) -> dict | None:
+    """Get playlist job data from Redis."""
+    import json
+
+    redis_client = get_redis()
+    data = redis_client.get(f"playlist_job:{job_id}")
+    return json.loads(data) if data else None
+
+
+def set_playlist_job_data(job_id: str, data: dict, expire: int = 3600) -> None:
+    """Set playlist job data in Redis with expiration (default 1 hour)."""
+    import json
+
+    redis_client = get_redis()
+    redis_client.set(f"playlist_job:{job_id}", json.dumps(data), expire=expire)
+
+
 class JobPayload(BaseModel):
     """Payload for categorization job."""
 
@@ -43,6 +60,17 @@ class JobPayload(BaseModel):
     user_id: int
     video_ids: list[int]
     max_concurrent: int = 10
+
+
+class PlaylistJobPayload(BaseModel):
+    """Payload for playlist video addition job."""
+
+    job_id: str
+    user_id: int
+    playlist_id: str
+    youtube_playlist_id: str
+    video_youtube_ids: list[str]
+    position_offset: int = 0
 
 
 @router.post("/categorize-batch")
@@ -532,3 +560,253 @@ async def _process_batch_categorization(
         f"Job {job_id} completed: {data['completed'] if data else 0} successful, "
         f"{data['failed'] if data else 0} failed"
     )
+
+
+@router.post("/add-playlist-videos")
+async def process_playlist_video_addition_job(
+    request: Request,
+    upstash_signature: str | None = Header(None, alias="Upstash-Signature"),
+):
+    """
+    Worker endpoint called by QStash to add videos to YouTube playlists.
+
+    This runs the YouTube API calls outside of Vercel's request timeout.
+
+    Flow:
+    1. Verify QStash signature (security)
+    2. Parse request body
+    3. Fetch job data from Redis
+    4. Add videos to YouTube playlist in batch
+    5. Update progress in Redis
+    """
+    from app.database import SessionLocal
+
+    # Read raw body for signature verification
+    body = await request.body()
+
+    # Verify signature using QStash SDK
+    if settings.qstash_token and settings.qstash_current_signing_key:
+        try:
+            receiver = Receiver(
+                current_signing_key=settings.qstash_current_signing_key,
+                next_signing_key=settings.qstash_next_signing_key,
+            )
+
+            # Construct the full URL for verification
+            base_url = settings.backend_url.rstrip("/")
+            full_url = f"{base_url}/api/v1/worker/add-playlist-videos"
+
+            # Verify the signature - QStash SDK handles the verification
+            receiver.verify(
+                signature=upstash_signature,
+                body=body.decode("utf-8"),
+                url=full_url,
+            )
+            api_logger.info("QStash signature verified successfully")
+
+        except Exception as e:
+            api_logger.error(f"QStash signature verification failed: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid signature",
+            )
+
+    # Parse JSON payload
+    try:
+        import json
+
+        payload_dict = json.loads(body.decode("utf-8"))
+        payload = PlaylistJobPayload(**payload_dict)
+    except Exception as e:
+        api_logger.error(f"Failed to parse payload: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid payload: {str(e)}",
+        )
+
+    job_id = payload.job_id
+    api_logger.info(
+        f"Worker processing playlist job {job_id} with {len(payload.video_youtube_ids)} videos"
+    )
+
+    # Get job data from Redis
+    job_data = get_playlist_job_data(job_id)
+    if not job_data:
+        api_logger.error(f"Playlist job {job_id} not found in Redis")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+        )
+
+    # Update status to running
+    job_data["status"] = "running"
+    set_playlist_job_data(job_id, job_data)
+
+    db = SessionLocal()
+
+    try:
+        # Process this batch of videos
+        result = await _process_playlist_video_batch(
+            db, job_id, payload.user_id, payload.youtube_playlist_id,
+            payload.video_youtube_ids, payload.position_offset
+        )
+
+        api_logger.info(f"Playlist job {job_id} batch processed: {result}")
+        return {"status": "success", "job_id": job_id, **result}
+
+    except Exception as e:
+        api_logger.error(f"Worker playlist job {job_id} failed: {e}", exc_info=True)
+        job_data = get_playlist_job_data(job_id)
+        if job_data:
+            job_data["status"] = "error"
+            job_data["error"] = str(e)
+            set_playlist_job_data(job_id, job_data)
+
+            # Update user progress to error state
+            ProgressService.set_progress(
+                payload.user_id,
+                {
+                    "status": "error",
+                    "total": job_data.get("total", 0),
+                    "completed": job_data.get("completed", 0),
+                    "failed": job_data.get("failed", 0),
+                    "current_video": None,
+                    "error": str(e),
+                },
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Job processing failed: {str(e)}",
+        )
+    finally:
+        db.close()
+
+
+async def _process_playlist_video_batch(
+    db: Session,
+    job_id: str,
+    user_id: int,
+    youtube_playlist_id: str,
+    video_youtube_ids: list[str],
+    position_offset: int,
+) -> dict:
+    """
+    Process a batch of videos to add to YouTube playlist.
+
+    Args:
+        db: Database session
+        job_id: Job ID for tracking
+        user_id: User ID
+        youtube_playlist_id: YouTube playlist ID
+        video_youtube_ids: YouTube video IDs to add
+        position_offset: Starting position in playlist
+
+    Returns:
+        dict with processed count and whether job is complete
+    """
+    from app.models.user import User
+    from app.services.youtube_service import YouTubeService
+
+    # Get user for YouTube service
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        api_logger.error(f"User {user_id} not found")
+        return {"processed": 0, "complete": False, "error": "User not found"}
+
+    # Get job data
+    job_data = get_playlist_job_data(job_id)
+    if not job_data:
+        return {"processed": 0, "complete": False, "error": "Job not found"}
+
+    api_logger.info(
+        f"Processing batch of {len(video_youtube_ids)} videos for playlist {youtube_playlist_id}"
+    )
+
+    # Add videos to YouTube playlist
+    youtube_service = YouTubeService(user)
+    add_result = youtube_service.add_videos_to_playlist(
+        playlist_id=youtube_playlist_id,
+        video_ids=video_youtube_ids,
+        position_offset=position_offset,
+    )
+
+    # Update job data with results
+    latest_job_data = get_playlist_job_data(job_id)
+    if latest_job_data:
+        # Append batch results
+        latest_job_data["completed"] += add_result["succeeded"]
+        latest_job_data["failed"] += add_result["failed"]
+
+        # Add detailed results
+        for i, video_id in enumerate(video_youtube_ids):
+            if i < add_result["succeeded"]:
+                latest_job_data["results"].append({
+                    "video_id": video_id,
+                    "success": True,
+                })
+            else:
+                # Find matching failure
+                failure = next(
+                    (f for f in add_result["failures"] if f["video_id"] == video_id),
+                    None
+                )
+                latest_job_data["results"].append({
+                    "video_id": video_id,
+                    "success": False,
+                    "error": failure["error"] if failure else "Unknown error",
+                })
+
+        set_playlist_job_data(job_id, latest_job_data)
+
+        # Update user-specific progress for SSE endpoint
+        ProgressService.set_progress(
+            user_id,
+            {
+                "status": latest_job_data["status"],
+                "total": latest_job_data["total"],
+                "completed": latest_job_data["completed"],
+                "failed": latest_job_data["failed"],
+                "current_video": f"Added {latest_job_data['completed']} of {latest_job_data['total']} videos",
+            },
+        )
+
+        api_logger.info(
+            f"Playlist job {job_id}: Progress {latest_job_data['completed']}/{latest_job_data['total']} "
+            f"({(latest_job_data['completed']/latest_job_data['total']*100):.1f}%) - "
+            f"{add_result['succeeded']} succeeded, {add_result['failed']} failed"
+        )
+
+    # Check if job is complete
+    is_complete = latest_job_data and (
+        latest_job_data.get("completed", 0) + latest_job_data.get("failed", 0)
+        >= latest_job_data.get("total", 0)
+    )
+
+    if is_complete:
+        # Mark job as completed
+        final_job_data = get_playlist_job_data(job_id)
+        if final_job_data:
+            final_job_data["status"] = "completed"
+            final_job_data["current_video"] = None
+            set_playlist_job_data(job_id, final_job_data, expire=7200)
+
+            # Update user progress to completed
+            ProgressService.set_progress(
+                user_id,
+                {
+                    "status": "completed",
+                    "total": final_job_data["total"],
+                    "completed": final_job_data["completed"],
+                    "failed": final_job_data["failed"],
+                    "current_video": None,
+                },
+            )
+
+            api_logger.info(
+                f"Playlist job {job_id} completed! {final_job_data['completed']} videos added successfully, "
+                f"{final_job_data['failed']} failed."
+            )
+
+    return {
+        "processed": len(video_youtube_ids),
+        "complete": is_complete,
+    }

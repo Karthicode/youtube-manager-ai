@@ -23,6 +23,8 @@ from app.schemas.playlist import (
 from app.schemas.video import VideoResponse
 from app.services.youtube_service import YouTubeService
 from app.logger import api_logger
+from app.utils.qstash_client import trigger_playlist_video_addition_job
+from app.redis_client import get_redis
 
 router = APIRouter(prefix="/playlists")
 
@@ -321,8 +323,8 @@ async def create_playlist_from_filters(
         # Extract YouTube video IDs
         video_ids = [v.youtube_id for v in videos]
 
-        # Add first 20 videos immediately (quota: 1,000 units)
-        immediate_batch_size = 20
+        # Add videos immediately if <= 250, otherwise split into batches
+        immediate_batch_size = min(250, len(video_ids))
         immediate_videos = video_ids[:immediate_batch_size]
         remaining_videos = video_ids[immediate_batch_size:]
 
@@ -359,9 +361,35 @@ async def create_playlist_from_filters(
                 f"Queueing {len(remaining_videos)} videos for background processing (job {job_id})"
             )
 
-            # TODO: Queue background job via QStash
-            # For now, we'll handle this in the next step
-            # qstash_client.trigger_playlist_video_addition_job(...)
+            # Initialize job data in Redis
+            import json
+            redis_client = get_redis()
+            job_data = {
+                "job_id": job_id,
+                "user_id": current_user.id,
+                "playlist_id": str(db_playlist.id),
+                "youtube_playlist_id": yt_playlist["id"],
+                "total": len(remaining_videos),
+                "completed": 0,
+                "failed": 0,
+                "status": "pending",
+                "results": [],
+            }
+            redis_client.set(
+                f"playlist_job:{job_id}",
+                json.dumps(job_data),
+                ex=3600,  # 1 hour expiry
+            )
+
+            # Queue background job via QStash
+            await trigger_playlist_video_addition_job(
+                job_id=job_id,
+                user_id=current_user.id,
+                playlist_id=str(db_playlist.id),
+                youtube_playlist_id=yt_playlist["id"],
+                video_youtube_ids=remaining_videos,
+                position_offset=immediate_batch_size,
+            )
 
         return CreatePlaylistFromFiltersResponse(
             playlist=PlaylistResponse.model_validate(db_playlist),

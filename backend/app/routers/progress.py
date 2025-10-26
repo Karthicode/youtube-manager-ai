@@ -31,3 +31,27 @@ async def get_categorization_progress(
         }
 
     return progress
+
+
+@router.get("/playlist-creation")
+async def get_playlist_creation_progress(
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Get real-time progress of playlist video addition for current user.
+
+    Returns:
+        Progress data including total, completed, failed counts and current status
+    """
+    progress = ProgressService.get_progress(current_user.id)
+
+    if not progress:
+        return {
+            "status": "idle",
+            "total": 0,
+            "completed": 0,
+            "failed": 0,
+            "current_video": None,
+        }
+
+    return progress

@@ -175,10 +175,10 @@ export default function CreatePlaylistDialog({
 										{videoCount !== 1 ? "s" : ""} will be added to this
 										playlist
 									</p>
-									{videoCount > 20 && (
+									{videoCount > 250 && (
 										<p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-											First 20 videos will be added immediately. Remaining{" "}
-											{videoCount - 20} videos will be added in the background.
+											First 250 videos will be added immediately. Remaining{" "}
+											{videoCount - 250} videos will be added in the background.
 										</p>
 									)}
 								</div>
