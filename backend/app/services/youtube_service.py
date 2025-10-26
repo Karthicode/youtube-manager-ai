@@ -431,7 +431,10 @@ class YouTubeService:
             return None
 
     def create_playlist(
-        self, title: str, description: str | None = None, privacy_status: str = "private"
+        self,
+        title: str,
+        description: str | None = None,
+        privacy_status: str = "private",
     ) -> Dict[str, Any] | None:
         """
         Create a new YouTube playlist.

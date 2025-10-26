@@ -155,7 +155,6 @@ async def process_categorization_job(
 
     # Process videos synchronously - Vercel limits to ~10s, so we process ONE batch only
     # Each QStash call will process one batch
-    from app.database import SessionLocal
 
     db = SessionLocal()
 
@@ -231,7 +230,7 @@ async def _process_one_batch(
     ]
 
     if not uncategorized_videos:
-        api_logger.info(f"All videos in this batch already categorized, skipping")
+        api_logger.info("All videos in this batch already categorized, skipping")
         return {"processed": 0, "complete": False}
 
     # Categorize with single API call
@@ -279,7 +278,11 @@ async def _process_one_batch(
             except Exception as apply_error:
                 # Check if it's a duplicate key error during commit
                 error_str = str(apply_error).lower()
-                if "duplicate key" in error_str or "uniqueviolation" in error_str or "integrity" in error_str:
+                if (
+                    "duplicate key" in error_str
+                    or "uniqueviolation" in error_str
+                    or "integrity" in error_str
+                ):
                     api_logger.info(
                         f"Video {video_id} already categorized by concurrent worker, skipping (expected behavior)"
                     )
@@ -293,7 +296,9 @@ async def _process_one_batch(
 
         except Exception as e:
             # Unexpected error - log and mark as failed
-            api_logger.error(f"Unexpected error categorizing video {video_id}: {e}", exc_info=True)
+            api_logger.error(
+                f"Unexpected error categorizing video {video_id}: {e}", exc_info=True
+            )
             db.rollback()
             batch_results.append(
                 {
@@ -309,7 +314,9 @@ async def _process_one_batch(
     if latest_job_data:
         # Check which results are actually new (not already in results)
         existing_video_ids = {r["video_id"] for r in latest_job_data.get("results", [])}
-        new_results = [r for r in batch_results if r["video_id"] not in existing_video_ids]
+        new_results = [
+            r for r in batch_results if r["video_id"] not in existing_video_ids
+        ]
 
         if new_results:
             latest_job_data["results"].extend(new_results)
@@ -320,7 +327,9 @@ async def _process_one_batch(
             set_job_data(job_id, latest_job_data)
             api_logger.info(f"Added {len(new_results)} new results to job {job_id}")
         else:
-            api_logger.info(f"No new results to add (all already processed by other workers)")
+            api_logger.info(
+                "No new results to add (all already processed by other workers)"
+            )
     else:
         api_logger.error(f"Could not fetch latest job data for {job_id}")
 
@@ -348,7 +357,7 @@ async def _process_one_batch(
 
         api_logger.info(
             f"Job {job_id}: Progress {actual_completed}/{latest_job_data['total']} "
-            f"({(actual_completed/latest_job_data['total']*100):.1f}%) - "
+            f"({(actual_completed / latest_job_data['total'] * 100):.1f}%) - "
             f"{actual_successful} successful, {actual_failed} failed"
         )
 
@@ -358,7 +367,9 @@ async def _process_one_batch(
     invalidate_user_stats_cache(user_id)
 
     # Check if job is complete by comparing results count with total
-    is_complete = latest_job_data and latest_job_data.get("completed", 0) >= latest_job_data.get("total", 0)
+    is_complete = latest_job_data and latest_job_data.get(
+        "completed", 0
+    ) >= latest_job_data.get("total", 0)
 
     if is_complete:
         # Mark job as completed
@@ -371,7 +382,9 @@ async def _process_one_batch(
             # Count actual results for final stats
             actual_completed = len(final_job_data.get("results", []))
             actual_failed = sum(
-                1 for r in final_job_data.get("results", []) if not r.get("success", True)
+                1
+                for r in final_job_data.get("results", [])
+                if not r.get("success", True)
             )
             actual_successful = actual_completed - actual_failed
 
@@ -646,8 +659,12 @@ async def process_playlist_video_addition_job(
     try:
         # Process this batch of videos
         result = await _process_playlist_video_batch(
-            db, job_id, payload.user_id, payload.youtube_playlist_id,
-            payload.video_youtube_ids, payload.position_offset
+            db,
+            job_id,
+            payload.user_id,
+            payload.youtube_playlist_id,
+            payload.video_youtube_ids,
+            payload.position_offset,
         )
 
         api_logger.info(f"Playlist job {job_id} batch processed: {result}")
@@ -739,21 +756,25 @@ async def _process_playlist_video_batch(
         # Add detailed results
         for i, video_id in enumerate(video_youtube_ids):
             if i < add_result["succeeded"]:
-                latest_job_data["results"].append({
-                    "video_id": video_id,
-                    "success": True,
-                })
+                latest_job_data["results"].append(
+                    {
+                        "video_id": video_id,
+                        "success": True,
+                    }
+                )
             else:
                 # Find matching failure
                 failure = next(
                     (f for f in add_result["failures"] if f["video_id"] == video_id),
-                    None
+                    None,
                 )
-                latest_job_data["results"].append({
-                    "video_id": video_id,
-                    "success": False,
-                    "error": failure["error"] if failure else "Unknown error",
-                })
+                latest_job_data["results"].append(
+                    {
+                        "video_id": video_id,
+                        "success": False,
+                        "error": failure["error"] if failure else "Unknown error",
+                    }
+                )
 
         set_playlist_job_data(job_id, latest_job_data)
 
@@ -771,7 +792,7 @@ async def _process_playlist_video_batch(
 
         api_logger.info(
             f"Playlist job {job_id}: Progress {latest_job_data['completed']}/{latest_job_data['total']} "
-            f"({(latest_job_data['completed']/latest_job_data['total']*100):.1f}%) - "
+            f"({(latest_job_data['completed'] / latest_job_data['total'] * 100):.1f}%) - "
             f"{add_result['succeeded']} succeeded, {add_result['failed']} failed"
         )
 

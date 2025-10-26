@@ -81,7 +81,7 @@ class AIService:
                         "role": "system",
                         "content": f"""You are an expert video content analyzer. Your task is to categorize YouTube videos and generate relevant tags.
 
-Available categories: {', '.join(self.AVAILABLE_CATEGORIES)}
+Available categories: {", ".join(self.AVAILABLE_CATEGORIES)}
 
 Rules:
 1. Choose 1-2 primary categories that best describe the video
@@ -235,7 +235,9 @@ Rules:
 
         return tag
 
-    async def categorize_videos_batch_async(self, videos: List[Video]) -> List[VideoCategorization]:
+    async def categorize_videos_batch_async(
+        self, videos: List[Video]
+    ) -> List[VideoCategorization]:
         """
         Categorize multiple videos in a single API call (much faster!).
 
@@ -257,7 +259,9 @@ Rules:
                 f"{i}. **{video.title}** | {video.channel_title or 'Unknown'} | {duration}\n   {desc}"
             )
 
-        batch_prompt = f"Categorize these {len(videos)} videos:\n\n" + "\n\n".join(videos_info)
+        batch_prompt = f"Categorize these {len(videos)} videos:\n\n" + "\n\n".join(
+            videos_info
+        )
 
         try:
             # Define batch response model
@@ -271,7 +275,7 @@ Rules:
                         "role": "system",
                         "content": f"""You are an expert video content analyzer. Categorize ALL videos in the batch.
 
-Available categories: {', '.join(self.AVAILABLE_CATEGORIES)}
+Available categories: {", ".join(self.AVAILABLE_CATEGORIES)}
 
 For EACH video, provide:
 1. Choose 1-2 primary categories
@@ -342,7 +346,7 @@ Return results in the SAME ORDER as input.""",
                         "role": "system",
                         "content": f"""You are an expert video content analyzer. Your task is to categorize YouTube videos and generate relevant tags.
 
-Available categories: {', '.join(self.AVAILABLE_CATEGORIES)}
+Available categories: {", ".join(self.AVAILABLE_CATEGORIES)}
 
 Rules:
 1. Choose 1-2 primary categories that best describe the video
