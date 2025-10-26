@@ -12,7 +12,7 @@ import {
 	SelectItem,
 	Textarea,
 } from "@heroui/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface FilterParams {
 	category_ids?: number[];
@@ -71,15 +71,25 @@ export default function CreatePlaylistDialog({
 	const categoryNames: string[] = [];
 	const tagNames: string[] = [];
 
+	const [title, setTitle] = useState("");
+	const [description, setDescription] = useState("");
+	const [privacyStatus, setPrivacyStatus] = useState("private");
+
+	// Generate default title from filters
 	const defaultTitle = generatePlaylistTitle(
 		filterParams,
 		categoryNames,
 		tagNames,
 	);
 
-	const [title, setTitle] = useState(defaultTitle);
-	const [description, setDescription] = useState("");
-	const [privacyStatus, setPrivacyStatus] = useState("private");
+	// Initialize title when dialog opens
+	useEffect(() => {
+		if (isOpen && !isCreating) {
+			setTitle(defaultTitle);
+			setDescription("");
+			setPrivacyStatus("private");
+		}
+	}, [isOpen, defaultTitle, isCreating]);
 
 	const handleConfirm = () => {
 		if (title.trim()) {
@@ -92,11 +102,6 @@ export default function CreatePlaylistDialog({
 			onClose();
 		}
 	};
-
-	// Update title when dialog opens with new filters
-	if (isOpen && title !== defaultTitle && !isCreating) {
-		setTitle(defaultTitle);
-	}
 
 	return (
 		<Modal
