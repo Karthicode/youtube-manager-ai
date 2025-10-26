@@ -152,13 +152,13 @@ export default function CreatePlaylistDialog({
 									isDisabled={isCreating}
 									description="Who can view this playlist"
 								>
-									<SelectItem key="private" value="private">
+									<SelectItem key="private">
 										Private - Only you can view
 									</SelectItem>
-									<SelectItem key="unlisted" value="unlisted">
+									<SelectItem key="unlisted">
 										Unlisted - Anyone with link can view
 									</SelectItem>
-									<SelectItem key="public" value="public">
+									<SelectItem key="public">
 										Public - Anyone can find and view
 									</SelectItem>
 								</Select>
