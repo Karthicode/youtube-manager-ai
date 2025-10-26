@@ -6,10 +6,6 @@ import {
 	CardBody,
 	CardFooter,
 	Image,
-	Modal,
-	ModalBody,
-	ModalContent,
-	ModalHeader,
 	Spinner,
 } from "@heroui/react";
 import { formatDistanceToNow } from "date-fns";
@@ -40,27 +36,27 @@ export default function PlaylistsPage() {
 		}
 	}, []);
 
-	useEffect(() => {
-		if (!isAuthenticated) {
-			router.push("/");
-			return;
-		}
-
-		fetchPlaylists();
-	}, [isAuthenticated, router, fetchPlaylists]);
-
-	const handleSync = async () => {
+	const syncPlaylistsFromYouTube = useCallback(async () => {
 		setSyncing(true);
 		try {
 			await playlistsApi.syncPlaylists({ max_results: 50 });
 			await fetchPlaylists();
 		} catch (error) {
 			console.error("Failed to sync playlists:", error);
-			alert("Failed to sync playlists. Please try again.");
 		} finally {
 			setSyncing(false);
 		}
-	};
+	}, [fetchPlaylists]);
+
+	useEffect(() => {
+		if (!isAuthenticated) {
+			router.push("/");
+			return;
+		}
+
+		// Auto-sync playlists on page load
+		syncPlaylistsFromYouTube();
+	}, [isAuthenticated, router, syncPlaylistsFromYouTube]);
 
 	const handleViewPlaylist = (playlistId: number) => {
 		router.push(`/playlists/${playlistId}`);
@@ -80,47 +76,27 @@ export default function PlaylistsPage() {
 						<div>
 							<h1 className="text-3xl font-bold">Playlists</h1>
 							<p className="text-gray-600 dark:text-gray-400 mt-1">
-								{playlists.length > 0 && `${playlists.length} playlists`}
+								{syncing
+									? "Syncing with YouTube..."
+									: playlists.length > 0
+										? `${playlists.length} playlists`
+										: "No playlists found"}
 							</p>
 						</div>
-
-						<Button color="primary" size="lg" onPress={handleSync}>
-							Sync Playlists
-						</Button>
 					</div>
 
-					{/* Sync Modal */}
-					<Modal
-						isOpen={syncing}
-						isDismissable={false}
-						isKeyboardDismissDisabled={true}
-						hideCloseButton={true}
-						size="md"
-						backdrop="blur"
-					>
-						<ModalContent>
-							<ModalHeader className="flex flex-col gap-1">
-								Syncing Playlists
-							</ModalHeader>
-							<ModalBody className="py-8">
-								<div className="flex flex-col items-center gap-4">
-									<Spinner size="lg" color="primary" />
-									<div className="text-center space-y-2">
-										<p className="text-lg font-semibold">Please wait...</p>
-										<p className="text-sm text-gray-600 dark:text-gray-400">
-											Fetching your playlists from YouTube.
-										</p>
-										<p className="text-sm text-gray-600 dark:text-gray-400">
-											This may take a moment.
-										</p>
-									</div>
-								</div>
-							</ModalBody>
-						</ModalContent>
-					</Modal>
-
 					{/* Content */}
-					{loading ? (
+					{syncing ? (
+						<div className="flex flex-col justify-center items-center h-64 gap-4">
+							<Spinner size="lg" color="primary" />
+							<div className="text-center space-y-2">
+								<p className="text-lg font-semibold">Syncing playlists...</p>
+								<p className="text-sm text-gray-600 dark:text-gray-400">
+									Fetching your playlists from YouTube
+								</p>
+							</div>
+						</div>
+					) : loading ? (
 						<div className="flex justify-center items-center h-64">
 							<Spinner size="lg" />
 						</div>
@@ -227,7 +203,7 @@ export default function PlaylistsPage() {
 						<div className="text-center py-12">
 							<p className="text-gray-500 text-lg">No playlists found</p>
 							<p className="text-gray-400 text-sm mt-2">
-								Click "Sync Playlists" to fetch your YouTube playlists
+								Create playlists on YouTube or from the Videos page to see them here
 							</p>
 						</div>
 					)}

@@ -155,6 +155,7 @@ class YouTubeService:
             playlists = []
             next_page_token = None
             total_fetched = 0
+            youtube_playlist_ids = set()
 
             while total_fetched < max_results:
                 request = self.youtube.playlists().list(
@@ -167,6 +168,7 @@ class YouTubeService:
                 response = request.execute()
 
                 for item in response.get("items", []):
+                    youtube_playlist_ids.add(item["id"])
                     playlist = self._process_playlist_item(db, item)
                     if playlist:
                         playlists.append(playlist)
@@ -176,6 +178,24 @@ class YouTubeService:
 
                 if not next_page_token:
                     break
+
+            # Mark playlists that no longer exist on YouTube as deleted
+            existing_playlists = (
+                db.query(Playlist)
+                .filter(
+                    Playlist.user_id == self.user.id,
+                    Playlist.deleted_at.is_(None),
+                )
+                .all()
+            )
+
+            for existing_playlist in existing_playlists:
+                if existing_playlist.youtube_id not in youtube_playlist_ids:
+                    api_logger.info(
+                        f"Marking playlist as deleted: {existing_playlist.title} (ID: {existing_playlist.youtube_id})"
+                    )
+                    existing_playlist.deleted_at = datetime.utcnow()
+                    db.commit()
 
             return playlists, total_fetched
 
@@ -258,6 +278,15 @@ class YouTubeService:
             return videos
 
         except HttpError as e:
+            # Check if playlist was deleted (404 error)
+            if e.resp.status == 404:
+                api_logger.warning(
+                    f"Playlist not found on YouTube: {playlist.title} (ID: {playlist.youtube_id}). Marking as deleted."
+                )
+                playlist.deleted_at = datetime.utcnow()
+                db.commit()
+                return []
+
             api_logger.error(f"YouTube API error: {e}")
             raise
 

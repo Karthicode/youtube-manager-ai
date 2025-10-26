@@ -45,7 +45,10 @@ async def get_playlists(
         page_size: Number of results per page (1-100)
         search: Optional search query for playlist titles
     """
-    query = db.query(Playlist).filter(Playlist.user_id == current_user.id)
+    query = db.query(Playlist).filter(
+        Playlist.user_id == current_user.id,
+        Playlist.deleted_at.is_(None),  # Exclude deleted playlists
+    )
 
     # Apply search if provided
     if search:
