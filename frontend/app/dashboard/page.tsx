@@ -313,7 +313,6 @@ export default function Dashboard() {
 						</ModalContent>
 					</Modal>
 
-
 					{loading ? (
 						<div className="flex justify-center items-center h-64">
 							<Spinner size="lg" />

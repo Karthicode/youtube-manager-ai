@@ -134,23 +134,28 @@ function VideosPageContent() {
 		showOnlyCategorized,
 	]);
 
+	// Initialize filters from URL on mount
+	useEffect(() => {
+		if (!mounted) return;
+
+		const categorized = searchParams.get("categorized");
+		if (categorized === "false") {
+			setShowOnlyCategorized(false);
+		}
+	}, [mounted, searchParams]);
+
+	// Fetch videos when filters or authentication changes
 	useEffect(() => {
 		// Wait for Zustand to hydrate from localStorage
-		if (!mounted) return;
+		if (!mounted || !isHydrated) return;
 
 		if (!isAuthenticated) {
 			router.push("/");
 			return;
 		}
 
-		// Read initial filters from URL
-		const categorized = searchParams.get("categorized");
-		if (categorized === "false") {
-			setShowOnlyCategorized(false);
-		}
-
 		fetchVideos();
-	}, [mounted, isAuthenticated, router, searchParams, fetchVideos]);
+	}, [mounted, isHydrated, isAuthenticated, router, fetchVideos]);
 
 	const handleCategorize = async (videoId: number) => {
 		setCategorizingId(videoId);
@@ -170,6 +175,21 @@ function VideosPageContent() {
 		setSearchQuery("");
 		setShowOnlyCategorized(null);
 		setCurrentPage(1);
+	};
+
+	const handleCategorizationFilterChange = (value: boolean | null) => {
+		setShowOnlyCategorized(value);
+		setCurrentPage(1); // Reset to first page when filter changes
+	};
+
+	const handleCategoriesChange = (categories: number[]) => {
+		setSelectedCategories(categories);
+		setCurrentPage(1); // Reset to first page when filter changes
+	};
+
+	const handleTagsChange = (tags: number[]) => {
+		setSelectedTags(tags);
+		setCurrentPage(1); // Reset to first page when filter changes
 	};
 
 	const toggleSortOrder = () => {
@@ -328,7 +348,10 @@ function VideosPageContent() {
 
 							{/* Sort By */}
 							<div className="flex flex-col gap-1">
-								<label className="text-sm text-gray-600 dark:text-gray-400" htmlFor="sort-by">
+								<label
+									className="text-sm text-gray-600 dark:text-gray-400"
+									htmlFor="sort-by"
+								>
 									Sort by
 								</label>
 								<Select
@@ -370,10 +393,10 @@ function VideosPageContent() {
 								selectedTags={selectedTags}
 								searchQuery={searchQuery}
 								showOnlyCategorized={showOnlyCategorized}
-								onCategoriesChange={setSelectedCategories}
-								onTagsChange={setSelectedTags}
+								onCategoriesChange={handleCategoriesChange}
+								onTagsChange={handleTagsChange}
 								onSearchChange={setSearchQuery}
-								onCategorizationFilterChange={setShowOnlyCategorized}
+								onCategorizationFilterChange={handleCategorizationFilterChange}
 								onClearFilters={handleClearFilters}
 							/>
 						</div>

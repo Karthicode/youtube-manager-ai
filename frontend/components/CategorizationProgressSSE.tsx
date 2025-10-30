@@ -162,7 +162,11 @@ export default function CategorizationProgressSSE({
 
 	const handleCancel = async () => {
 		if (!jobId) return;
-		if (!confirm("Are you sure you want to cancel categorization? This cannot be undone.")) {
+		if (
+			!confirm(
+				"Are you sure you want to cancel categorization? This cannot be undone.",
+			)
+		) {
 			return;
 		}
 		try {

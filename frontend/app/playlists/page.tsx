@@ -212,7 +212,8 @@ export default function PlaylistsPage() {
 						<div className="text-center py-12">
 							<p className="text-gray-500 text-lg">No playlists found</p>
 							<p className="text-gray-400 text-sm mt-2">
-								Create playlists on YouTube or from the Videos page to see them here
+								Create playlists on YouTube or from the Videos page to see them
+								here
 							</p>
 						</div>
 					)}
