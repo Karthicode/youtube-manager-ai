@@ -89,26 +89,24 @@ export default function CategorizationProgressSSE({
 								const data: ProgressData = JSON.parse(line.substring(6));
 								setProgress(data);
 
-								// Handle completion
-								if (data.status === "completed") {
-									onComplete?.();
-									isCancelled = true;
-									break;
+								switch (data.status) {
+									case "completed":
+										onComplete?.();
+										isCancelled = true;
+										break;
+
+									case "error":
+										onError?.(data.error || "Categorization failed");
+										isCancelled = true;
+										break;
+
+									case "cancelled":
+										onComplete?.(); // Still refresh stats to show partial progress
+										isCancelled = true;
+										break;
 								}
 
-								// Handle error
-								if (data.status === "error") {
-									onError?.(data.error || "Categorization failed");
-									isCancelled = true;
-									break;
-								}
-
-								// Handle cancellation
-								if (data.status === "cancelled") {
-									onComplete?.(); // Still refresh stats to show partial progress
-									isCancelled = true;
-									break;
-								}
+								if (isCancelled) break;
 							} catch (error) {
 								console.error("Failed to parse SSE data:", error);
 							}
