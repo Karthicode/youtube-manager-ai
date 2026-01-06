@@ -165,7 +165,6 @@ export default function VideoCard({
 						<div className="w-full object-cover h-[160px] sm:h-[200px]">
 							<YouTubeEmbed
 								videoid={video.youtube_id}
-								width="100%"
 								height={200}
 							/>
 						</div>
