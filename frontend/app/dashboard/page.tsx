@@ -119,6 +119,16 @@ export default function Dashboard() {
 		}
 	};
 
+	const handleCategoryClick = async (category: string) => {
+		try {
+			// Navigate to videos page and include the category name in query params
+			router.push(`/videos?category=${encodeURIComponent(category)}`);
+		} catch (error) {
+			console.error("Failed to navigate to category:", error);
+			alert("Failed to open category. Please try again.");
+		}
+	};
+
 	// Don't render anything until hydrated
 	if (!mounted) {
 		return (
@@ -393,6 +403,7 @@ export default function Dashboard() {
 												{stats.top_categories.map((category) => (
 													<div
 														key={category.name}
+														onClick={() => handleCategoryClick(category.name)}
 														className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
 													>
 														<span className="font-medium text-gray-700 dark:text-gray-300">

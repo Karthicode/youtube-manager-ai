@@ -202,7 +202,8 @@ export default function VideoCard({
 						)}
 					</div>
 				)}
-				<div
+				{/** biome-ignore lint/a11y/useSemanticElements: <explanation> */}
+<div
 					role="button"
 					tabIndex={0}
 					className="p-2 sm:p-3 space-y-1 sm:space-y-2 cursor-pointer"

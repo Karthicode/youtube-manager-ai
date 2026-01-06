@@ -12,7 +12,7 @@ import GridViewIcon from "@mui/icons-material/GridView";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { videosApi, playlistsApi } from "@/api/api";
+import { videosApi, playlistsApi, categoriesApi } from "@/api/api";
 import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
 import VideoCard from "@/components/VideoCard";
@@ -141,6 +141,25 @@ function VideosPageContent() {
 		const categorized = searchParams.get("categorized");
 		if (categorized === "false") {
 			setShowOnlyCategorized(false);
+		}
+
+		// If a category name is provided in the URL, map it to an id and select it
+		const categoryParam = searchParams.get("category");
+		if (categoryParam) {
+			(async () => {
+				try {
+					const res = await categoriesApi.getCategories();
+					const match = res.data.find(
+						(c: any) => c.name.toLowerCase() === categoryParam.toLowerCase(),
+					);
+					if (match) {
+						setSelectedCategories([match.id]);
+						setCurrentPage(1);
+					}
+				} catch (err) {
+					console.error("Failed to map category from URL:", err);
+				}
+			})();
 		}
 	}, [mounted, searchParams]);
 
