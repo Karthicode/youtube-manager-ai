@@ -163,7 +163,11 @@ export default function VideoCard({
 					// Embedded player — keep interactions inside the player (no outer click)
 					<div className="relative">
 						<div className="w-full object-cover h-[160px] sm:h-[200px]">
-							<YouTubeEmbed id={video.youtube_id} className="w-full h-full" />
+							<YouTubeEmbed
+								videoid={video.youtube_id}
+								width="100%"
+								height={200}
+							/>
 						</div>
 						{video.duration_seconds && (
 							<div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
