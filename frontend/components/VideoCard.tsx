@@ -11,6 +11,7 @@ import {
 } from "@heroui/react";
 import { formatDistanceToNow } from "date-fns";
 import type { Video } from "@/types";
+import { YouTubeEmbed } from "@next/third-parties/google";
 
 interface VideoCardProps {
 	video: Video;
@@ -154,36 +155,50 @@ export default function VideoCard({
 		);
 	}
 
-	// Grid view - original with image
+	// Grid view - original with image (now supports embedded YouTube)
 	return (
 		<Card className="w-full hover:scale-102 sm:hover:scale-105 transition-transform">
 			<CardBody className="p-0">
-				<div
-					role="button"
-					tabIndex={0}
-					className="relative cursor-pointer"
-					onClick={openYouTube}
-					onKeyDown={(e) => {
-						if (e.key === "Enter" || e.key === " ") {
-							e.preventDefault();
-							openYouTube();
-						}
-					}}
-				>
-					<Image
-						shadow="sm"
-						radius="none"
-						width="100%"
-						alt={video.title}
-						className="w-full object-cover h-[160px] sm:h-[200px]"
-						src={video.thumbnail_url || "/placeholder-thumbnail.jpg"}
-					/>
-					{video.duration_seconds && (
-						<div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
-							{formatDuration(video.duration_seconds)}
+				{video.youtube_id ? (
+					// Embedded player — keep interactions inside the player (no outer click)
+					<div className="relative">
+						<div className="w-full object-cover h-[160px] sm:h-[200px]">
+							<YouTubeEmbed id={video.youtube_id} className="w-full h-full" />
 						</div>
-					)}
-				</div>
+						{video.duration_seconds && (
+							<div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+								{formatDuration(video.duration_seconds)}
+							</div>
+						)}
+					</div>
+				) : (
+					<div
+						role="button"
+						tabIndex={0}
+						className="relative cursor-pointer"
+						onClick={openYouTube}
+						onKeyDown={(e) => {
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault();
+								openYouTube();
+							}
+						}}
+					>
+						<Image
+							shadow="sm"
+							radius="none"
+							width="100%"
+							alt={video.title}
+							className="w-full object-cover h-[160px] sm:h-[200px]"
+							src={video.thumbnail_url || "/placeholder-thumbnail.jpg"}
+						/>
+						{video.duration_seconds && (
+							<div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+								{formatDuration(video.duration_seconds)}
+							</div>
+						)}
+					</div>
+				)}
 				<div
 					role="button"
 					tabIndex={0}
