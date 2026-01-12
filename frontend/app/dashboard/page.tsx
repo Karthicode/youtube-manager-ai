@@ -16,7 +16,6 @@ import {
 	ModalContent,
 	ModalFooter,
 	ModalHeader,
-	Progress,
 	Spinner,
 } from "@heroui/react";
 import { formatDistanceToNow } from "date-fns";
@@ -365,26 +364,86 @@ export default function Dashboard() {
 								</Card>
 							</div>
 
-							{/* Categorization Progress */}
+							{/* Quick Actions */}
 							<Card className="shadow-lg">
 								<CardHeader className="pb-2 sm:pb-3">
 									<h3 className="text-base sm:text-lg font-semibold">
-										Categorization Progress
+										Quick Actions
 									</h3>
 								</CardHeader>
+								<Divider />
 								<CardBody className="pt-3 sm:pt-4">
-									<Progress
-										value={stats.categorization_percentage}
-										color="primary"
-										size="lg"
-										showValueLabel
-										className="mb-2 sm:mb-3"
-										radius="md"
-									/>
-									<p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-										{stats.categorized} of {stats.total_videos} videos
-										categorized
-									</p>
+									<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+										<Button
+											color="primary"
+											variant="flat"
+											onPress={() => router.push("/videos")}
+											radius="md"
+											size="md"
+											className="w-full"
+										>
+											View All Videos
+										</Button>
+										<Button
+											color="secondary"
+											variant="flat"
+											onPress={() => router.push("/playlists")}
+											radius="md"
+											size="md"
+											className="w-full"
+										>
+											View Playlists
+										</Button>
+										<Button
+											color="success"
+											variant="flat"
+											onPress={() => router.push("/videos?categorized=false")}
+											radius="md"
+											size="md"
+											className="w-full"
+										>
+											View Uncategorized
+										</Button>
+										{stats && stats.uncategorized > 0 && (
+											<Dropdown>
+												<DropdownTrigger>
+													<Button
+														color="warning"
+														variant="solid"
+														isLoading={batchCategorizing}
+														radius="md"
+														size="md"
+														className="w-full"
+													>
+														Categorize All ({stats.uncategorized})
+													</Button>
+												</DropdownTrigger>
+												<DropdownMenu aria-label="Categorization options">
+													<DropdownItem
+														key="fast"
+														description="10 concurrent requests with real-time progress"
+														onPress={() => handleBatchCategorize(10)}
+													>
+														Fast (Recommended)
+													</DropdownItem>
+													<DropdownItem
+														key="faster"
+														description="20 concurrent requests (May hit rate limits)"
+														onPress={() => handleBatchCategorize(20)}
+													>
+														Faster
+													</DropdownItem>
+													<DropdownItem
+														key="fastest"
+														description="30 concurrent requests (Higher rate limit risk)"
+														onPress={() => handleBatchCategorize(30)}
+													>
+														Fastest
+													</DropdownItem>
+												</DropdownMenu>
+											</Dropdown>
+										)}
+									</div>
 								</CardBody>
 							</Card>
 
@@ -429,114 +488,92 @@ export default function Dashboard() {
 								</Card>
 
 								<Card className="shadow-lg">
-									<CardHeader className="pb-3">
-										<h3 className="text-lg font-semibold">Top Tags</h3>
+									<CardHeader className="pb-2 sm:pb-3">
+										<h3 className="text-base sm:text-lg font-semibold">
+											Getting Started
+										</h3>
 									</CardHeader>
 									<Divider />
-									<CardBody className="pt-4">
-										{stats.top_tags.length > 0 ? (
-											<div className="flex flex-wrap gap-2">
-												{stats.top_tags.map((tag) => (
-													<Chip
-														key={tag.name}
-														variant="bordered"
-														size="sm"
-														radius="md"
+									<CardBody className="pt-3 sm:pt-4">
+										<ul
+											role="list"
+											aria-label="Getting started tips"
+											className="space-y-3"
+										>
+											{stats.total_videos === 0 && (
+												<li className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+													<span
+														className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-blue-500 text-white text-sm font-medium"
+														aria-hidden="true"
 													>
-														{tag.name} ({tag.count})
-													</Chip>
-												))}
-											</div>
-										) : (
-											<p className="text-gray-500 text-center py-4">
-												No tags yet
-											</p>
-										)}
+														1
+													</span>
+													<div>
+														<p className="font-medium text-gray-800 dark:text-gray-200">
+															Sync your videos
+														</p>
+														<p className="text-sm text-gray-600 dark:text-gray-400">
+															Click &quot;Sync Latest&quot; or &quot;Sync All Videos&quot; to import your liked videos from YouTube.
+														</p>
+													</div>
+												</li>
+											)}
+											{stats.total_videos > 0 && stats.uncategorized > 0 && (
+												<li className="flex items-start gap-3 p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+													<span
+														className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-orange-500 text-white text-sm font-medium"
+														aria-hidden="true"
+													>
+														!
+													</span>
+													<div>
+														<p className="font-medium text-gray-800 dark:text-gray-200">
+															Categorize your videos
+														</p>
+														<p className="text-sm text-gray-600 dark:text-gray-400">
+															You have {stats.uncategorized} uncategorized video{stats.uncategorized !== 1 ? "s" : ""}. Use &quot;Categorize All&quot; in Quick Actions to organize them with AI.
+														</p>
+													</div>
+												</li>
+											)}
+											{stats.categorization_percentage === 100 && stats.total_videos > 0 && (
+												<li className="flex items-start gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
+													<span
+														className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-green-500 text-white text-sm font-medium"
+														aria-hidden="true"
+													>
+														✓
+													</span>
+													<div>
+														<p className="font-medium text-gray-800 dark:text-gray-200">
+															All caught up!
+														</p>
+														<p className="text-sm text-gray-600 dark:text-gray-400">
+															All your videos are categorized. Browse them by category or create playlists.
+														</p>
+													</div>
+												</li>
+											)}
+											<li className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+												<span
+													className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-gray-500 text-white text-sm font-medium"
+													aria-hidden="true"
+												>
+													?
+												</span>
+												<div>
+													<p className="font-medium text-gray-800 dark:text-gray-200">
+														Keyboard navigation
+													</p>
+													<p className="text-sm text-gray-600 dark:text-gray-400">
+														Use <kbd className="px-1.5 py-0.5 text-xs font-mono bg-gray-200 dark:bg-gray-700 rounded">Tab</kbd> to navigate between elements and <kbd className="px-1.5 py-0.5 text-xs font-mono bg-gray-200 dark:bg-gray-700 rounded">Enter</kbd> to activate buttons.
+													</p>
+												</div>
+											</li>
+										</ul>
 									</CardBody>
 								</Card>
 							</div>
-
-							{/* Quick Actions */}
-							<Card className="shadow-lg">
-								<CardHeader className="pb-2 sm:pb-3">
-									<h3 className="text-base sm:text-lg font-semibold">
-										Quick Actions
-									</h3>
-								</CardHeader>
-								<Divider />
-								<CardBody className="pt-3 sm:pt-4">
-									<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-										<Button
-											color="primary"
-											variant="flat"
-											onPress={() => router.push("/videos")}
-											radius="md"
-											size="md"
-											className="w-full"
-										>
-											View All Videos
-										</Button>
-										<Button
-											color="secondary"
-											variant="flat"
-											onPress={() => router.push("/playlists")}
-											radius="md"
-											size="md"
-											className="w-full"
-										>
-											View Playlists
-										</Button>
-										<Button
-											color="success"
-											variant="flat"
-											onPress={() => router.push("/videos?categorized=false")}
-											radius="md"
-											size="md"
-											className="w-full sm:col-span-2 lg:col-span-1"
-										>
-											View Uncategorized
-										</Button>
-										{stats && stats.uncategorized > 0 && (
-											<Dropdown>
-												<DropdownTrigger>
-													<Button
-														color="warning"
-														variant="solid"
-														isLoading={batchCategorizing}
-														radius="md"
-														size="md"
-													>
-														Categorize All ({stats.uncategorized})
-													</Button>
-												</DropdownTrigger>
-												<DropdownMenu aria-label="Categorization options">
-													<DropdownItem
-														key="fast"
-														description="10 concurrent requests with real-time progress"
-														onPress={() => handleBatchCategorize(10)}
-													>
-														Fast (Recommended)
-													</DropdownItem>
-													<DropdownItem
-														key="faster"
-														description="20 concurrent requests (May hit rate limits)"
-														onPress={() => handleBatchCategorize(20)}
-													>
-														Faster
-													</DropdownItem>
-													<DropdownItem
-														key="fastest"
-														description="30 concurrent requests (Higher rate limit risk)"
-														onPress={() => handleBatchCategorize(30)}
-													>
-														Fastest
-													</DropdownItem>
-												</DropdownMenu>
-											</Dropdown>
-										)}
-									</div>
-								</CardBody>
-							</Card>
 						</>
 					) : (
 						<Card>
