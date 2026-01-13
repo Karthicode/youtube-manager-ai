@@ -13,12 +13,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { playlistsApi } from "@/api/api";
 import Navbar from "@/components/Navbar";
-import { useAuthStore } from "@/store/auth";
+import { useAuthGuard } from "@/hooks";
 import type { Playlist } from "@/types";
 
 export default function PlaylistsPage() {
 	const router = useRouter();
-	const { isAuthenticated, isHydrated } = useAuthStore();
+	const { isReady, isAuthenticated } = useAuthGuard();
 
 	const [playlists, setPlaylists] = useState<Playlist[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -49,30 +49,22 @@ export default function PlaylistsPage() {
 	}, [fetchPlaylists]);
 
 	useEffect(() => {
-		if (!isAuthenticated) {
-			router.push("/");
-			return;
-		}
-
+		if (!isReady || !isAuthenticated) return;
 		// Auto-sync playlists on page load
 		syncPlaylistsFromYouTube();
-	}, [isAuthenticated, router, syncPlaylistsFromYouTube]);
+	}, [isReady, isAuthenticated, syncPlaylistsFromYouTube]);
 
 	const handleViewPlaylist = (playlistId: number) => {
 		router.push(`/playlists/${playlistId}`);
 	};
 
-	// Show loading spinner until hydration is complete
-	if (!isHydrated) {
+	// Don't render anything until hydrated and authenticated
+	if (!isReady || !isAuthenticated) {
 		return (
 			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
 				<Spinner size="lg" />
 			</div>
 		);
-	}
-
-	if (!isAuthenticated) {
-		return null;
 	}
 
 	return (

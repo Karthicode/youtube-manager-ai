@@ -6,35 +6,25 @@ import {
 	CardBody,
 	CardHeader,
 	Divider,
+	Spinner,
 	Switch,
 } from "@heroui/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import ThemeToggle from "@/components/ThemeToggle";
-import { useAuthStore } from "@/store/auth";
+import { useAuthGuard } from "@/hooks";
 
 export default function Settings() {
 	const router = useRouter();
-	const { isAuthenticated, user } = useAuthStore();
-	const [mounted, setMounted] = useState(false);
+	const { isReady, isAuthenticated, user } = useAuthGuard();
 
-	// Handle hydration
-	useEffect(() => {
-		setMounted(true);
-	}, []);
-
-	useEffect(() => {
-		if (!mounted) return;
-
-		if (!isAuthenticated) {
-			router.push("/");
-			return;
-		}
-	}, [mounted, isAuthenticated, router]);
-
-	if (!mounted || !isAuthenticated) {
-		return null;
+	// Don't render anything until hydrated and authenticated
+	if (!isReady || !isAuthenticated) {
+		return (
+			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+				<Spinner size="lg" />
+			</div>
+		);
 	}
 
 	return (

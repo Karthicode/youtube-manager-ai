@@ -9,35 +9,21 @@ import {
 	CardHeader,
 	Divider,
 	Link,
+	Spinner,
 	Textarea,
 } from "@heroui/react";
 import EmailIcon from "@mui/icons-material/Email";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Navbar from "@/components/Navbar";
-import { useAuthStore } from "@/store/auth";
+import { useAuthGuard } from "@/hooks";
 
 export default function Help() {
 	const router = useRouter();
-	const { isAuthenticated } = useAuthStore();
-	const [mounted, setMounted] = useState(false);
+	const { isReady, isAuthenticated } = useAuthGuard();
 	const [feedback, setFeedback] = useState("");
-
-	// Handle hydration
-	useEffect(() => {
-		setMounted(true);
-	}, []);
-
-	useEffect(() => {
-		if (!mounted) return;
-
-		if (!isAuthenticated) {
-			router.push("/");
-			return;
-		}
-	}, [mounted, isAuthenticated, router]);
 
 	const handleSubmitFeedback = () => {
 		// TODO: Implement feedback submission
@@ -47,8 +33,13 @@ export default function Help() {
 		setFeedback("");
 	};
 
-	if (!mounted || !isAuthenticated) {
-		return null;
+	// Don't render anything until hydrated and authenticated
+	if (!isReady || !isAuthenticated) {
+		return (
+			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+				<Spinner size="lg" />
+			</div>
+		);
 	}
 
 	return (

@@ -24,12 +24,12 @@ import { useCallback, useEffect, useState } from "react";
 import { videosApi } from "@/api/api";
 import CategorizationProgressSSE from "@/components/CategorizationProgressSSE";
 import Navbar from "@/components/Navbar";
-import { useAuthStore } from "@/store/auth";
+import { useAuthGuard } from "@/hooks";
 import type { VideoStats } from "@/types";
 
 export default function Dashboard() {
 	const router = useRouter();
-	const { isAuthenticated, user } = useAuthStore();
+	const { isReady, isAuthenticated, user } = useAuthGuard();
 	const [stats, setStats] = useState<VideoStats | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [syncing, setSyncing] = useState(false);
@@ -45,12 +45,6 @@ export default function Dashboard() {
 		pages_fetched?: number;
 		[key: string]: unknown;
 	} | null>(null);
-	const [mounted, setMounted] = useState(false);
-
-	// Handle hydration
-	useEffect(() => {
-		setMounted(true);
-	}, []);
 
 	const fetchStats = useCallback(async () => {
 		try {
@@ -64,16 +58,9 @@ export default function Dashboard() {
 	}, []);
 
 	useEffect(() => {
-		// Wait for Zustand to hydrate from localStorage
-		if (!mounted) return;
-
-		if (!isAuthenticated) {
-			router.push("/");
-			return;
-		}
-
+		if (!isReady || !isAuthenticated) return;
 		fetchStats();
-	}, [mounted, isAuthenticated, router, fetchStats]);
+	}, [isReady, isAuthenticated, fetchStats]);
 
 	const handleSync = async () => {
 		setSyncing(true);
@@ -128,17 +115,13 @@ export default function Dashboard() {
 		}
 	};
 
-	// Don't render anything until hydrated
-	if (!mounted) {
+	// Don't render anything until hydrated and authenticated
+	if (!isReady || !isAuthenticated) {
 		return (
 			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex justify-center items-center">
 				<Spinner size="lg" />
 			</div>
 		);
-	}
-
-	if (!isAuthenticated) {
-		return null;
 	}
 
 	return (

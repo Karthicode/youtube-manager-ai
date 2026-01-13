@@ -18,14 +18,14 @@ import { playlistsApi, videosApi } from "@/api/api";
 import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
 import VideoCard from "@/components/VideoCard";
-import { useAuthStore } from "@/store/auth";
+import { useAuthGuard } from "@/hooks";
 import type { Playlist, Video } from "@/types";
 
 export default function PlaylistDetailPage() {
 	const router = useRouter();
 	const params = useParams();
 	const playlistId = parseInt(params.id as string, 10);
-	const { isAuthenticated } = useAuthStore();
+	const { isReady, isAuthenticated } = useAuthGuard();
 
 	const [playlist, setPlaylist] = useState<Playlist | null>(null);
 	const [videos, setVideos] = useState<Video[]>([]);
@@ -67,13 +67,9 @@ export default function PlaylistDetailPage() {
 	}, [playlistId, selectedCategories, selectedTags, searchQuery]);
 
 	useEffect(() => {
-		if (!isAuthenticated) {
-			router.push("/");
-			return;
-		}
-
+		if (!isReady || !isAuthenticated) return;
 		fetchPlaylistDetails();
-	}, [isAuthenticated, router, fetchPlaylistDetails]);
+	}, [isReady, isAuthenticated, fetchPlaylistDetails]);
 
 	const handleSyncVideos = async () => {
 		setSyncing(true);
@@ -110,8 +106,13 @@ export default function PlaylistDetailPage() {
 		setShowOnlyCategorized(null);
 	};
 
-	if (!isAuthenticated) {
-		return null;
+	// Don't render anything until hydrated and authenticated
+	if (!isReady || !isAuthenticated) {
+		return (
+			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+				<Spinner size="lg" />
+			</div>
+		);
 	}
 
 	return (

@@ -17,7 +17,7 @@ import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
 import VideoCard from "@/components/VideoCard";
 import CreatePlaylistDialog from "@/components/CreatePlaylistDialog";
-import { useAuthStore } from "@/store/auth";
+import { useAuthGuard } from "@/hooks";
 import type { PaginatedVideosResponse, Video } from "@/types";
 
 const SORT_OPTIONS = [
@@ -31,12 +31,11 @@ const SORT_OPTIONS = [
 function VideosPageContent() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const { isAuthenticated, isHydrated } = useAuthStore();
+	const { isReady, isAuthenticated } = useAuthGuard();
 
 	const [videos, setVideos] = useState<Video[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [categorizingId, setCategorizingId] = useState<number | null>(null);
-	const [mounted, setMounted] = useState(false);
 
 	// Filter states
 	const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
@@ -62,11 +61,6 @@ function VideosPageContent() {
 	const [showCreatePlaylistDialog, setShowCreatePlaylistDialog] =
 		useState(false);
 	const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
-
-	// Handle hydration
-	useEffect(() => {
-		setMounted(true);
-	}, []);
 
 	// Debounce search query
 	useEffect(() => {
@@ -136,7 +130,7 @@ function VideosPageContent() {
 
 	// Initialize filters from URL on mount
 	useEffect(() => {
-		if (!mounted) return;
+		if (!isReady) return;
 
 		const categorized = searchParams.get("categorized");
 		if (categorized === "false") {
@@ -150,7 +144,8 @@ function VideosPageContent() {
 				try {
 					const res = await categoriesApi.getCategories();
 					const match = res.data.find(
-						(c: any) => c.name.toLowerCase() === categoryParam.toLowerCase(),
+						(c: { id: number; name: string }) =>
+							c.name.toLowerCase() === categoryParam.toLowerCase(),
 					);
 					if (match) {
 						setSelectedCategories([match.id]);
@@ -161,20 +156,13 @@ function VideosPageContent() {
 				}
 			})();
 		}
-	}, [mounted, searchParams]);
+	}, [isReady, searchParams]);
 
 	// Fetch videos when filters or authentication changes
 	useEffect(() => {
-		// Wait for Zustand to hydrate from localStorage
-		if (!mounted || !isHydrated) return;
-
-		if (!isAuthenticated) {
-			router.push("/");
-			return;
-		}
-
+		if (!isReady || !isAuthenticated) return;
 		fetchVideos();
-	}, [mounted, isHydrated, isAuthenticated, router, fetchVideos]);
+	}, [isReady, isAuthenticated, fetchVideos]);
 
 	const handleCategorize = async (videoId: number) => {
 		setCategorizingId(videoId);
@@ -260,26 +248,13 @@ function VideosPageContent() {
 		debouncedSearchQuery !== "" ||
 		showOnlyCategorized !== null;
 
-	// Don't render anything until hydrated
-	if (!mounted) {
+	// Don't render anything until hydrated and authenticated
+	if (!isReady || !isAuthenticated) {
 		return (
 			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex justify-center items-center">
 				<Spinner size="lg" />
 			</div>
 		);
-	}
-
-	// Show loading spinner until hydration is complete
-	if (!isHydrated) {
-		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-				<Spinner size="lg" />
-			</div>
-		);
-	}
-
-	if (!isAuthenticated) {
-		return null;
 	}
 
 	return (
