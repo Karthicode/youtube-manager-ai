@@ -1,8 +1,5 @@
 "use client";
 
-import { Text } from "@visx/text";
-import { scaleLog } from "@visx/scale";
-import { Wordcloud } from "@visx/wordcloud";
 import type { TagDistribution } from "@/types";
 import ChartWrapper from "./ChartWrapper";
 
@@ -17,20 +14,6 @@ const colors = [
 	"#06B6D4", "#EF4444", "#6366F1", "#14B8A6", "#F97316",
 ];
 
-interface WordData {
-	text: string;
-	value: number;
-}
-
-interface WordcloudWord {
-	text?: string;
-	x?: number;
-	y?: number;
-	rotate?: number;
-	size?: number;
-	font?: string;
-}
-
 export default function TagCloud({
 	data,
 	loading = false,
@@ -38,22 +21,6 @@ export default function TagCloud({
 }: TagCloudProps) {
 	// Limit to top 30 tags for better layout
 	const limitedData = data.slice(0, 30);
-
-	const words: WordData[] = limitedData.map((tag) => ({
-		text: tag.name,
-		value: tag.count,
-	}));
-
-	// Handle edge cases for font scale
-	const minCount = Math.min(...limitedData.map((d) => d.count), 1);
-	const maxCount = Math.max(...limitedData.map((d) => d.count), 1);
-
-	const fontScale = scaleLog({
-		domain: [minCount, Math.max(maxCount, minCount + 1)],
-		range: [14, 32],
-	});
-
-	const fontSizeSetter = (datum: WordData) => fontScale(datum.value);
 
 	if (limitedData.length === 0) {
 		return (
@@ -73,6 +40,16 @@ export default function TagCloud({
 		);
 	}
 
+	// Calculate font sizes based on count
+	const minCount = Math.min(...limitedData.map((d) => d.count));
+	const maxCount = Math.max(...limitedData.map((d) => d.count));
+	const range = maxCount - minCount || 1;
+
+	const getFontSize = (count: number) => {
+		const normalized = (count - minCount) / range;
+		return Math.round(14 + normalized * 20); // 14px to 34px
+	};
+
 	return (
 		<ChartWrapper
 			title="Tag Cloud"
@@ -81,60 +58,23 @@ export default function TagCloud({
 			error={error}
 			height="h-[280px]"
 		>
-			{({ width, height }) => (
-				<Wordcloud
-					words={words}
-					width={width}
-					height={height}
-					fontSize={fontSizeSetter}
-					font="Inter, system-ui, sans-serif"
-					padding={3}
-					spiral="rectangular"
-					rotate={0}
-					random={() => 0.5}
-				>
-					{(cloudWords: WordcloudWord[]) => {
-						// Calculate bounds to center the cloud
-						const validWords = cloudWords.filter(w => w.x !== undefined && w.y !== undefined);
-
-						if (validWords.length === 0) {
-							return (
-								<svg width={width} height={height}>
-									<text
-										x={width / 2}
-										y={height / 2}
-										textAnchor="middle"
-										className="fill-gray-500"
-									>
-										Unable to render tags
-									</text>
-								</svg>
-							);
-						}
-
-						return (
-							<svg width={width} height={height}>
-								<g transform={`translate(${width / 2},${height / 2})`}>
-									{validWords.map((w: WordcloudWord, i: number) => (
-										<Text
-											key={`${w.text}-${i}`}
-											fill={colors[i % colors.length]}
-											textAnchor="middle"
-											verticalAnchor="middle"
-											x={w.x}
-											y={w.y}
-											fontSize={w.size}
-											fontFamily={w.font}
-											className="cursor-pointer transition-opacity hover:opacity-70"
-										>
-											{w.text}
-										</Text>
-									))}
-								</g>
-							</svg>
-						);
-					}}
-				</Wordcloud>
+			{() => (
+				<div className="flex flex-wrap items-center justify-center gap-2 p-4 h-full overflow-hidden">
+					{limitedData.map((tag, i) => (
+						<span
+							key={tag.name}
+							className="inline-block cursor-pointer transition-opacity hover:opacity-70 whitespace-nowrap"
+							style={{
+								fontSize: `${getFontSize(tag.count)}px`,
+								color: colors[i % colors.length],
+								lineHeight: 1.2,
+							}}
+							title={`${tag.name}: ${tag.count} videos`}
+						>
+							{tag.name}
+						</span>
+					))}
+				</div>
 			)}
 		</ChartWrapper>
 	);

@@ -3,7 +3,7 @@
 import { Group } from "@visx/group";
 import { Pie } from "@visx/shape";
 import { scaleOrdinal } from "@visx/scale";
-import { useTooltip, TooltipWithBounds } from "@visx/tooltip";
+import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import type { CategoryDistribution } from "@/types";
 import ChartWrapper from "./ChartWrapper";
@@ -49,7 +49,7 @@ export default function CategoryPieChart({
 	const total = data.reduce((sum, d) => sum + d.count, 0);
 
 	return (
-		<>
+		<div className="relative">
 			<ChartWrapper
 				title="Category Distribution"
 				subtitle={`${data.length} categories`}
@@ -74,7 +74,7 @@ export default function CategoryPieChart({
 									padAngle={0.02}
 								>
 									{(pie) =>
-										pie.arcs.map((arc, index) => {
+										pie.arcs.map((arc) => {
 											const [centroidX, centroidY] = pie.path.centroid(arc);
 											const hasSpaceForLabel = arc.endAngle - arc.startAngle > 0.3;
 											const arcPath = pie.path(arc) || "";
@@ -84,15 +84,15 @@ export default function CategoryPieChart({
 												<g
 													key={`arc-${arc.data.name}`}
 													onMouseMove={(event) => {
-														const coords = localPoint(event);
+														const eventSvgCoords = localPoint(event);
 														showTooltip({
 															tooltipData: {
 																name: arc.data.name,
 																count: arc.data.count,
 																percentage: arc.data.percentage,
 															},
-															tooltipLeft: coords?.x,
-															tooltipTop: coords?.y,
+															tooltipLeft: (eventSvgCoords?.x || 0) + 10,
+															tooltipTop: (eventSvgCoords?.y || 0) + 60,
 														});
 													}}
 													onMouseLeave={hideTooltip}
@@ -147,18 +147,26 @@ export default function CategoryPieChart({
 				<TooltipWithBounds
 					top={tooltipTop}
 					left={tooltipLeft}
-					className="!bg-white dark:!bg-gray-800 !shadow-lg !rounded-lg !px-3 !py-2 !border !border-gray-200 dark:!border-gray-700"
+					style={{
+						...defaultStyles,
+						backgroundColor: 'var(--tooltip-bg, white)',
+						color: 'var(--tooltip-text, #1f2937)',
+						padding: '8px 12px',
+						borderRadius: '8px',
+						boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+						border: '1px solid var(--tooltip-border, #e5e7eb)',
+					}}
 				>
 					<div className="text-sm">
-						<p className="font-semibold text-gray-800 dark:text-gray-200">
+						<p className="font-semibold">
 							{tooltipData.name}
 						</p>
-						<p className="text-gray-600 dark:text-gray-400">
+						<p className="opacity-75">
 							{tooltipData.count} videos ({tooltipData.percentage.toFixed(1)}%)
 						</p>
 					</div>
 				</TooltipWithBounds>
 			)}
-		</>
+		</div>
 	);
 }
