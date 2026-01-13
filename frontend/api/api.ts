@@ -3,8 +3,6 @@ import axios from "axios";
 const API_BASE_URL =
 	process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
-console.log("🔧 API Base URL:", API_BASE_URL);
-
 export const api = axios.create({
 	baseURL: API_BASE_URL,
 	headers: {
@@ -102,17 +100,6 @@ export const videosApi = {
 	syncBatch: (params?: { auto_categorize?: boolean }) =>
 		api.post("/videos/sync/batch", null, { params }),
 
-	categorizeBatch: (params?: {
-		max_concurrent?: number;
-		max_videos?: number;
-	}) => api.post("/videos/categorize-batch", null, { params }),
-
-	categorizeBatchBackground: (params?: {
-		max_concurrent?: number;
-		max_videos?: number;
-	}) => api.post("/videos/categorize-batch/background", null, { params }),
-
-	// New SSE-based categorization
 	startBatchCategorization: (params?: {
 		max_concurrent?: number;
 		max_videos?: number;
@@ -198,8 +185,4 @@ export const tagsApi = {
 		tagId: number,
 		params?: { page?: number; page_size?: number },
 	) => api.get(`/tags/${tagId}/videos/`, { params }),
-};
-
-export const progressApi = {
-	getCategorizationProgress: () => api.get("/progress/categorization"),
 };
