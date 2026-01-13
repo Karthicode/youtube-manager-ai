@@ -356,14 +356,14 @@ export default function Dashboard() {
 								</CardHeader>
 								<Divider />
 								<CardBody className="pt-3 sm:pt-4">
-									<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+									<div className="flex flex-wrap justify-center gap-2 sm:gap-3">
 										<Button
 											color="primary"
 											variant="flat"
 											onPress={() => router.push("/videos")}
 											radius="md"
 											size="md"
-											className="w-full"
+											className="min-w-[140px] flex-1 sm:flex-none"
 										>
 											View All Videos
 										</Button>
@@ -373,7 +373,7 @@ export default function Dashboard() {
 											onPress={() => router.push("/playlists")}
 											radius="md"
 											size="md"
-											className="w-full"
+											className="min-w-[140px] flex-1 sm:flex-none"
 										>
 											View Playlists
 										</Button>
@@ -383,7 +383,7 @@ export default function Dashboard() {
 											onPress={() => router.push("/videos?categorized=false")}
 											radius="md"
 											size="md"
-											className="w-full"
+											className="min-w-[140px] flex-1 sm:flex-none"
 										>
 											View Uncategorized
 										</Button>
@@ -396,7 +396,7 @@ export default function Dashboard() {
 														isLoading={batchCategorizing}
 														radius="md"
 														size="md"
-														className="w-full"
+														className="min-w-[140px] flex-1 sm:flex-none"
 													>
 														Categorize All ({stats.uncategorized})
 													</Button>
