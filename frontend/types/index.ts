@@ -93,3 +93,75 @@ export interface PaginatedVideosResponse {
 	page_size: number;
 	total_pages: number;
 }
+
+// Insights types
+export interface CategoryDistribution {
+	name: string;
+	count: number;
+	percentage: number;
+	color: string | null;
+}
+
+export interface TagDistribution {
+	name: string;
+	count: number;
+	weight: number; // 1-5 scale for tag cloud sizing
+}
+
+export interface ChannelStats {
+	channel_title: string;
+	channel_id: string;
+	video_count: number;
+	total_views: number;
+	avg_duration_seconds: number;
+}
+
+export interface TemporalData {
+	label: string;
+	count: number;
+}
+
+export interface DurationBucket {
+	label: string;
+	range_label: string;
+	count: number;
+	percentage: number;
+	total_seconds: number;
+}
+
+export interface InsightsOverview {
+	total_videos: number;
+	categorized: number;
+	uncategorized: number;
+	unique_channels: number;
+	unique_categories: number;
+	unique_tags: number;
+	total_watch_time_seconds: number;
+	avg_video_duration_seconds: number;
+	earliest_liked_at: string | null;
+	latest_liked_at: string | null;
+}
+
+export interface ContentDistributionResponse {
+	categories: CategoryDistribution[];
+	tags: TagDistribution[];
+}
+
+export interface ChannelsResponse {
+	top_channels: ChannelStats[];
+	total_channels: number;
+	channel_diversity_score: number;
+}
+
+export interface TemporalResponse {
+	likes_by_month: TemporalData[];
+	likes_by_day_of_week: TemporalData[];
+	likes_by_hour: TemporalData[];
+	published_by_year: TemporalData[];
+}
+
+export interface DurationResponse {
+	buckets: DurationBucket[];
+	avg_duration_seconds: number;
+	total_watch_time_seconds: number;
+}

@@ -186,3 +186,20 @@ export const tagsApi = {
 		params?: { page?: number; page_size?: number },
 	) => api.get(`/tags/${tagId}/videos/`, { params }),
 };
+
+export const insightsApi = {
+	getOverview: (params?: { force_refresh?: boolean }) =>
+		api.get("/insights/overview", { params }),
+
+	getContentDistribution: (params?: { force_refresh?: boolean }) =>
+		api.get("/insights/content-distribution", { params }),
+
+	getChannels: (params?: { limit?: number; force_refresh?: boolean }) =>
+		api.get("/insights/channels", { params }),
+
+	getTemporal: (params?: { force_refresh?: boolean }) =>
+		api.get("/insights/temporal", { params }),
+
+	getDuration: (params?: { force_refresh?: boolean }) =>
+		api.get("/insights/duration", { params }),
+};

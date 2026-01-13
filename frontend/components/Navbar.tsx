@@ -15,6 +15,7 @@ import {
 	NavbarMenuToggle,
 } from "@heroui/react";
 import DashboardIcon from "@mui/icons-material/Dashboard";
+import InsightsIcon from "@mui/icons-material/Insights";
 import PlaylistPlayIcon from "@mui/icons-material/PlaylistPlay";
 import SmartDisplayIcon from "@mui/icons-material/SmartDisplay";
 import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
@@ -41,6 +42,7 @@ export default function Navbar() {
 
 	const menuItems = [
 		{ label: "Dashboard", path: "/dashboard", icon: <DashboardIcon /> },
+		{ label: "Insights", path: "/insights", icon: <InsightsIcon /> },
 		{ label: "Liked Videos", path: "/videos", icon: <VideoLibraryIcon /> },
 		{ label: "Playlists", path: "/playlists", icon: <PlaylistPlayIcon /> },
 	];
@@ -83,6 +85,19 @@ export default function Navbar() {
 					>
 						<DashboardIcon fontSize="small" />
 						<span>Dashboard</span>
+					</Link>
+				</NavbarItem>
+				<NavbarItem isActive={isActive("/insights")}>
+					<Link
+						href="/insights"
+						className={`flex items-center gap-2 px-2 ${
+							isActive("/insights")
+								? "text-primary font-medium"
+								: "text-foreground font-medium hover:text-primary transition-colors"
+						}`}
+					>
+						<InsightsIcon fontSize="small" />
+						<span>Insights</span>
 					</Link>
 				</NavbarItem>
 				<NavbarItem isActive={isActive("/videos")}>
