@@ -58,10 +58,15 @@ export default function CategoryPieChart({
 				height="h-[280px]"
 			>
 				{({ width, height }) => {
-					const radius = Math.min(width, height) / 2 - 20;
+					const radius = Math.max(0, Math.min(width, height) / 2 - 20);
 					const innerRadius = radius * 0.6;
 					const centerX = width / 2;
 					const centerY = height / 2;
+
+					// Don't render if dimensions are too small
+					if (radius < 10) {
+						return <svg width={width} height={height} />;
+					}
 
 					return (
 						<svg width={width} height={height}>

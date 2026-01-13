@@ -50,8 +50,13 @@ export default function LikesTrendChart({
 				height="h-[250px]"
 			>
 				{({ width, height }) => {
-					const xMax = width - margin.left - margin.right;
-					const yMax = height - margin.top - margin.bottom;
+					const xMax = Math.max(0, width - margin.left - margin.right);
+					const yMax = Math.max(0, height - margin.top - margin.bottom);
+
+					// Don't render if dimensions are too small
+					if (xMax < 10 || yMax < 10) {
+						return <svg width={width} height={height} />;
+					}
 
 					const xScale = scalePoint<string>({
 						domain: data.map((d) => d.label),

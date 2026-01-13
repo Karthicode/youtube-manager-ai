@@ -59,8 +59,13 @@ export default function ChannelBarChart({
 				height="h-[350px]"
 			>
 				{({ width, height }) => {
-					const xMax = width - margin.left - margin.right;
-					const yMax = height - margin.top - margin.bottom;
+					const xMax = Math.max(0, width - margin.left - margin.right);
+					const yMax = Math.max(0, height - margin.top - margin.bottom);
+
+					// Don't render if dimensions are too small
+					if (xMax < 10 || yMax < 10) {
+						return <svg width={width} height={height} />;
+					}
 
 					const xScale = scaleLinear<number>({
 						domain: [0, Math.max(...data.map((d) => d.video_count), 1)],
