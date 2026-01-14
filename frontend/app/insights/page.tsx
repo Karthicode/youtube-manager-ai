@@ -4,24 +4,24 @@ import { Spinner } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { insightsApi } from "@/api/api";
 import {
-	InsightsSummaryCards,
 	CategoryPieChart,
 	ChannelBarChart,
+	ChannelRecommendations,
+	DurationDistribution,
+	InsightsSummaryCards,
 	LikesTrendChart,
 	TagCloud,
-	DurationDistribution,
-	ChannelRecommendations,
 } from "@/components/insights";
 import Navbar from "@/components/Navbar";
 import { useAuthGuard } from "@/hooks";
 import type {
-	InsightsOverview,
 	CategoryDistribution,
-	TagDistribution,
-	ChannelStats,
-	TemporalData,
-	DurationBucket,
 	ChannelRecommendation,
+	ChannelStats,
+	DurationBucket,
+	InsightsOverview,
+	TagDistribution,
+	TemporalData,
 } from "@/types";
 
 export default function InsightsPage() {
@@ -94,7 +94,8 @@ export default function InsightsPage() {
 					setErrors((prev) => ({
 						...prev,
 						content:
-							err.response?.data?.detail || "Failed to load content distribution",
+							err.response?.data?.detail ||
+							"Failed to load content distribution",
 					}));
 					setLoading((prev) => ({ ...prev, content: false }));
 				});
@@ -124,7 +125,8 @@ export default function InsightsPage() {
 				.catch((err) => {
 					setErrors((prev) => ({
 						...prev,
-						temporal: err.response?.data?.detail || "Failed to load temporal data",
+						temporal:
+							err.response?.data?.detail || "Failed to load temporal data",
 					}));
 					setLoading((prev) => ({ ...prev, temporal: false }));
 				});
@@ -142,7 +144,8 @@ export default function InsightsPage() {
 				.catch((err) => {
 					setErrors((prev) => ({
 						...prev,
-						duration: err.response?.data?.detail || "Failed to load duration data",
+						duration:
+							err.response?.data?.detail || "Failed to load duration data",
 					}));
 					setLoading((prev) => ({ ...prev, duration: false }));
 				});
@@ -197,10 +200,7 @@ export default function InsightsPage() {
 					</div>
 
 					{/* Summary Cards */}
-					<InsightsSummaryCards
-						data={overview}
-						loading={loading.overview}
-					/>
+					<InsightsSummaryCards data={overview} loading={loading.overview} />
 
 					{/* Charts Row 1: Category + Tags */}
 					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

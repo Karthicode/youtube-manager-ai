@@ -1,6 +1,15 @@
 "use client";
 
-import { Card, CardBody, CardHeader, Spinner, Chip, Button, Avatar, Progress } from "@heroui/react";
+import {
+	Avatar,
+	Button,
+	Card,
+	CardBody,
+	CardHeader,
+	Chip,
+	Progress,
+	Spinner,
+} from "@heroui/react";
 import type { ChannelRecommendation } from "@/types";
 
 interface ChannelRecommendationsProps {
@@ -48,7 +57,9 @@ function ChannelCard({ channel }: { channel: ChannelRecommendation }) {
 						{/* Stats Row */}
 						<div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
 							{channel.subscriber_count !== null && (
-								<span>{formatSubscriberCount(channel.subscriber_count)} subscribers</span>
+								<span>
+									{formatSubscriberCount(channel.subscriber_count)} subscribers
+								</span>
 							)}
 							{channel.video_count !== null && (
 								<>
@@ -62,12 +73,20 @@ function ChannelCard({ channel }: { channel: ChannelRecommendation }) {
 						<div className="mt-2">
 							<div className="flex items-center justify-between text-xs mb-1">
 								<span className="text-gray-600 dark:text-gray-400">Match</span>
-								<span className="font-medium text-primary">{matchPercentage}%</span>
+								<span className="font-medium text-primary">
+									{matchPercentage}%
+								</span>
 							</div>
 							<Progress
 								size="sm"
 								value={matchPercentage}
-								color={matchPercentage >= 70 ? "success" : matchPercentage >= 50 ? "primary" : "warning"}
+								color={
+									matchPercentage >= 70
+										? "success"
+										: matchPercentage >= 50
+											? "primary"
+											: "warning"
+								}
 								className="h-1.5"
 							/>
 						</div>
@@ -117,6 +136,7 @@ export default function ChannelRecommendations({
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
+							aria-hidden="true"
 						>
 							<path
 								strokeLinecap="round"
@@ -126,7 +146,9 @@ export default function ChannelRecommendations({
 							/>
 						</svg>
 						<div>
-							<h3 className="text-base sm:text-lg font-semibold">Recommended Channels</h3>
+							<h3 className="text-base sm:text-lg font-semibold">
+								Recommended Channels
+							</h3>
 							<p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
 								Based on {totalAnalyzed} channels you watch
 							</p>
@@ -166,6 +188,7 @@ export default function ChannelRecommendations({
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
+							aria-hidden="true"
 						>
 							<path
 								strokeLinecap="round"
@@ -175,7 +198,9 @@ export default function ChannelRecommendations({
 							/>
 						</svg>
 						<p className="text-sm">No recommendations yet</p>
-						<p className="text-xs mt-1">Like more videos to get personalized suggestions</p>
+						<p className="text-xs mt-1">
+							Like more videos to get personalized suggestions
+						</p>
 					</div>
 				) : (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">

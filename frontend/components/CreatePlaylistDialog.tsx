@@ -116,7 +116,7 @@ export default function CreatePlaylistDialog({
 			hideCloseButton={isCreating}
 		>
 			<ModalContent>
-				{(onClose) => (
+				{(_onClose) => (
 					<>
 						<ModalHeader className="flex flex-col gap-1">
 							Create YouTube Playlist

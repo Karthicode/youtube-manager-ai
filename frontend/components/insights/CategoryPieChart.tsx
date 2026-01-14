@@ -1,18 +1,30 @@
 "use client";
 
-import { Group } from "@visx/group";
-import { Pie } from "@visx/shape";
-import { scaleOrdinal } from "@visx/scale";
-import { useTooltip, TooltipWithBounds, defaultStyles } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
+import { Group } from "@visx/group";
+import { scaleOrdinal } from "@visx/scale";
+import { Pie } from "@visx/shape";
+import { defaultStyles, TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import type { CategoryDistribution } from "@/types";
 import ChartWrapper from "./ChartWrapper";
 
 // Default color palette for categories
 const defaultColors = [
-	"#3B82F6", "#EF4444", "#22C55E", "#F59E0B", "#8B5CF6",
-	"#EC4899", "#06B6D4", "#F97316", "#6366F1", "#14B8A6",
-	"#D946EF", "#84CC16", "#0EA5E9", "#A855F7", "#F43F5E",
+	"#3B82F6",
+	"#EF4444",
+	"#22C55E",
+	"#F59E0B",
+	"#8B5CF6",
+	"#EC4899",
+	"#06B6D4",
+	"#F97316",
+	"#6366F1",
+	"#14B8A6",
+	"#D946EF",
+	"#84CC16",
+	"#0EA5E9",
+	"#A855F7",
+	"#F43F5E",
 ];
 
 interface CategoryPieChartProps {
@@ -43,7 +55,9 @@ export default function CategoryPieChart({
 
 	const colorScale = scaleOrdinal<string, string>({
 		domain: data.map((d) => d.name),
-		range: data.map((d, i) => d.color || defaultColors[i % defaultColors.length]),
+		range: data.map(
+			(d, i) => d.color || defaultColors[i % defaultColors.length],
+		),
 	});
 
 	const total = data.reduce((sum, d) => sum + d.count, 0);
@@ -69,7 +83,13 @@ export default function CategoryPieChart({
 					}
 
 					return (
-						<svg width={width} height={height}>
+						<svg
+							width={width}
+							height={height}
+							role="img"
+							aria-label="Category distribution pie chart"
+						>
+							<title>Category Distribution</title>
 							<Group top={centerY} left={centerX}>
 								<Pie
 									data={data}
@@ -81,13 +101,17 @@ export default function CategoryPieChart({
 									{(pie) =>
 										pie.arcs.map((arc) => {
 											const [centroidX, centroidY] = pie.path.centroid(arc);
-											const hasSpaceForLabel = arc.endAngle - arc.startAngle > 0.3;
+											const hasSpaceForLabel =
+												arc.endAngle - arc.startAngle > 0.3;
 											const arcPath = pie.path(arc) || "";
 											const arcFill = colorScale(arc.data.name);
 
 											return (
+												/* biome-ignore lint/a11y/useSemanticElements: SVG g element cannot be replaced with button */
 												<g
 													key={`arc-${arc.data.name}`}
+													role="button"
+													tabIndex={0}
 													onMouseMove={(event) => {
 														const eventSvgCoords = localPoint(event);
 														showTooltip({
@@ -101,7 +125,20 @@ export default function CategoryPieChart({
 														});
 													}}
 													onMouseLeave={hideTooltip}
+													onFocus={() => {
+														showTooltip({
+															tooltipData: {
+																name: arc.data.name,
+																count: arc.data.count,
+																percentage: arc.data.percentage,
+															},
+															tooltipLeft: 0,
+															tooltipTop: 0,
+														});
+													}}
+													onBlur={hideTooltip}
 													style={{ cursor: "pointer" }}
+													aria-label={`${arc.data.name}: ${arc.data.count} videos (${arc.data.percentage.toFixed(1)}%)`}
 												>
 													<path
 														d={arcPath}
@@ -154,18 +191,16 @@ export default function CategoryPieChart({
 					left={tooltipLeft}
 					style={{
 						...defaultStyles,
-						backgroundColor: 'var(--tooltip-bg, white)',
-						color: 'var(--tooltip-text, #1f2937)',
-						padding: '8px 12px',
-						borderRadius: '8px',
-						boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-						border: '1px solid var(--tooltip-border, #e5e7eb)',
+						backgroundColor: "var(--tooltip-bg, white)",
+						color: "var(--tooltip-text, #1f2937)",
+						padding: "8px 12px",
+						borderRadius: "8px",
+						boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+						border: "1px solid var(--tooltip-border, #e5e7eb)",
 					}}
 				>
 					<div className="text-sm">
-						<p className="font-semibold">
-							{tooltipData.name}
-						</p>
+						<p className="font-semibold">{tooltipData.name}</p>
 						<p className="opacity-75">
 							{tooltipData.count} videos ({tooltipData.percentage.toFixed(1)}%)
 						</p>

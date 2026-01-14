@@ -12,11 +12,11 @@ import GridViewIcon from "@mui/icons-material/GridView";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { videosApi, playlistsApi, categoriesApi } from "@/api/api";
+import { categoriesApi, playlistsApi, videosApi } from "@/api/api";
+import CreatePlaylistDialog from "@/components/CreatePlaylistDialog";
 import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
 import VideoCard from "@/components/VideoCard";
-import CreatePlaylistDialog from "@/components/CreatePlaylistDialog";
 import { useAuthGuard } from "@/hooks";
 import type { PaginatedVideosResponse, Video } from "@/types";
 

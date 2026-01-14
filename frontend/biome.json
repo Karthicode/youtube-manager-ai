@@ -36,6 +36,15 @@
 			"quoteStyle": "double"
 		}
 	},
+	"css": {
+		"parser": {
+			"cssModules": true,
+			"tailwindDirectives": true
+		},
+		"linter": {
+			"enabled": false
+		}
+	},
 	"assist": {
 		"enabled": true,
 		"actions": {

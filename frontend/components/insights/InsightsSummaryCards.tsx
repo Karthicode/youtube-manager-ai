@@ -1,12 +1,12 @@
 "use client";
 
 import { Card, CardBody } from "@heroui/react";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CategoryIcon from "@mui/icons-material/Category";
+import DateRangeIcon from "@mui/icons-material/DateRange";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import PlayCircleIcon from "@mui/icons-material/PlayCircle";
 import SubscriptionsIcon from "@mui/icons-material/Subscriptions";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import DateRangeIcon from "@mui/icons-material/DateRange";
 import type { InsightsOverview } from "@/types";
 
 interface InsightsSummaryCardsProps {
@@ -30,12 +30,21 @@ function formatWatchTime(seconds: number): string {
 	return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days} days`;
 }
 
-function formatDateRange(earliest: string | null, latest: string | null): string {
+function _formatDateRange(
+	earliest: string | null,
+	latest: string | null,
+): string {
 	if (!earliest || !latest) return "No data";
 	const start = new Date(earliest);
 	const end = new Date(latest);
-	const startStr = start.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-	const endStr = end.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+	const startStr = start.toLocaleDateString("en-US", {
+		month: "short",
+		year: "numeric",
+	});
+	const endStr = end.toLocaleDateString("en-US", {
+		month: "short",
+		year: "numeric",
+	});
 	return startStr === endStr ? startStr : `${startStr} - ${endStr}`;
 }
 

@@ -15,13 +15,11 @@ import {
 import EmailIcon from "@mui/icons-material/Email";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import { useAuthGuard } from "@/hooks";
 
 export default function Help() {
-	const router = useRouter();
 	const { isReady, isAuthenticated } = useAuthGuard();
 	const [feedback, setFeedback] = useState("");
 

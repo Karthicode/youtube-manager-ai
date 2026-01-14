@@ -9,13 +9,11 @@ import {
 	Spinner,
 	Switch,
 } from "@heroui/react";
-import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useAuthGuard } from "@/hooks";
 
 export default function Settings() {
-	const router = useRouter();
 	const { isReady, isAuthenticated, user } = useAuthGuard();
 
 	// Don't render anything until hydrated and authenticated

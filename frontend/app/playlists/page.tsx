@@ -109,6 +109,7 @@ export default function PlaylistsPage() {
 									className="w-full hover:shadow-lg transition-shadow"
 								>
 									<CardBody className="p-0">
+										{/* biome-ignore lint/a11y/useSemanticElements: Using div with role="button" for layout flexibility */}
 										<div
 											role="button"
 											tabIndex={0}
@@ -135,6 +136,7 @@ export default function PlaylistsPage() {
 												{playlist.video_count} videos
 											</div>
 										</div>
+										{/* biome-ignore lint/a11y/useSemanticElements: Using div with role="button" for layout flexibility */}
 										<div
 											role="button"
 											tabIndex={0}

@@ -1,11 +1,11 @@
 "use client";
 
-import { Group } from "@visx/group";
-import { Bar } from "@visx/shape";
-import { scaleLinear, scaleBand } from "@visx/scale";
 import { AxisLeft } from "@visx/axis";
-import { useTooltip, TooltipWithBounds } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
+import { Group } from "@visx/group";
+import { scaleBand, scaleLinear } from "@visx/scale";
+import { Bar } from "@visx/shape";
+import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import type { ChannelStats } from "@/types";
 import ChartWrapper from "./ChartWrapper";
 
@@ -80,7 +80,13 @@ export default function ChannelBarChart({
 					});
 
 					return (
-						<svg width={width} height={height}>
+						<svg
+							width={width}
+							height={height}
+							role="img"
+							aria-label="Top channels bar chart"
+						>
+							<title>Top Channels by Video Count</title>
 							<Group left={margin.left} top={margin.top}>
 								<AxisLeft
 									scale={yScale}
@@ -101,8 +107,11 @@ export default function ChannelBarChart({
 									const barY = yScale(d.channel_title) || 0;
 
 									return (
+										/* biome-ignore lint/a11y/useSemanticElements: SVG g element cannot be replaced with button */
 										<g
 											key={d.channel_id}
+											role="button"
+											tabIndex={0}
 											onMouseMove={(event) => {
 												const coords = localPoint(event);
 												showTooltip({
@@ -112,6 +121,15 @@ export default function ChannelBarChart({
 												});
 											}}
 											onMouseLeave={hideTooltip}
+											onFocus={() => {
+												showTooltip({
+													tooltipData: d,
+													tooltipLeft: margin.left,
+													tooltipTop: margin.top,
+												});
+											}}
+											onBlur={hideTooltip}
+											aria-label={`${d.channel_title}: ${d.video_count} videos`}
 										>
 											<Bar
 												x={0}

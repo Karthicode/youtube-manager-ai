@@ -12,6 +12,7 @@ import {
 	ModalHeader,
 	Spinner,
 } from "@heroui/react";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { playlistsApi, videosApi } from "@/api/api";
@@ -135,9 +136,11 @@ export default function PlaylistDetailPage() {
 					{playlist && (
 						<Card>
 							<CardBody className="flex flex-row items-start gap-4">
-								<img
+								<Image
 									src={playlist.thumbnail_url || "/placeholder-thumbnail.jpg"}
 									alt={playlist.title}
+									width={128}
+									height={96}
 									className="w-32 h-24 object-cover rounded"
 								/>
 								<div className="flex-1">

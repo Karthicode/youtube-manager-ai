@@ -1,13 +1,13 @@
 "use client";
 
-import { Group } from "@visx/group";
-import { AreaClosed, LinePath } from "@visx/shape";
-import { scaleLinear, scalePoint } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
-import { GridRows } from "@visx/grid";
-import { LinearGradient } from "@visx/gradient";
-import { useTooltip, TooltipWithBounds } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
+import { LinearGradient } from "@visx/gradient";
+import { GridRows } from "@visx/grid";
+import { Group } from "@visx/group";
+import { scaleLinear, scalePoint } from "@visx/scale";
+import { AreaClosed, LinePath } from "@visx/shape";
+import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import type { TemporalData } from "@/types";
 import ChartWrapper from "./ChartWrapper";
 
@@ -36,8 +36,11 @@ export default function LikesTrendChart({
 	// Format month label for display
 	const formatMonthLabel = (label: string) => {
 		const [year, month] = label.split("-");
-		const date = new Date(parseInt(year), parseInt(month) - 1);
-		return date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+		const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1);
+		return date.toLocaleDateString("en-US", {
+			month: "short",
+			year: "2-digit",
+		});
 	};
 
 	return (
@@ -77,7 +80,13 @@ export default function LikesTrendChart({
 						.map((d) => d.label);
 
 					return (
-						<svg width={width} height={height}>
+						<svg
+							width={width}
+							height={height}
+							role="img"
+							aria-label="Likes trend over time chart"
+						>
+							<title>Monthly Likes Trend</title>
 							<LinearGradient
 								id="area-gradient"
 								from="#3B82F6"
@@ -108,7 +117,7 @@ export default function LikesTrendChart({
 									stroke="#3B82F6"
 									strokeWidth={2}
 								/>
-								{/* Hover area */}
+								{/* biome-ignore lint/a11y/noStaticElementInteractions: Hover area for tooltip display */}
 								<rect
 									x={0}
 									y={0}
@@ -120,10 +129,9 @@ export default function LikesTrendChart({
 										if (!coords) return;
 										const x = coords.x;
 										const domain = data.map((d) => d.label);
-										const index = Math.round(
-											(x / xMax) * (domain.length - 1)
-										);
-										const d = data[Math.max(0, Math.min(index, data.length - 1))];
+										const index = Math.round((x / xMax) * (domain.length - 1));
+										const d =
+											data[Math.max(0, Math.min(index, data.length - 1))];
 										if (d) {
 											showTooltip({
 												tooltipData: d,

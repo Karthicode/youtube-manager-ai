@@ -10,8 +10,16 @@ interface TagCloudProps {
 }
 
 const colors = [
-	"#3B82F6", "#8B5CF6", "#EC4899", "#F59E0B", "#22C55E",
-	"#06B6D4", "#EF4444", "#6366F1", "#14B8A6", "#F97316",
+	"#3B82F6",
+	"#8B5CF6",
+	"#EC4899",
+	"#F59E0B",
+	"#22C55E",
+	"#06B6D4",
+	"#EF4444",
+	"#6366F1",
+	"#14B8A6",
+	"#F97316",
 ];
 
 export default function TagCloud({

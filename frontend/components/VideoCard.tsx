@@ -9,9 +9,9 @@ import {
 	Image,
 	Tooltip,
 } from "@heroui/react";
+import { YouTubeEmbed } from "@next/third-parties/google";
 import { formatDistanceToNow } from "date-fns";
 import type { Video } from "@/types";
-import { YouTubeEmbed } from "@next/third-parties/google";
 
 interface VideoCardProps {
 	video: Video;
@@ -62,6 +62,7 @@ export default function VideoCard({
 			<Card className="w-full hover:shadow-lg transition-shadow">
 				<CardBody className="p-3 sm:p-4">
 					<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+						{/* biome-ignore lint/a11y/useSemanticElements: Using div with role="button" for layout flexibility */}
 						<div
 							role="button"
 							tabIndex={0}
@@ -163,10 +164,7 @@ export default function VideoCard({
 					// Embedded player — keep interactions inside the player (no outer click)
 					<div className="relative">
 						<div className="w-full object-cover h-[160px] sm:h-[200px]">
-							<YouTubeEmbed
-								videoid={video.youtube_id}
-								height={200}
-							/>
+							<YouTubeEmbed videoid={video.youtube_id} height={200} />
 						</div>
 						{video.duration_seconds && (
 							<div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
@@ -175,6 +173,7 @@ export default function VideoCard({
 						)}
 					</div>
 				) : (
+					/* biome-ignore lint/a11y/useSemanticElements: Using div with role="button" for layout flexibility */
 					<div
 						role="button"
 						tabIndex={0}
@@ -202,8 +201,8 @@ export default function VideoCard({
 						)}
 					</div>
 				)}
-				{/** biome-ignore lint/a11y/useSemanticElements: <explanation> */}
-<div
+				{/* biome-ignore lint/a11y/useSemanticElements: Using div with role="button" for layout flexibility with nested interactive elements */}
+				<div
 					role="button"
 					tabIndex={0}
 					className="p-2 sm:p-3 space-y-1 sm:space-y-2 cursor-pointer"

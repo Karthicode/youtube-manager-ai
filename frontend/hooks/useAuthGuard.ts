@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useAuthStore, type User } from "@/store/auth";
+import { type User, useAuthStore } from "@/store/auth";
 import { useHydration } from "./useHydration";
 
 interface AuthGuardResult {

@@ -443,10 +443,19 @@ export default function Dashboard() {
 										{stats.top_categories.length > 0 ? (
 											<div className="space-y-3">
 												{stats.top_categories.map((category) => (
+													/* biome-ignore lint/a11y/useSemanticElements: Using div with role="button" for layout flexibility */
 													<div
 														key={category.name}
+														role="button"
+														tabIndex={0}
 														onClick={() => handleCategoryClick(category.name)}
-														className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+														onKeyDown={(e) => {
+															if (e.key === "Enter" || e.key === " ") {
+																e.preventDefault();
+																handleCategoryClick(category.name);
+															}
+														}}
+														className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
 													>
 														<span className="font-medium text-gray-700 dark:text-gray-300">
 															{category.name}
@@ -478,11 +487,7 @@ export default function Dashboard() {
 									</CardHeader>
 									<Divider />
 									<CardBody className="pt-3 sm:pt-4">
-										<ul
-											role="list"
-											aria-label="Getting started tips"
-											className="space-y-3"
-										>
+										<ul aria-label="Getting started tips" className="space-y-3">
 											{stats.total_videos === 0 && (
 												<li className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
 													<span
@@ -496,7 +501,9 @@ export default function Dashboard() {
 															Sync your videos
 														</p>
 														<p className="text-sm text-gray-600 dark:text-gray-400">
-															Click &quot;Sync Latest&quot; or &quot;Sync All Videos&quot; to import your liked videos from YouTube.
+															Click &quot;Sync Latest&quot; or &quot;Sync All
+															Videos&quot; to import your liked videos from
+															YouTube.
 														</p>
 													</div>
 												</li>
@@ -514,29 +521,34 @@ export default function Dashboard() {
 															Categorize your videos
 														</p>
 														<p className="text-sm text-gray-600 dark:text-gray-400">
-															You have {stats.uncategorized} uncategorized video{stats.uncategorized !== 1 ? "s" : ""}. Use &quot;Categorize All&quot; in Quick Actions to organize them with AI.
+															You have {stats.uncategorized} uncategorized video
+															{stats.uncategorized !== 1 ? "s" : ""}. Use
+															&quot;Categorize All&quot; in Quick Actions to
+															organize them with AI.
 														</p>
 													</div>
 												</li>
 											)}
-											{stats.categorization_percentage === 100 && stats.total_videos > 0 && (
-												<li className="flex items-start gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
-													<span
-														className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-green-500 text-white text-sm font-medium"
-														aria-hidden="true"
-													>
-														✓
-													</span>
-													<div>
-														<p className="font-medium text-gray-800 dark:text-gray-200">
-															All caught up!
-														</p>
-														<p className="text-sm text-gray-600 dark:text-gray-400">
-															All your videos are categorized. Browse them by category or create playlists.
-														</p>
-													</div>
-												</li>
-											)}
+											{stats.categorization_percentage === 100 &&
+												stats.total_videos > 0 && (
+													<li className="flex items-start gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
+														<span
+															className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-green-500 text-white text-sm font-medium"
+															aria-hidden="true"
+														>
+															✓
+														</span>
+														<div>
+															<p className="font-medium text-gray-800 dark:text-gray-200">
+																All caught up!
+															</p>
+															<p className="text-sm text-gray-600 dark:text-gray-400">
+																All your videos are categorized. Browse them by
+																category or create playlists.
+															</p>
+														</div>
+													</li>
+												)}
 											<li className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
 												<span
 													className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-gray-500 text-white text-sm font-medium"
@@ -549,7 +561,15 @@ export default function Dashboard() {
 														Keyboard navigation
 													</p>
 													<p className="text-sm text-gray-600 dark:text-gray-400">
-														Use <kbd className="px-1.5 py-0.5 text-xs font-mono bg-gray-200 dark:bg-gray-700 rounded">Tab</kbd> to navigate between elements and <kbd className="px-1.5 py-0.5 text-xs font-mono bg-gray-200 dark:bg-gray-700 rounded">Enter</kbd> to activate buttons.
+														Use{" "}
+														<kbd className="px-1.5 py-0.5 text-xs font-mono bg-gray-200 dark:bg-gray-700 rounded">
+															Tab
+														</kbd>{" "}
+														to navigate between elements and{" "}
+														<kbd className="px-1.5 py-0.5 text-xs font-mono bg-gray-200 dark:bg-gray-700 rounded">
+															Enter
+														</kbd>{" "}
+														to activate buttons.
 													</p>
 												</div>
 											</li>

@@ -1,10 +1,10 @@
 "use client";
 
-import { Group } from "@visx/group";
-import { Pie } from "@visx/shape";
-import { scaleOrdinal } from "@visx/scale";
-import { useTooltip, TooltipWithBounds } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
+import { Group } from "@visx/group";
+import { scaleOrdinal } from "@visx/scale";
+import { Pie } from "@visx/shape";
+import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import type { DurationBucket } from "@/types";
 import ChartWrapper from "./ChartWrapper";
 
@@ -51,7 +51,10 @@ export default function DurationDistribution({
 
 	const colorScale = scaleOrdinal<string, string>({
 		domain: data.map((d) => d.label),
-		range: data.map((d) => durationColors[d.label as keyof typeof durationColors] || "#6B7280"),
+		range: data.map(
+			(d) =>
+				durationColors[d.label as keyof typeof durationColors] || "#6B7280",
+		),
 	});
 
 	const total = data.reduce((sum, d) => sum + d.count, 0);
@@ -77,7 +80,13 @@ export default function DurationDistribution({
 					}
 
 					return (
-						<svg width={width} height={height}>
+						<svg
+							width={width}
+							height={height}
+							role="img"
+							aria-label="Duration distribution pie chart"
+						>
+							<title>Video Duration Distribution</title>
 							<Group top={centerY} left={centerX}>
 								<Pie
 									data={data}
@@ -89,13 +98,17 @@ export default function DurationDistribution({
 									{(pie) =>
 										pie.arcs.map((arc) => {
 											const [centroidX, centroidY] = pie.path.centroid(arc);
-											const hasSpaceForLabel = arc.endAngle - arc.startAngle > 0.4;
+											const hasSpaceForLabel =
+												arc.endAngle - arc.startAngle > 0.4;
 											const arcPath = pie.path(arc) || "";
 											const arcFill = colorScale(arc.data.label);
 
 											return (
+												/* biome-ignore lint/a11y/useSemanticElements: SVG g element cannot be replaced with button */
 												<g
 													key={`arc-${arc.data.label}`}
+													role="button"
+													tabIndex={0}
 													onMouseMove={(event) => {
 														const coords = localPoint(event);
 														showTooltip({
@@ -105,7 +118,16 @@ export default function DurationDistribution({
 														});
 													}}
 													onMouseLeave={hideTooltip}
+													onFocus={() => {
+														showTooltip({
+															tooltipData: arc.data,
+															tooltipLeft: 0,
+															tooltipTop: 0,
+														});
+													}}
+													onBlur={hideTooltip}
 													style={{ cursor: "pointer" }}
+													aria-label={`${arc.data.label}: ${arc.data.count} videos (${arc.data.percentage.toFixed(1)}%)`}
 												>
 													<path
 														d={arcPath}
