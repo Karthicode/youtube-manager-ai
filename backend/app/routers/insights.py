@@ -138,12 +138,12 @@ async def get_insights_overview(
         "unique_tags": unique_tags,
         "total_watch_time_seconds": total_watch_time,
         "avg_video_duration_seconds": avg_duration,
-        "earliest_liked_at": date_range[0],
-        "latest_liked_at": date_range[1],
+        "earliest_liked_at": date_range[0] if date_range else None,
+        "latest_liked_at": date_range[1] if date_range else None,
     }
 
     set_cache(current_user.id, cache_key, result)
-    return InsightsOverview(**result)
+    return InsightsOverview(**result)  # type: ignore[arg-type]
 
 
 @router.get("/content-distribution", response_model=ContentDistributionResponse)
@@ -232,7 +232,7 @@ async def get_content_distribution(
     }
 
     set_cache(current_user.id, cache_key, result)
-    return ContentDistributionResponse(**result)
+    return ContentDistributionResponse(**result)  # type: ignore[arg-type]
 
 
 @router.get("/channels", response_model=ChannelsResponse)
@@ -334,7 +334,7 @@ async def get_channel_insights(
     }
 
     set_cache(current_user.id, cache_key, result)
-    return ChannelsResponse(**result)
+    return ChannelsResponse(**result)  # type: ignore[arg-type]
 
 
 @router.get("/temporal", response_model=TemporalResponse)
@@ -433,7 +433,7 @@ async def get_temporal_insights(
     }
 
     set_cache(current_user.id, cache_key, result)
-    return TemporalResponse(**result)
+    return TemporalResponse(**result)  # type: ignore[arg-type]
 
 
 @router.get("/duration", response_model=DurationResponse)
@@ -481,7 +481,7 @@ async def get_duration_insights(
     total_videos = sum(row[1] for row in bucket_stats)
 
     # Bucket metadata
-    bucket_info = {
+    bucket_info: dict[str, dict[str, str | int]] = {
         "short": {"label": "Short", "range_label": "< 5 min", "order": 0},
         "medium": {"label": "Medium", "range_label": "5-20 min", "order": 1},
         "long": {"label": "Long", "range_label": "20-60 min", "order": 2},
@@ -500,8 +500,8 @@ async def get_duration_insights(
         data = bucket_dict.get(key, {"count": 0, "total_seconds": 0})
         buckets.append(
             DurationBucket(
-                label=info["label"],
-                range_label=info["range_label"],
+                label=str(info["label"]),
+                range_label=str(info["range_label"]),
                 count=data["count"],
                 percentage=(
                     round((data["count"] / total_videos) * 100, 1)
@@ -526,7 +526,7 @@ async def get_duration_insights(
     }
 
     set_cache(current_user.id, cache_key, result)
-    return DurationResponse(**result)
+    return DurationResponse(**result)  # type: ignore[arg-type]
 
 
 @router.get("/recommendations", response_model=RecommendationsResponse)
@@ -559,7 +559,7 @@ async def get_channel_recommendations(
     api_logger.info(f"Generating fresh recommendations for user {current_user.id}")
 
     # Initialize services
-    youtube_service = YouTubeService(current_user.access_token)
+    youtube_service = YouTubeService(current_user)
     recommendation_service = ChannelRecommendationService(
         user_id=current_user.id,
         db=db,

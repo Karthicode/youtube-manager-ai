@@ -73,6 +73,8 @@ class VideoSort(BaseModel):
 class PaginatedVideosResponse(BaseModel):
     """Paginated response for videos."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     items: list[VideoResponse]
     total: int
     page: int

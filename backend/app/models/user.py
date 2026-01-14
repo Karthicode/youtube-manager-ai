@@ -1,8 +1,13 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Text
-from sqlalchemy.orm import relationship
+from typing import TYPE_CHECKING, List, Optional
+from sqlalchemy import String, Text
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.video import Video
+    from app.models.playlist import Playlist
 
 
 class User(Base):
@@ -10,25 +15,27 @@ class User(Base):
 
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String(255), unique=True, index=True, nullable=False)
-    youtube_id = Column(String(255), unique=True, index=True, nullable=False)
-    name = Column(String(255), nullable=True)
-    picture_url = Column(String(512), nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    youtube_id: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    picture_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
     # OAuth tokens (encrypted in production)
-    access_token = Column(Text, nullable=True)
-    refresh_token = Column(Text, nullable=True)
-    token_expires_at = Column(DateTime, nullable=True)
+    access_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    refresh_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    token_expires_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        default=datetime.utcnow, onupdate=datetime.utcnow
     )
-    last_sync_at = Column(DateTime, nullable=True)
+    last_sync_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
     # Relationships
-    videos = relationship("Video", back_populates="user", cascade="all, delete-orphan")
-    playlists = relationship(
-        "Playlist", back_populates="user", cascade="all, delete-orphan"
+    videos: Mapped[List["Video"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    playlists: Mapped[List["Playlist"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )

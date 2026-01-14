@@ -510,7 +510,7 @@ Rules:
         categorization_results = []
 
         for result in results:
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 failed_count += 1
                 api_logger.error(f"Exception during categorization: {result}")
                 continue

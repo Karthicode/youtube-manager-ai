@@ -106,7 +106,7 @@ async def get_liked_videos(
     total_pages = math.ceil(total / page_size) if total > 0 else 1
 
     return PaginatedVideosResponse(
-        items=videos,
+        items=[VideoResponse.model_validate(v) for v in videos],
         total=total,
         page=page,
         page_size=page_size,
@@ -241,7 +241,7 @@ async def search_videos(
     total_pages = math.ceil(total / page_size) if total > 0 else 1
 
     return PaginatedVideosResponse(
-        items=videos,
+        items=[VideoResponse.model_validate(v) for v in videos],
         total=total,
         page=page,
         page_size=page_size,

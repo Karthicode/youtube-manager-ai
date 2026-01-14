@@ -1,19 +1,22 @@
 from datetime import datetime
+from typing import TYPE_CHECKING, List, Optional
 from sqlalchemy import (
-    Column,
-    Integer,
     String,
-    DateTime,
     Text,
     ForeignKey,
-    Boolean,
     Index,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from app.database import Base
 from app.models.category import video_categories
 from app.models.tag import video_tags
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.category import Category
+    from app.models.tag import Tag
+    from app.models.playlist import PlaylistVideo
 
 
 class Video(Base):
@@ -21,44 +24,46 @@ class Video(Base):
 
     __tablename__ = "videos"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
 
     # YouTube video details
-    youtube_id = Column(String(20), nullable=False, index=True)
-    title = Column(String(500), nullable=False)
-    description = Column(Text, nullable=True)
-    thumbnail_url = Column(String(512), nullable=True)
-    channel_title = Column(String(255), nullable=True)
-    channel_id = Column(String(50), nullable=True)
+    youtube_id: Mapped[str] = mapped_column(String(20), index=True)
+    title: Mapped[str] = mapped_column(String(500))
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    thumbnail_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    channel_title: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    channel_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     # Video metadata
-    duration_seconds = Column(Integer, nullable=True)
-    published_at = Column(DateTime, nullable=True)
-    view_count = Column(Integer, nullable=True)
-    like_count = Column(Integer, nullable=True)
+    duration_seconds: Mapped[Optional[int]] = mapped_column(nullable=True)
+    published_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    view_count: Mapped[Optional[int]] = mapped_column(nullable=True)
+    like_count: Mapped[Optional[int]] = mapped_column(nullable=True)
 
     # AI categorization status
-    is_categorized = Column(Boolean, default=False, nullable=False)
-    categorized_at = Column(DateTime, nullable=True)
+    is_categorized: Mapped[bool] = mapped_column(default=False)
+    categorized_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
     # Timestamps
-    liked_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    liked_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
     # Relationships
-    user = relationship("User", back_populates="videos")
-    categories = relationship(
-        "Category", secondary=video_categories, back_populates="videos"
+    user: Mapped["User"] = relationship(back_populates="videos")
+    categories: Mapped[List["Category"]] = relationship(
+        secondary=video_categories, back_populates="videos"
     )
-    tags = relationship("Tag", secondary=video_tags, back_populates="videos")
-    playlist_videos = relationship(
-        "PlaylistVideo", back_populates="video", cascade="all, delete-orphan"
+    tags: Mapped[List["Tag"]] = relationship(
+        secondary=video_tags, back_populates="videos"
+    )
+    playlist_videos: Mapped[List["PlaylistVideo"]] = relationship(
+        back_populates="video", cascade="all, delete-orphan"
     )
 
     # Composite index for better query performance

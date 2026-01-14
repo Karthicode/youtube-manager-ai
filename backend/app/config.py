@@ -78,4 +78,4 @@ class Settings(BaseSettings):
         return self.environment == "local"
 
 
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]

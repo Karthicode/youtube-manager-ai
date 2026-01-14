@@ -23,7 +23,7 @@ class YouTubeService:
     def __init__(self, user: User):
         """Initialize YouTube service with user credentials."""
         self.user = user
-        self.youtube = None
+        self.youtube: Any = None
         self._initialize_client()
 
     def _initialize_client(self):
@@ -225,7 +225,7 @@ class YouTubeService:
             List of Video objects
         """
         try:
-            videos = []
+            videos: List[Video] = []
             next_page_token = None
             position = 0
 
@@ -495,7 +495,12 @@ class YouTubeService:
 
         Note: Each video addition costs 50 quota units
         """
-        results = {"total": len(video_ids), "succeeded": 0, "failed": 0, "failures": []}
+        results: Dict[str, Any] = {
+            "total": len(video_ids),
+            "succeeded": 0,
+            "failed": 0,
+            "failures": [],
+        }
 
         for i, video_id in enumerate(video_ids):
             try:
