@@ -25,7 +25,10 @@ from app.schemas.insights import (
     TemporalData,
     DurationResponse,
     DurationBucket,
+    RecommendationsResponse,
 )
+from app.services.recommendation_service import ChannelRecommendationService
+from app.services.youtube_service import YouTubeService
 from app.logger import api_logger
 from app.redis_client import get_redis
 
@@ -515,3 +518,45 @@ async def get_duration_insights(
 
     set_cache(current_user.id, cache_key, result)
     return DurationResponse(**result)
+
+
+@router.get("/recommendations", response_model=RecommendationsResponse)
+async def get_channel_recommendations(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    limit: int = Query(10, ge=1, le=20, description="Maximum number of recommendations"),
+    force_refresh: bool = Query(False, description="Force refresh cache"),
+):
+    """
+    Get personalized channel recommendations.
+
+    Analyzes user's liked videos to identify preferences (top categories and tags),
+    then searches YouTube for similar channels the user doesn't already watch.
+
+    Returns a list of recommended channels with match scores and reasons.
+    """
+    cache_key = f"recommendations_{limit}"
+
+    if not force_refresh:
+        cached = get_cache(current_user.id, cache_key)
+        if cached:
+            api_logger.debug(f"Returning cached recommendations for user {current_user.id}")
+            return RecommendationsResponse(**cached)
+
+    api_logger.info(f"Generating fresh recommendations for user {current_user.id}")
+
+    # Initialize services
+    youtube_service = YouTubeService(current_user.access_token)
+    recommendation_service = ChannelRecommendationService(
+        user_id=current_user.id,
+        db=db,
+        youtube_service=youtube_service,
+    )
+
+    # Get recommendations
+    result = recommendation_service.get_recommendations(limit=limit)
+
+    # Cache the results
+    set_cache(current_user.id, cache_key, result)
+
+    return RecommendationsResponse(**result)

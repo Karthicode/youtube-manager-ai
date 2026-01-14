@@ -93,3 +93,26 @@ class DurationResponse(BaseModel):
     buckets: list[DurationBucket]
     avg_duration_seconds: int
     total_watch_time_seconds: int
+
+
+class ChannelRecommendation(BaseModel):
+    """A recommended channel with explanation."""
+
+    channel_id: str
+    channel_title: str
+    thumbnail_url: str | None = None
+    subscriber_count: int | None = None
+    video_count: int | None = None
+    description: str | None = None
+    recommendation_reason: str
+    score: float  # 0.0 to 1.0, higher = better match
+    source: str  # "content_based" | "youtube_api" | "hybrid"
+
+
+class RecommendationsResponse(BaseModel):
+    """Channel recommendations response."""
+
+    recommendations: list[ChannelRecommendation]
+    total_analyzed_channels: int
+    top_categories: list[str]
+    top_tags: list[str]

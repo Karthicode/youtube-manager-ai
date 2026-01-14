@@ -525,3 +525,104 @@ class YouTubeService:
             f"Added {results['succeeded']}/{results['total']} videos to playlist {playlist_id}"
         )
         return results
+
+    def search_channels_by_topic(
+        self, query: str, max_results: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Search for channels related to a topic/category.
+
+        Args:
+            query: Search query (category name, tags, etc.)
+            max_results: Maximum number of channels to return
+
+        Returns:
+            List of channel dicts with id, title, description, thumbnail_url
+
+        Note: Quota cost is 100 units per call
+        """
+        try:
+            request = self.youtube.search().list(
+                part="snippet",
+                q=query,
+                type="channel",
+                maxResults=min(max_results, 50),
+                relevanceLanguage="en",
+                order="relevance",
+            )
+            response = request.execute()
+
+            channels = []
+            for item in response.get("items", []):
+                snippet = item.get("snippet", {})
+                channels.append({
+                    "id": item["id"]["channelId"],
+                    "title": snippet.get("title", ""),
+                    "description": snippet.get("description", ""),
+                    "thumbnail_url": snippet.get("thumbnails", {})
+                    .get("default", {})
+                    .get("url"),
+                })
+
+            api_logger.debug(f"Found {len(channels)} channels for query: {query}")
+            return channels
+
+        except HttpError as e:
+            api_logger.error(f"YouTube channel search error for '{query}': {e}")
+            raise
+
+    def get_channel_details(
+        self, channel_ids: List[str]
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch detailed info for multiple channels.
+
+        Args:
+            channel_ids: List of YouTube channel IDs
+
+        Returns:
+            List of channel details with id, title, description,
+            thumbnail_url, subscriber_count, video_count, view_count
+
+        Note: Quota cost is 1 unit per call (batches up to 50 IDs)
+        """
+        try:
+            results = []
+
+            # Batch IDs (max 50 per request)
+            for i in range(0, len(channel_ids), 50):
+                batch = channel_ids[i : i + 50]
+
+                request = self.youtube.channels().list(
+                    part="snippet,statistics",
+                    id=",".join(batch),
+                )
+                response = request.execute()
+
+                for item in response.get("items", []):
+                    snippet = item.get("snippet", {})
+                    statistics = item.get("statistics", {})
+
+                    # Handle hidden subscriber count
+                    sub_count = statistics.get("subscriberCount")
+                    if sub_count is not None:
+                        sub_count = int(sub_count)
+
+                    results.append({
+                        "id": item["id"],
+                        "title": snippet.get("title", ""),
+                        "description": snippet.get("description", ""),
+                        "thumbnail_url": snippet.get("thumbnails", {})
+                        .get("medium", {})
+                        .get("url"),
+                        "subscriber_count": sub_count,
+                        "video_count": int(statistics.get("videoCount", 0)),
+                        "view_count": int(statistics.get("viewCount", 0)),
+                    })
+
+            api_logger.debug(f"Fetched details for {len(results)} channels")
+            return results
+
+        except HttpError as e:
+            api_logger.error(f"YouTube channel details error: {e}")
+            raise
