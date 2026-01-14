@@ -28,7 +28,7 @@
 		"@next/third-parties": "^16.1.1",
 		"@tailwindcss/postcss": "^4.1.16",
 		"@types/d3-array": "^3.2.2",
-		"@types/node": "^24.9.1",
+		"@types/node": "^25.0.8",
 		"@types/react": "^19.2.2",
 		"@types/react-dom": "^19.2.2",
 		"@visx/axis": "^4.0.1-alpha.0",
