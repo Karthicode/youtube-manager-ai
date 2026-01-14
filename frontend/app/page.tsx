@@ -46,13 +46,8 @@ export default function Home() {
 		try {
 			const response = await authApi.getLoginUrl();
 			window.location.href = response.data.auth_url;
-		} catch (error) {
-			console.error("Failed to get login URL:", error);
-			const errorMessage =
-				error instanceof Error ? error.message : "Unknown error";
-			alert(
-				`Login failed: ${errorMessage}\n\nPlease check the console for details.`,
-			);
+		} catch {
+			alert("Failed to start login. Please try again.");
 		}
 	};
 

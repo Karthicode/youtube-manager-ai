@@ -180,9 +180,12 @@ async def sync_playlists(
         }
 
     except Exception as e:
+        api_logger.error(
+            f"Failed to sync playlists for user {current_user.id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to sync playlists: {str(e)}",
+            detail="Failed to sync playlists. Please try again later.",
         )
 
 
@@ -224,9 +227,13 @@ async def sync_playlist_videos(
         }
 
     except Exception as e:
+        api_logger.error(
+            f"Failed to sync playlist {playlist_id} videos for user {current_user.id}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to sync playlist videos: {str(e)}",
+            detail="Failed to sync playlist videos. Please try again later.",
         )
 
 
@@ -404,8 +411,11 @@ async def create_playlist_from_filters(
     except HTTPException:
         raise
     except Exception as e:
-        api_logger.error(f"Failed to create playlist from filters: {e}", exc_info=True)
+        api_logger.error(
+            f"Failed to create playlist from filters for user {current_user.id}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create playlist: {str(e)}",
+            detail="Failed to create playlist. Please try again later.",
         )

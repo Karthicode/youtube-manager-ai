@@ -112,8 +112,8 @@ function VideosPageContent() {
 			setVideos(paginatedData.items);
 			setTotalPages(paginatedData.total_pages);
 			setTotalVideos(paginatedData.total);
-		} catch (error) {
-			console.error("Failed to fetch videos:", error);
+		} catch {
+			// Failed to fetch videos - UI will show empty state
 		} finally {
 			setLoading(false);
 		}
@@ -151,8 +151,8 @@ function VideosPageContent() {
 						setSelectedCategories([match.id]);
 						setCurrentPage(1);
 					}
-				} catch (err) {
-					console.error("Failed to map category from URL:", err);
+				} catch {
+					// Failed to map category from URL - ignore
 				}
 			})();
 		}
@@ -169,8 +169,8 @@ function VideosPageContent() {
 		try {
 			await videosApi.categorizeVideo(videoId);
 			await fetchVideos(); // Refresh the list
-		} catch (error) {
-			console.error("Failed to categorize video:", error);
+		} catch {
+			// Failed to categorize video - user can retry
 		} finally {
 			setCategorizingId(null);
 		}
@@ -233,8 +233,7 @@ function VideosPageContent() {
 
 			// Navigate to playlists page
 			router.push("/playlists");
-		} catch (error) {
-			console.error("Failed to create playlist:", error);
+		} catch {
 			alert("Failed to create playlist. Please try again.");
 		} finally {
 			setIsCreatingPlaylist(false);

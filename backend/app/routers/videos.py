@@ -152,9 +152,12 @@ async def sync_liked_videos(
         }
 
     except Exception as e:
+        api_logger.error(
+            f"Failed to sync videos for user {current_user.id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to sync videos: {str(e)}",
+            detail="Failed to sync videos. Please try again later.",
         )
 
 
@@ -193,9 +196,13 @@ async def categorize_video(
         return updated_video
 
     except Exception as e:
+        api_logger.error(
+            f"Failed to categorize video {video_id} for user {current_user.id}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to categorize video: {str(e)}",
+            detail="Failed to categorize video. Please try again later.",
         )
 
 
@@ -435,10 +442,12 @@ async def sync_all_liked_videos(
         }
 
     except Exception as e:
-        api_logger.error(f"Batch sync failed: {str(e)}")
+        api_logger.error(
+            f"Batch sync failed for user {current_user.id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to batch sync videos: {str(e)}",
+            detail="Failed to batch sync videos. Please try again later.",
         )
 
 
@@ -524,10 +533,13 @@ async def categorize_all_uncategorized(
         }
 
     except Exception as e:
-        api_logger.error(f"Batch categorization failed: {str(e)}")
+        api_logger.error(
+            f"Batch categorization failed for user {current_user.id}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to batch categorize: {str(e)}",
+            detail="Failed to batch categorize videos. Please try again later.",
         )
 
 
@@ -814,7 +826,7 @@ async def stream_categorization_progress(
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to start progress stream: {str(e)}",
+            detail="Failed to start progress stream. Please try again.",
         )
 
 

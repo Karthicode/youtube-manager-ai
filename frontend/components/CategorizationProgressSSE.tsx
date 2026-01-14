@@ -107,18 +107,15 @@ export default function CategorizationProgressSSE({
 								}
 
 								if (isCancelled) break;
-							} catch (error) {
-								console.error("Failed to parse SSE data:", error);
+							} catch {
+								// Failed to parse SSE data - ignore malformed events
 							}
 						}
 					}
 				}
-			} catch (error) {
+			} catch {
 				if (!isCancelled) {
-					console.error("SSE connection error:", error);
-					onError?.(
-						error instanceof Error ? error.message : "Connection failed",
-					);
+					onError?.("Connection failed");
 				}
 			}
 		};
@@ -137,8 +134,7 @@ export default function CategorizationProgressSSE({
 		setPauseLoading(true);
 		try {
 			await videosApi.pauseCategorizationJob(jobId);
-		} catch (error) {
-			console.error("Failed to pause job:", error);
+		} catch {
 			alert("Failed to pause job. Please try again.");
 		} finally {
 			setPauseLoading(false);
@@ -150,8 +146,7 @@ export default function CategorizationProgressSSE({
 		setPauseLoading(true);
 		try {
 			await videosApi.resumeCategorizationJob(jobId);
-		} catch (error) {
-			console.error("Failed to resume job:", error);
+		} catch {
 			alert("Failed to resume job. Please try again.");
 		} finally {
 			setPauseLoading(false);
@@ -170,8 +165,7 @@ export default function CategorizationProgressSSE({
 		try {
 			await videosApi.cancelCategorizationJob(jobId);
 			// The SSE will automatically close when it receives cancelled status
-		} catch (error) {
-			console.error("Failed to cancel job:", error);
+		} catch {
 			alert("Failed to cancel job. Please try again.");
 		}
 	};

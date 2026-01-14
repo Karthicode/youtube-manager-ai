@@ -81,7 +81,7 @@ class AIService:
                         "role": "system",
                         "content": f"""You are an expert video content analyzer. Your task is to categorize YouTube videos and generate relevant tags.
 
-Available categories: {', '.join(self.AVAILABLE_CATEGORIES)}
+Available categories: {", ".join(self.AVAILABLE_CATEGORIES)}
 
 Rules:
 1. Choose 1-2 primary categories that best describe the video
@@ -275,7 +275,7 @@ Rules:
                         "role": "system",
                         "content": f"""You are an expert video content analyzer. Categorize ALL videos in the batch.
 
-Available categories: {', '.join(self.AVAILABLE_CATEGORIES)}
+Available categories: {", ".join(self.AVAILABLE_CATEGORIES)}
 
 For EACH video, provide:
 1. Choose 1-2 primary categories
@@ -346,7 +346,7 @@ Return results in the SAME ORDER as input.""",
                         "role": "system",
                         "content": f"""You are an expert video content analyzer. Your task is to categorize YouTube videos and generate relevant tags.
 
-Available categories: {', '.join(self.AVAILABLE_CATEGORIES)}
+Available categories: {", ".join(self.AVAILABLE_CATEGORIES)}
 
 Rules:
 1. Choose 1-2 primary categories that best describe the video

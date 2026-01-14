@@ -50,12 +50,10 @@ export default function FilterPanel({
 					categoriesApi.getCategories(),
 					tagsApi.getTags({ limit: 50 }),
 				]);
-				console.log("Fetched categories:", categoriesRes.data);
-				console.log("Fetched tags:", tagsRes.data);
 				setCategories(categoriesRes.data);
 				setTags(tagsRes.data);
-			} catch (error) {
-				console.error("Failed to fetch filters:", error);
+			} catch {
+				// Silently fail - filters will remain empty
 			} finally {
 				setLoading(false);
 			}

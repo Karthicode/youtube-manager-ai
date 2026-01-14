@@ -20,7 +20,6 @@ function AuthCallbackContent() {
 			const errorParam = searchParams.get("error");
 
 			if (errorParam) {
-				console.error("OAuth error:", errorParam);
 				setError("Authentication failed. Please try again.");
 				setTimeout(() => router.push("/"), 3000);
 				return;
@@ -42,8 +41,7 @@ function AuthCallbackContent() {
 
 					// Redirect to dashboard
 					router.push("/dashboard");
-				} catch (err) {
-					console.error("Failed to parse user data:", err);
+				} catch {
 					setError("Failed to process authentication. Please try again.");
 					setTimeout(() => router.push("/"), 3000);
 				}
@@ -55,13 +53,11 @@ function AuthCallbackContent() {
 			const state = searchParams.get("state");
 
 			if (!code || !state) {
-				console.error("No tokens or OAuth code found");
 				setError("Invalid callback parameters.");
 				setTimeout(() => router.push("/"), 3000);
 				return;
 			}
 
-			console.error("Unexpected callback format");
 			setError("Unexpected callback format. Please try again.");
 			setTimeout(() => router.push("/"), 3000);
 		};

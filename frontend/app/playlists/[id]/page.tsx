@@ -60,8 +60,8 @@ export default function PlaylistDetailPage() {
 
 			setPlaylist(playlistRes.data);
 			setVideos(videosRes.data);
-		} catch (error) {
-			console.error("Failed to fetch playlist details:", error);
+		} catch {
+			// Failed to fetch playlist details - UI will show empty state
 		} finally {
 			setLoading(false);
 		}
@@ -80,8 +80,7 @@ export default function PlaylistDetailPage() {
 				auto_categorize: true,
 			});
 			await fetchPlaylistDetails();
-		} catch (error) {
-			console.error("Failed to sync playlist videos:", error);
+		} catch {
 			alert("Failed to sync playlist videos. Please try again.");
 		} finally {
 			setSyncing(false);
@@ -93,8 +92,8 @@ export default function PlaylistDetailPage() {
 		try {
 			await videosApi.categorizeVideo(videoId);
 			await fetchPlaylistDetails();
-		} catch (error) {
-			console.error("Failed to categorize video:", error);
+		} catch {
+			// Failed to categorize video - user can retry
 		} finally {
 			setCategorizingId(null);
 		}

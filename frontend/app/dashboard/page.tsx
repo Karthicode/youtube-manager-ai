@@ -50,8 +50,8 @@ export default function Dashboard() {
 		try {
 			const response = await videosApi.getVideoStats();
 			setStats(response.data);
-		} catch (error) {
-			console.error("Failed to fetch stats:", error);
+		} catch {
+			// Stats fetch failed silently - UI will show loading/empty state
 		} finally {
 			setLoading(false);
 		}
@@ -67,8 +67,7 @@ export default function Dashboard() {
 		try {
 			await videosApi.syncVideos({ max_results: 20 });
 			await fetchStats();
-		} catch (error) {
-			console.error("Failed to sync videos:", error);
+		} catch {
 			alert("Failed to sync videos. Please try again.");
 		} finally {
 			setSyncing(false);
@@ -82,8 +81,7 @@ export default function Dashboard() {
 			const response = await videosApi.syncBatch({ auto_categorize: false });
 			setBatchSyncResult(response.data);
 			await fetchStats();
-		} catch (error) {
-			console.error("Failed to batch sync videos:", error);
+		} catch {
 			alert("Failed to batch sync videos. Please try again.");
 		} finally {
 			setBatchSyncing(false);
@@ -98,8 +96,7 @@ export default function Dashboard() {
 				max_concurrent: maxConcurrent,
 			});
 			setCategorizationJobId(response.data.job_id);
-		} catch (error) {
-			console.error("Failed to start batch categorization:", error);
+		} catch {
 			alert("Failed to start batch categorization. Please try again.");
 			setBatchCategorizing(false);
 		}
@@ -109,8 +106,7 @@ export default function Dashboard() {
 		try {
 			// Navigate to videos page and include the category name in query params
 			router.push(`/videos?category=${encodeURIComponent(category)}`);
-		} catch (error) {
-			console.error("Failed to navigate to category:", error);
+		} catch {
 			alert("Failed to open category. Please try again.");
 		}
 	};
@@ -177,11 +173,10 @@ export default function Dashboard() {
 								setCategorizationJobId(null);
 								fetchStats();
 							}}
-							onError={(error) => {
-								console.error("Categorization error:", error);
+							onError={() => {
 								setBatchCategorizing(false);
 								setCategorizationJobId(null);
-								alert(`Categorization failed: ${error}`);
+								alert("Categorization failed. Please try again.");
 							}}
 						/>
 					)}

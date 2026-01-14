@@ -29,8 +29,8 @@ export default function PlaylistsPage() {
 		try {
 			const response = await playlistsApi.getPlaylists({ page_size: 50 });
 			setPlaylists(response.data);
-		} catch (error) {
-			console.error("Failed to fetch playlists:", error);
+		} catch {
+			// Failed to fetch playlists - UI will show empty state
 		} finally {
 			setLoading(false);
 		}
@@ -41,8 +41,8 @@ export default function PlaylistsPage() {
 		try {
 			await playlistsApi.syncPlaylists({ max_results: 50 });
 			await fetchPlaylists();
-		} catch (error) {
-			console.error("Failed to sync playlists:", error);
+		} catch {
+			// Failed to sync playlists - user can retry
 		} finally {
 			setSyncing(false);
 		}

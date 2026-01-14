@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.logger import auth_logger
 from app.schemas.auth import Token, YouTubeAuthURL, RefreshTokenRequest
 from app.services.auth_service import AuthService
 from app.services.youtube_service import YouTubeService
@@ -96,9 +97,10 @@ async def youtube_callback(
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
+        auth_logger.error(f"Authentication callback failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Authentication failed: {str(e)}",
+            detail="Authentication failed. Please try again.",
         )
 
 

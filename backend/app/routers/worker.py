@@ -133,7 +133,7 @@ async def process_categorization_job(
         api_logger.error(f"Failed to parse payload: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid payload: {str(e)}",
+            detail="Invalid payload format.",
         )
 
     job_id = payload.job_id
@@ -189,7 +189,7 @@ async def process_categorization_job(
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Job processing failed: {str(e)}",
+            detail="Job processing failed. Check server logs for details.",
         )
     finally:
         db.close()
@@ -357,7 +357,7 @@ async def _process_one_batch(
 
         api_logger.info(
             f"Job {job_id}: Progress {actual_completed}/{latest_job_data['total']} "
-            f"({(actual_completed/latest_job_data['total']*100):.1f}%) - "
+            f"({(actual_completed / latest_job_data['total'] * 100):.1f}%) - "
             f"{actual_successful} successful, {actual_failed} failed"
         )
 
@@ -634,7 +634,7 @@ async def process_playlist_video_addition_job(
         api_logger.error(f"Failed to parse payload: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid payload: {str(e)}",
+            detail="Invalid payload format.",
         )
 
     job_id = payload.job_id
@@ -692,7 +692,7 @@ async def process_playlist_video_addition_job(
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Job processing failed: {str(e)}",
+            detail="Job processing failed. Check server logs for details.",
         )
     finally:
         db.close()
@@ -792,7 +792,7 @@ async def _process_playlist_video_batch(
 
         api_logger.info(
             f"Playlist job {job_id}: Progress {latest_job_data['completed']}/{latest_job_data['total']} "
-            f"({(latest_job_data['completed']/latest_job_data['total']*100):.1f}%) - "
+            f"({(latest_job_data['completed'] / latest_job_data['total'] * 100):.1f}%) - "
             f"{add_result['succeeded']} succeeded, {add_result['failed']} failed"
         )
 

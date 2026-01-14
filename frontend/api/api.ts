@@ -20,7 +20,6 @@ api.interceptors.request.use(
 		return config;
 	},
 	(error) => {
-		console.error("Request Error:", error);
 		return Promise.reject(error);
 	},
 );
@@ -31,13 +30,6 @@ api.interceptors.response.use(
 		return response;
 	},
 	async (error) => {
-		console.error(
-			"API Error:",
-			error.config?.url,
-			error.response?.status,
-			error.message,
-		);
-
 		const originalRequest = error.config;
 
 		// If error is 401 and we haven't tried to refresh yet
