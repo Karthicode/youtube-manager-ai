@@ -1,0 +1,11 @@
+# Default owners for everything in the repo
+* @karthik-ananthnarayan
+
+# Backend ownership
+/backend/ @karthik-ananthnarayan
+
+# Frontend ownership
+/frontend/ @karthik-ananthnarayan
+
+# CI/CD and configuration files
+/.github/ @karthik-ananthnarayan

@@ -1,0 +1,46 @@
+repos:
+  # General hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: no-commit-to-branch
+        args: ['--branch', 'main']
+
+  # Backend - Python
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        files: ^backend/
+        args: ['--config', 'backend/pyproject.toml']
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.4
+    hooks:
+      - id: ruff
+        files: ^backend/
+        args: ['--fix', '--config', 'backend/pyproject.toml']
+
+  # Frontend - Biome
+  - repo: https://github.com/biomejs/pre-commit
+    rev: v0.6.0
+    hooks:
+      - id: biome-check
+        files: ^frontend/
+        additional_dependencies: ['@biomejs/biome@2.3.0']
+        args: ['--config-path', 'frontend']
+
+  # Secrets detection (run `detect-secrets scan > .secrets.baseline` to initialize)
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        exclude: (package-lock\.json|poetry\.lock|\.secrets\.baseline)

@@ -1,0 +1,121 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
+  backend-checks:
+    name: Backend Checks
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: backend/.venv
+          key: venv-${{ runner.os }}-${{ hashFiles('backend/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+
+      - name: Check formatting with Black
+        run: poetry run black --check .
+
+      - name: Lint with Ruff
+        run: poetry run ruff check .
+
+      - name: Type check with MyPy
+        run: poetry run mypy app --ignore-missing-imports
+
+  frontend-checks:
+    name: Frontend Checks
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting with Biome
+        run: npx biome format --error-on-warnings .
+
+      - name: Lint with Biome
+        run: npx biome lint --error-on-warnings .
+
+      - name: Type check with TypeScript
+        run: npx tsc --noEmit
+
+      - name: Build application
+        env:
+          NEXT_PUBLIC_API_URL: https://api.example.com
+        run: npm run build
+
+  pr-status:
+    name: PR Status
+    runs-on: ubuntu-latest
+    needs: [detect-changes, backend-checks, frontend-checks]
+    if: always()
+    steps:
+      - name: Check status
+        run: |
+          if [ "${{ needs.backend-checks.result }}" == "failure" ] || [ "${{ needs.frontend-checks.result }}" == "failure" ]; then
+            echo "One or more checks failed"
+            exit 1
+          fi
+          echo "All checks passed or were skipped"
