@@ -5,3 +5,4 @@ export { default as ChannelBarChart } from "./ChannelBarChart";
 export { default as LikesTrendChart } from "./LikesTrendChart";
 export { default as TagCloud } from "./TagCloud";
 export { default as DurationDistribution } from "./DurationDistribution";
+export { default as ChannelRecommendations } from "./ChannelRecommendations";

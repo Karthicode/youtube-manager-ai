@@ -202,4 +202,7 @@ export const insightsApi = {
 
 	getDuration: (params?: { force_refresh?: boolean }) =>
 		api.get("/insights/duration", { params }),
+
+	getRecommendations: (params?: { limit?: number; force_refresh?: boolean }) =>
+		api.get("/insights/recommendations", { params }),
 };

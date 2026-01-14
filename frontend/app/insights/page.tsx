@@ -10,6 +10,7 @@ import {
 	LikesTrendChart,
 	TagCloud,
 	DurationDistribution,
+	ChannelRecommendations,
 } from "@/components/insights";
 import Navbar from "@/components/Navbar";
 import { useAuthGuard } from "@/hooks";
@@ -20,6 +21,7 @@ import type {
 	ChannelStats,
 	TemporalData,
 	DurationBucket,
+	ChannelRecommendation,
 } from "@/types";
 
 export default function InsightsPage() {
@@ -35,6 +37,12 @@ export default function InsightsPage() {
 		buckets: DurationBucket[];
 		avgDuration: number;
 	}>({ buckets: [], avgDuration: 0 });
+	const [recommendations, setRecommendations] = useState<{
+		items: ChannelRecommendation[];
+		topCategories: string[];
+		topTags: string[];
+		totalAnalyzed: number;
+	}>({ items: [], topCategories: [], topTags: [], totalAnalyzed: 0 });
 
 	// Loading and error states
 	const [loading, setLoading] = useState({
@@ -43,6 +51,7 @@ export default function InsightsPage() {
 		channels: true,
 		temporal: true,
 		duration: true,
+		recommendations: true,
 	});
 	const [errors, setErrors] = useState({
 		overview: "",
@@ -50,6 +59,7 @@ export default function InsightsPage() {
 		channels: "",
 		temporal: "",
 		duration: "",
+		recommendations: "",
 	});
 
 	useEffect(() => {
@@ -136,6 +146,27 @@ export default function InsightsPage() {
 					}));
 					setLoading((prev) => ({ ...prev, duration: false }));
 				});
+
+			// Fetch recommendations
+			insightsApi
+				.getRecommendations({ limit: 10 })
+				.then((res) => {
+					setRecommendations({
+						items: res.data.recommendations || [],
+						topCategories: res.data.top_categories || [],
+						topTags: res.data.top_tags || [],
+						totalAnalyzed: res.data.total_analyzed_channels || 0,
+					});
+					setLoading((prev) => ({ ...prev, recommendations: false }));
+				})
+				.catch((err) => {
+					setErrors((prev) => ({
+						...prev,
+						recommendations:
+							err.response?.data?.detail || "Failed to load recommendations",
+					}));
+					setLoading((prev) => ({ ...prev, recommendations: false }));
+				});
 		};
 
 		fetchData();
@@ -206,6 +237,16 @@ export default function InsightsPage() {
 							error={errors.duration}
 						/>
 					</div>
+
+					{/* Channel Recommendations */}
+					<ChannelRecommendations
+						recommendations={recommendations.items}
+						topCategories={recommendations.topCategories}
+						topTags={recommendations.topTags}
+						totalAnalyzed={recommendations.totalAnalyzed}
+						loading={loading.recommendations}
+						error={errors.recommendations}
+					/>
 				</div>
 			</div>
 		</div>
