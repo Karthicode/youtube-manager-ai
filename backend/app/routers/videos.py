@@ -600,7 +600,7 @@ async def categorize_in_background(
 
 
 # Redis-based job progress store for persistence and multi-instance scaling
-from app.redis_client import get_redis
+from app.redis_client import get_redis  # noqa: E402
 
 
 def get_job_data(job_id: str) -> dict | None:

@@ -6,7 +6,16 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import settings
 from app.logger import app_logger, db_logger, redis_logger
-from app.routers import auth, videos, playlists, categories, tags, progress, worker, insights
+from app.routers import (
+    auth,
+    videos,
+    playlists,
+    categories,
+    tags,
+    progress,
+    worker,
+    insights,
+)
 
 
 @asynccontextmanager
@@ -33,11 +42,15 @@ async def lifespan(app: FastAPI):
         import os
 
         # Get the directory containing alembic.ini
-        alembic_cfg = Config(os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini"))
+        alembic_cfg = Config(
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini")
+        )
         command.upgrade(alembic_cfg, "head")
         db_logger.info("Database migrations applied successfully")
     except Exception as e:
-        db_logger.warning(f"Failed to apply migrations (may already be up to date): {e}")
+        db_logger.warning(
+            f"Failed to apply migrations (may already be up to date): {e}"
+        )
 
     # Test Redis connection
     try:

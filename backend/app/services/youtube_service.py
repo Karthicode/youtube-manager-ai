@@ -431,7 +431,10 @@ class YouTubeService:
             return None
 
     def create_playlist(
-        self, title: str, description: str | None = None, privacy_status: str = "private"
+        self,
+        title: str,
+        description: str | None = None,
+        privacy_status: str = "private",
     ) -> Dict[str, Any] | None:
         """
         Create a new YouTube playlist.
@@ -555,14 +558,16 @@ class YouTubeService:
             channels = []
             for item in response.get("items", []):
                 snippet = item.get("snippet", {})
-                channels.append({
-                    "id": item["id"]["channelId"],
-                    "title": snippet.get("title", ""),
-                    "description": snippet.get("description", ""),
-                    "thumbnail_url": snippet.get("thumbnails", {})
-                    .get("default", {})
-                    .get("url"),
-                })
+                channels.append(
+                    {
+                        "id": item["id"]["channelId"],
+                        "title": snippet.get("title", ""),
+                        "description": snippet.get("description", ""),
+                        "thumbnail_url": snippet.get("thumbnails", {})
+                        .get("default", {})
+                        .get("url"),
+                    }
+                )
 
             api_logger.debug(f"Found {len(channels)} channels for query: {query}")
             return channels
@@ -571,9 +576,7 @@ class YouTubeService:
             api_logger.error(f"YouTube channel search error for '{query}': {e}")
             raise
 
-    def get_channel_details(
-        self, channel_ids: List[str]
-    ) -> List[Dict[str, Any]]:
+    def get_channel_details(self, channel_ids: List[str]) -> List[Dict[str, Any]]:
         """
         Fetch detailed info for multiple channels.
 
@@ -608,17 +611,19 @@ class YouTubeService:
                     if sub_count is not None:
                         sub_count = int(sub_count)
 
-                    results.append({
-                        "id": item["id"],
-                        "title": snippet.get("title", ""),
-                        "description": snippet.get("description", ""),
-                        "thumbnail_url": snippet.get("thumbnails", {})
-                        .get("medium", {})
-                        .get("url"),
-                        "subscriber_count": sub_count,
-                        "video_count": int(statistics.get("videoCount", 0)),
-                        "view_count": int(statistics.get("viewCount", 0)),
-                    })
+                    results.append(
+                        {
+                            "id": item["id"],
+                            "title": snippet.get("title", ""),
+                            "description": snippet.get("description", ""),
+                            "thumbnail_url": snippet.get("thumbnails", {})
+                            .get("medium", {})
+                            .get("url"),
+                            "subscriber_count": sub_count,
+                            "video_count": int(statistics.get("videoCount", 0)),
+                            "view_count": int(statistics.get("viewCount", 0)),
+                        }
+                    )
 
             api_logger.debug(f"Fetched details for {len(results)} channels")
             return results

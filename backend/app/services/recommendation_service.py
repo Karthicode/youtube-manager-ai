@@ -101,18 +101,19 @@ class ChannelRecommendationService:
                 )
                 for channel in results:
                     if channel["id"] not in existing_channels:
-                        candidates.append({
-                            **channel,
-                            "match_type": "category",
-                            "match_value": category,
-                        })
+                        candidates.append(
+                            {
+                                **channel,
+                                "match_type": "category",
+                                "match_value": category,
+                            }
+                        )
             except Exception as e:
                 api_logger.warning(f"Search failed for category '{category}': {e}")
 
         # Search by tags (combine pairs of tags for better results)
         tag_queries = [
-            " ".join(top_tags[i : i + 2])
-            for i in range(0, min(6, len(top_tags)), 2)
+            " ".join(top_tags[i : i + 2]) for i in range(0, min(6, len(top_tags)), 2)
         ]
         for query in tag_queries:
             try:
@@ -121,11 +122,13 @@ class ChannelRecommendationService:
                 )
                 for channel in results:
                     if channel["id"] not in existing_channels:
-                        candidates.append({
-                            **channel,
-                            "match_type": "tag",
-                            "match_value": query,
-                        })
+                        candidates.append(
+                            {
+                                **channel,
+                                "match_type": "tag",
+                                "match_value": query,
+                            }
+                        )
             except Exception as e:
                 api_logger.warning(f"Search failed for tags '{query}': {e}")
 
@@ -200,25 +203,31 @@ class ChannelRecommendationService:
 
             final_score = min(1.0, data["base_score"] + appearance_bonus)
 
-            results.append({
-                "channel_id": channel_id,
-                "channel_title": data["channel"].get("title", "Unknown"),
-                "thumbnail_url": data["channel"].get("thumbnail_url"),
-                "subscriber_count": None,  # Will be enriched later
-                "video_count": None,
-                "description": data["channel"].get("description"),
-                "recommendation_reason": ". ".join(reasons)
-                if reasons
-                else "Similar to channels you watch",
-                "score": final_score,
-                "source": "content_based",
-            })
+            results.append(
+                {
+                    "channel_id": channel_id,
+                    "channel_title": data["channel"].get("title", "Unknown"),
+                    "thumbnail_url": data["channel"].get("thumbnail_url"),
+                    "subscriber_count": None,  # Will be enriched later
+                    "video_count": None,
+                    "description": data["channel"].get("description"),
+                    "recommendation_reason": (
+                        ". ".join(reasons)
+                        if reasons
+                        else "Similar to channels you watch"
+                    ),
+                    "score": final_score,
+                    "source": "content_based",
+                }
+            )
 
         # Sort by score descending
         results.sort(key=lambda x: x["score"], reverse=True)
         return results
 
-    def enrich_with_details(self, recommendations: List[Dict], limit: int) -> List[Dict]:
+    def enrich_with_details(
+        self, recommendations: List[Dict], limit: int
+    ) -> List[Dict]:
         """
         Fetch full channel details for top recommendations.
 

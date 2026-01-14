@@ -235,7 +235,9 @@ Rules:
 
         return tag
 
-    async def categorize_videos_batch_async(self, videos: List[Video]) -> List[VideoCategorization]:
+    async def categorize_videos_batch_async(
+        self, videos: List[Video]
+    ) -> List[VideoCategorization]:
         """
         Categorize multiple videos in a single API call (much faster!).
 
@@ -257,7 +259,9 @@ Rules:
                 f"{i}. **{video.title}** | {video.channel_title or 'Unknown'} | {duration}\n   {desc}"
             )
 
-        batch_prompt = f"Categorize these {len(videos)} videos:\n\n" + "\n\n".join(videos_info)
+        batch_prompt = f"Categorize these {len(videos)} videos:\n\n" + "\n\n".join(
+            videos_info
+        )
 
         try:
             # Define batch response model
