@@ -35,22 +35,25 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         db_logger.error(f"Database connection failed: {e}")
 
-    # Run database migrations on startup
-    try:
-        from alembic.config import Config
-        from alembic import command
-        import os
+    # Run database migrations on startup (skip in production serverless to avoid race conditions)
+    if not settings.is_production:
+        try:
+            from alembic.config import Config
+            from alembic import command
+            import os
 
-        # Get the directory containing alembic.ini
-        alembic_cfg = Config(
-            os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini")
-        )
-        command.upgrade(alembic_cfg, "head")
-        db_logger.info("Database migrations applied successfully")
-    except Exception as e:
-        db_logger.warning(
-            f"Failed to apply migrations (may already be up to date): {e}"
-        )
+            # Get the directory containing alembic.ini
+            alembic_cfg = Config(
+                os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini")
+            )
+            command.upgrade(alembic_cfg, "head")
+            db_logger.info("Database migrations applied successfully")
+        except Exception as e:
+            db_logger.warning(
+                f"Failed to apply migrations (may already be up to date): {e}"
+            )
+    else:
+        db_logger.info("Skipping auto-migrations in production (run manually)")
 
     # Test Redis connection
     try:
