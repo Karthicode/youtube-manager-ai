@@ -1,4 +1,5 @@
 """AI service using OpenAI SDK for video categorization and tagging."""
+from __future__ import annotations
 
 import asyncio
 from datetime import datetime
