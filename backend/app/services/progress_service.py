@@ -1,4 +1,5 @@
 """Progress tracking service for long-running tasks."""
+
 from __future__ import annotations
 
 from typing import Dict, Any

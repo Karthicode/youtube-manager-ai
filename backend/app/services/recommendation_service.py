@@ -1,4 +1,5 @@
 """Channel recommendation service combining content-based and YouTube API approaches."""
+
 from __future__ import annotations
 
 from typing import List, Dict, Tuple, Set

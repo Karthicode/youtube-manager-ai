@@ -1,4 +1,5 @@
 """Videos router for managing YouTube videos."""
+
 from __future__ import annotations
 
 from typing import Annotated

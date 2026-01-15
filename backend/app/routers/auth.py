@@ -1,4 +1,5 @@
 """Authentication router for YouTube OAuth and JWT tokens."""
+
 from __future__ import annotations
 
 from typing import Annotated

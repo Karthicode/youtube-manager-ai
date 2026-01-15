@@ -1,4 +1,5 @@
 """Worker endpoints for background job processing via QStash."""
+
 from __future__ import annotations
 
 import asyncio

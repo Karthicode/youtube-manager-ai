@@ -1,4 +1,5 @@
 """Redis client for caching with support for local and Upstash Redis."""
+
 from __future__ import annotations
 
 import redis

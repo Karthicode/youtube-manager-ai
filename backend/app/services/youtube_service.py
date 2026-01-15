@@ -1,4 +1,5 @@
 """YouTube API service for fetching liked videos and playlists."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta

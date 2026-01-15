@@ -1,4 +1,5 @@
 """Categories router for managing video categories."""
+
 from __future__ import annotations
 
 from typing import Annotated, List
