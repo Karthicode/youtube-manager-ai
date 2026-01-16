@@ -340,6 +340,38 @@ async def get_video_stats(
     return stats
 
 
+@router.get("/count-by-tags", response_model=VideoCountResponse)
+async def get_video_count_by_tags(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tag_ids: str = Query(..., description="Comma-separated tag IDs"),
+):
+    """
+    Get count of videos matching specified tags.
+
+    Used to show confirmation dialog before bulk delete.
+    """
+    from sqlalchemy import exists
+    from app.models.video import video_tags
+
+    t_ids = [int(tid) for tid in tag_ids.split(",")]
+
+    # Build query with tag filter
+    tag_subquery = exists().where(
+        video_tags.c.video_id == Video.id,
+        video_tags.c.tag_id.in_(t_ids),
+    )
+
+    count = (
+        db.query(Video)
+        .filter(Video.user_id == current_user.id)
+        .filter(tag_subquery)
+        .count()
+    )
+
+    return VideoCountResponse(count=count, tag_ids=t_ids)
+
+
 @router.get("/{video_id}", response_model=VideoResponse)
 async def get_video(
     video_id: int,
@@ -1244,38 +1276,6 @@ def set_delete_job_data(job_id: str, data: dict, expire: int = 3600) -> None:
     """Set delete job data in Redis with expiration (default 1 hour)."""
     redis_client = get_redis()
     redis_client.set(f"delete_job:{job_id}", json.dumps(data), expire=expire)
-
-
-@router.get("/count-by-tags", response_model=VideoCountResponse)
-async def get_video_count_by_tags(
-    db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
-    tag_ids: str = Query(..., description="Comma-separated tag IDs"),
-):
-    """
-    Get count of videos matching specified tags.
-
-    Used to show confirmation dialog before bulk delete.
-    """
-    from sqlalchemy import exists
-    from app.models.video import video_tags
-
-    t_ids = [int(tid) for tid in tag_ids.split(",")]
-
-    # Build query with tag filter
-    tag_subquery = exists().where(
-        video_tags.c.video_id == Video.id,
-        video_tags.c.tag_id.in_(t_ids),
-    )
-
-    count = (
-        db.query(Video)
-        .filter(Video.user_id == current_user.id)
-        .filter(tag_subquery)
-        .count()
-    )
-
-    return VideoCountResponse(count=count, tag_ids=t_ids)
 
 
 @router.post("/delete-by-tags/start", response_model=BulkDeleteJobResponse)
