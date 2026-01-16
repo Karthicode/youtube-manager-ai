@@ -10,8 +10,8 @@ venv/
 .env.local
 *.log
 
-# Ignore Poetry files (only use requirements.txt for Vercel)
-pyproject.toml
+# Note: pyproject.toml is needed for zero-config deployment (defines app entrypoint)
+# Only ignore poetry.lock as Vercel uses requirements.txt
 poetry.lock
 
 # Ignore test files
