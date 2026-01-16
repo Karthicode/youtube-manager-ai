@@ -80,3 +80,51 @@ class PaginatedVideosResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class VideoCountResponse(BaseModel):
+    """Response for video count query."""
+
+    count: int
+    tag_ids: list[int]
+
+
+class BulkDeleteJobResponse(BaseModel):
+    """Response for starting a bulk delete job."""
+
+    job_id: str
+    total_videos: int
+    message: str
+
+
+class BulkDeleteFailure(BaseModel):
+    """Details of a failed video deletion."""
+
+    video_id: int
+    youtube_id: str
+    title: str
+    error: str
+
+
+class BulkDeleteProgressData(BaseModel):
+    """Progress data for bulk delete SSE stream."""
+
+    status: str  # "running", "completed", "error", "cancelled"
+    total: int
+    unliked: int  # Successfully unliked on YouTube
+    deleted: int  # Successfully deleted from database
+    failed: int
+    current_video: str | None = None
+    error: str | None = None
+    failures: list[BulkDeleteFailure] = []
+
+
+class BulkDeleteResult(BaseModel):
+    """Final result of bulk delete operation."""
+
+    status: str
+    total_videos: int
+    unliked_count: int
+    deleted_count: int
+    failed_count: int
+    failures: list[BulkDeleteFailure]

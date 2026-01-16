@@ -583,6 +583,34 @@ class YouTubeService:
             api_logger.error(f"YouTube channel search error for '{query}': {e}")
             raise
 
+    def unlike_video(self, youtube_id: str) -> Dict[str, Any]:
+        """
+        Remove like rating from a video (unlike it).
+
+        Uses videos.rate API with rating='none' to remove the like.
+        Quota cost: 50 units per call.
+
+        Args:
+            youtube_id: The YouTube video ID
+
+        Returns:
+            dict with success status and any error details
+
+        Note: This only removes the "like" - it doesn't add a dislike.
+        The video will no longer appear in the user's liked videos playlist.
+        """
+        try:
+            self.youtube.videos().rate(id=youtube_id, rating="none").execute()
+            return {"success": True, "youtube_id": youtube_id}
+        except HttpError as e:
+            api_logger.error(f"Failed to unlike video {youtube_id}: {e}")
+            return {
+                "success": False,
+                "youtube_id": youtube_id,
+                "error": str(e),
+                "error_code": e.resp.status if hasattr(e, "resp") else None,
+            }
+
     def get_channel_details(self, channel_ids: List[str]) -> List[Dict[str, Any]]:
         """
         Fetch detailed info for multiple channels.

@@ -18,7 +18,14 @@ from app.models.user import User
 from app.models.video import Video
 from app.models.category import Category
 from app.models.tag import Tag
-from app.schemas.video import VideoResponse, PaginatedVideosResponse
+from app.schemas.video import (
+    VideoResponse,
+    PaginatedVideosResponse,
+    VideoCountResponse,
+    BulkDeleteJobResponse,
+    BulkDeleteResult,
+    BulkDeleteFailure,
+)
 from app.services.youtube_service import YouTubeService
 from app.services.ai_service import AIService
 from app.logger import api_logger
@@ -1217,5 +1224,437 @@ async def background_categorize_videos(
 
     except Exception as e:
         api_logger.error(f"Background categorization failed for user {user_id}: {e}")
+    finally:
+        db.close()
+
+
+# ============================================================================
+# DELETE BY TAGS FUNCTIONALITY
+# ============================================================================
+
+
+def get_delete_job_data(job_id: str) -> dict | None:
+    """Get delete job data from Redis."""
+    redis_client = get_redis()
+    data = redis_client.get(f"delete_job:{job_id}")
+    return json.loads(data) if data else None
+
+
+def set_delete_job_data(job_id: str, data: dict, expire: int = 3600) -> None:
+    """Set delete job data in Redis with expiration (default 1 hour)."""
+    redis_client = get_redis()
+    redis_client.set(f"delete_job:{job_id}", json.dumps(data), expire=expire)
+
+
+@router.get("/count-by-tags", response_model=VideoCountResponse)
+async def get_video_count_by_tags(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tag_ids: str = Query(..., description="Comma-separated tag IDs"),
+):
+    """
+    Get count of videos matching specified tags.
+
+    Used to show confirmation dialog before bulk delete.
+    """
+    from sqlalchemy import exists
+    from app.models.video import video_tags
+
+    t_ids = [int(tid) for tid in tag_ids.split(",")]
+
+    # Build query with tag filter
+    tag_subquery = exists().where(
+        video_tags.c.video_id == Video.id,
+        video_tags.c.tag_id.in_(t_ids),
+    )
+
+    count = (
+        db.query(Video)
+        .filter(Video.user_id == current_user.id)
+        .filter(tag_subquery)
+        .count()
+    )
+
+    return VideoCountResponse(count=count, tag_ids=t_ids)
+
+
+@router.post("/delete-by-tags/start", response_model=BulkDeleteJobResponse)
+async def start_bulk_delete_by_tags(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    tag_ids: str = Query(..., description="Comma-separated tag IDs to filter videos"),
+):
+    """
+    Start bulk delete operation for videos matching specified tags.
+
+    Process:
+    1. Finds all videos matching ANY of the specified tags
+    2. Unlikes each video on YouTube (removes from liked videos)
+    3. Hard deletes video from local database
+
+    Returns job_id for progress tracking via SSE.
+
+    Note: YouTube videos.rate API costs 50 quota units per call.
+    With default 10,000 daily quota, max ~200 videos can be unliked per day.
+    """
+    from sqlalchemy import exists
+    from app.models.video import video_tags
+
+    t_ids = [int(tid) for tid in tag_ids.split(",")]
+
+    # Build query with tag filter
+    tag_subquery = exists().where(
+        video_tags.c.video_id == Video.id,
+        video_tags.c.tag_id.in_(t_ids),
+    )
+
+    videos = (
+        db.query(Video)
+        .filter(Video.user_id == current_user.id)
+        .filter(tag_subquery)
+        .all()
+    )
+
+    total_count = len(videos)
+
+    if total_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No videos found matching the specified tags",
+        )
+
+    # Extract video data (to avoid session detachment issues)
+    video_data = [
+        {"id": video.id, "youtube_id": video.youtube_id, "title": video.title}
+        for video in videos
+    ]
+
+    # Generate unique job ID
+    job_id = str(uuid.uuid4())
+
+    # Initialize job progress in Redis
+    set_delete_job_data(
+        job_id,
+        {
+            "user_id": current_user.id,
+            "total": total_count,
+            "unliked": 0,
+            "deleted": 0,
+            "failed": 0,
+            "current_video": None,
+            "status": "running",
+            "error": None,
+            "failures": [],
+        },
+    )
+
+    # Start background task
+    asyncio.create_task(run_bulk_delete(job_id, video_data, current_user.id))
+
+    return BulkDeleteJobResponse(
+        job_id=job_id,
+        total_videos=total_count,
+        message=f"Started bulk delete for {total_count} videos",
+    )
+
+
+@router.get("/delete-by-tags/stream/{job_id}")
+async def stream_delete_progress(
+    job_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Stream real-time progress updates for a delete job using Server-Sent Events.
+
+    Args:
+        job_id: The job ID returned from /delete-by-tags/start
+        current_user: Authenticated user (validates ownership)
+
+    Returns:
+        StreamingResponse with real-time progress updates
+    """
+    data = get_delete_job_data(job_id)
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+        )
+
+    # Verify job belongs to current user
+    if data.get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this job",
+        )
+
+    async def event_generator():
+        """Generate SSE events for delete job progress."""
+        try:
+            while True:
+                data = get_delete_job_data(job_id)
+                if not data:
+                    break
+
+                # Build progress data
+                progress_data = {
+                    "status": data.get("status", "running"),
+                    "total": data.get("total", 0),
+                    "unliked": data.get("unliked", 0),
+                    "deleted": data.get("deleted", 0),
+                    "failed": data.get("failed", 0),
+                    "current_video": data.get("current_video"),
+                    "failures": data.get("failures", []),
+                }
+
+                # Include error message if present
+                if data.get("error"):
+                    progress_data["error"] = data["error"]
+
+                yield f"data: {json.dumps(progress_data)}\n\n"
+
+                # Stop streaming if job is complete, cancelled, or errored
+                if data.get("status") in ["completed", "error", "cancelled"]:
+                    break
+
+                await asyncio.sleep(0.5)  # Update every 500ms
+
+        except Exception as e:
+            api_logger.error(f"SSE stream error for delete job {job_id}: {e}")
+            error_data = {"status": "error", "error": str(e)}
+            yield f"data: {json.dumps(error_data)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/delete-by-tags/result/{job_id}", response_model=BulkDeleteResult)
+async def get_delete_result(
+    job_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Get the final result of a delete job.
+
+    Args:
+        job_id: The job ID returned from /delete-by-tags/start
+
+    Returns:
+        Final job result with success/failure details
+    """
+    data = get_delete_job_data(job_id)
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+        )
+
+    # Verify job belongs to current user
+    if data.get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this job",
+        )
+
+    return BulkDeleteResult(
+        status=data.get("status", "unknown"),
+        total_videos=data.get("total", 0),
+        unliked_count=data.get("unliked", 0),
+        deleted_count=data.get("deleted", 0),
+        failed_count=data.get("failed", 0),
+        failures=[BulkDeleteFailure(**f) for f in data.get("failures", [])],
+    )
+
+
+@router.post("/delete-by-tags/cancel/{job_id}")
+async def cancel_delete_job(
+    job_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Cancel a running delete job.
+
+    Note: Videos already deleted cannot be recovered.
+
+    Args:
+        job_id: The job ID to cancel
+        current_user: Authenticated user (validates ownership)
+
+    Returns:
+        Confirmation message
+    """
+    data = get_delete_job_data(job_id)
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+        )
+
+    # Verify job belongs to current user
+    if data.get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this job",
+        )
+
+    # Can only cancel running jobs
+    if data["status"] != "running":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot cancel job with status: {data['status']}",
+        )
+
+    # Mark job as cancelled
+    data["status"] = "cancelled"
+    data["current_video"] = None
+    set_delete_job_data(job_id, data, expire=7200)  # Keep for 2 hours for review
+
+    api_logger.info(f"Delete job {job_id} cancelled by user {current_user.id}")
+    return {
+        "message": "Job cancelled successfully",
+        "job_id": job_id,
+        "deleted_so_far": data.get("deleted", 0),
+    }
+
+
+async def run_bulk_delete(
+    job_id: str,
+    video_data: list[dict],
+    user_id: int,
+):
+    """
+    Background task to unlike videos on YouTube and delete from database.
+
+    Args:
+        job_id: Unique job identifier
+        video_data: List of dicts with {id, youtube_id, title}
+        user_id: User ID for database operations
+    """
+    from app.database import SessionLocal
+
+    api_logger.info(f"Starting bulk delete job {job_id} with {len(video_data)} videos")
+
+    db = SessionLocal()
+
+    try:
+        # Load user for YouTube service
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            data = get_delete_job_data(job_id)
+            if data:
+                data["status"] = "error"
+                data["error"] = "User not found"
+                set_delete_job_data(job_id, data)
+            api_logger.error(f"User {user_id} not found for delete job {job_id}")
+            return
+
+        youtube_service = YouTubeService(user)
+
+        # Update job status to running
+        data = get_delete_job_data(job_id)
+        if data:
+            data["status"] = "running"
+            set_delete_job_data(job_id, data)
+
+        for video_info in video_data:
+            # Check for cancellation
+            data = get_delete_job_data(job_id)
+            if not data or data.get("status") == "cancelled":
+                api_logger.info(f"Delete job {job_id} was cancelled")
+                break
+
+            # Update current video
+            data["current_video"] = video_info["title"][:50]
+            set_delete_job_data(job_id, data)
+
+            # Step 1: Unlike on YouTube
+            unlike_result = youtube_service.unlike_video(video_info["youtube_id"])
+
+            # Determine if we should proceed with DB delete
+            should_delete = False
+            if unlike_result["success"]:
+                should_delete = True
+                data["unliked"] += 1
+            elif unlike_result.get("error_code") == 404:
+                # Video doesn't exist on YouTube anymore - still delete from DB
+                should_delete = True
+                api_logger.info(
+                    f"Video {video_info['youtube_id']} not found on YouTube, "
+                    "proceeding with DB delete"
+                )
+            else:
+                # YouTube API error - mark as failed
+                data["failed"] += 1
+                data["failures"].append(
+                    {
+                        "video_id": video_info["id"],
+                        "youtube_id": video_info["youtube_id"],
+                        "title": video_info["title"],
+                        "error": unlike_result.get(
+                            "error", "Failed to unlike on YouTube"
+                        ),
+                    }
+                )
+                api_logger.warning(
+                    f"Failed to unlike video {video_info['youtube_id']}: "
+                    f"{unlike_result.get('error')}"
+                )
+
+            # Step 2: Delete from database
+            if should_delete:
+                try:
+                    video = db.query(Video).filter(Video.id == video_info["id"]).first()
+                    if video:
+                        # Update tag usage counts before deletion
+                        for tag in video.tags:
+                            tag.usage_count = max(0, tag.usage_count - 1)
+
+                        db.delete(video)
+                        db.commit()
+                        data["deleted"] += 1
+                        api_logger.debug(
+                            f"Deleted video {video_info['id']} from database"
+                        )
+                except Exception as e:
+                    api_logger.error(
+                        f"Failed to delete video {video_info['id']} from DB: {e}"
+                    )
+                    data["failed"] += 1
+                    data["failures"].append(
+                        {
+                            "video_id": video_info["id"],
+                            "youtube_id": video_info["youtube_id"],
+                            "title": video_info["title"],
+                            "error": f"DB delete failed: {str(e)}",
+                        }
+                    )
+                    db.rollback()
+
+            set_delete_job_data(job_id, data)
+
+        # Mark job as complete
+        data = get_delete_job_data(job_id)
+        if data and data["status"] != "cancelled":
+            data["status"] = "completed"
+            data["current_video"] = None
+            set_delete_job_data(job_id, data, expire=7200)
+
+        # Invalidate stats cache
+        invalidate_user_stats_cache(user_id)
+
+        api_logger.info(
+            f"Delete job {job_id} completed: "
+            f"{data['deleted'] if data else 0} deleted, "
+            f"{data['failed'] if data else 0} failed"
+        )
+
+    except Exception as e:
+        # Mark job as error
+        data = get_delete_job_data(job_id)
+        if data:
+            data["status"] = "error"
+            data["error"] = str(e)
+            set_delete_job_data(job_id, data)
+        api_logger.error(f"Delete job {job_id} failed: {e}", exc_info=True)
+
     finally:
         db.close()
