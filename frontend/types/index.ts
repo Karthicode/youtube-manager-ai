@@ -184,3 +184,22 @@ export interface RecommendationsResponse {
 	top_categories: string[];
 	top_tags: string[];
 }
+
+// Delete by tags types
+export interface DeleteFailure {
+	video_id: number;
+	youtube_id: string;
+	title: string;
+	error: string;
+}
+
+export interface DeleteProgressData {
+	status: "running" | "completed" | "error" | "cancelled";
+	total: number;
+	unliked: number;
+	deleted: number;
+	failed: number;
+	current_video: string | null;
+	error?: string;
+	failures: DeleteFailure[];
+}

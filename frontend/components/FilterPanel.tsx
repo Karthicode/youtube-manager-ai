@@ -11,6 +11,7 @@ import {
 	Divider,
 	Input,
 } from "@heroui/react";
+import DeleteIcon from "@mui/icons-material/Delete";
 import SearchIcon from "@mui/icons-material/Search";
 import { useEffect, useState } from "react";
 import { categoriesApi, tagsApi } from "@/api/api";
@@ -26,6 +27,7 @@ interface FilterPanelProps {
 	onSearchChange: (search: string) => void;
 	onCategorizationFilterChange: (value: boolean | null) => void;
 	onClearFilters: () => void;
+	onDeleteByTags?: (tagIds: number[], tagNames: string[]) => void;
 }
 
 export default function FilterPanel({
@@ -38,6 +40,7 @@ export default function FilterPanel({
 	onSearchChange,
 	onCategorizationFilterChange,
 	onClearFilters,
+	onDeleteByTags,
 }: FilterPanelProps) {
 	const [categories, setCategories] = useState<Category[]>([]);
 	const [tags, setTags] = useState<Tag[]>([]);
@@ -207,6 +210,33 @@ export default function FilterPanel({
 							))}
 						</div>
 					</div>
+				)}
+
+				{/* Bulk Actions - Delete by Tags */}
+				{selectedTags.length > 0 && onDeleteByTags && (
+					<>
+						<Divider />
+						<div className="space-y-3">
+							<p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+								Bulk Actions
+							</p>
+							<Button
+								color="danger"
+								variant="flat"
+								size="sm"
+								startContent={<DeleteIcon fontSize="small" />}
+								onPress={() => {
+									const selectedTagNames = tags
+										.filter((t) => selectedTags.includes(t.id))
+										.map((t) => t.name);
+									onDeleteByTags(selectedTags, selectedTagNames);
+								}}
+								className="w-full"
+							>
+								Delete Videos with Selected Tags
+							</Button>
+						</div>
+					</>
 				)}
 			</CardBody>
 		</Card>

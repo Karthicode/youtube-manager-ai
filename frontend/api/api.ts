@@ -118,6 +118,21 @@ export const videosApi = {
 	getVideoStats: () => api.get("/videos/stats"),
 
 	getVideo: (videoId: number) => api.get(`/videos/${videoId}`),
+
+	// Delete by tags
+	getVideoCountByTags: (tagIds: number[]) =>
+		api.get("/videos/count-by-tags", { params: { tag_ids: tagIds.join(",") } }),
+
+	startDeleteByTags: (tagIds: number[]) =>
+		api.post("/videos/delete-by-tags/start", null, {
+			params: { tag_ids: tagIds.join(",") },
+		}),
+
+	getDeleteResult: (jobId: string) =>
+		api.get(`/videos/delete-by-tags/result/${jobId}`),
+
+	cancelDeleteJob: (jobId: string) =>
+		api.post(`/videos/delete-by-tags/cancel/${jobId}`),
 };
 
 export const playlistsApi = {

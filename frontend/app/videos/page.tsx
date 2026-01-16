@@ -14,6 +14,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { categoriesApi, playlistsApi, videosApi } from "@/api/api";
 import CreatePlaylistDialog from "@/components/CreatePlaylistDialog";
+import DeleteProgressSSE from "@/components/DeleteProgressSSE";
+import DeleteVideosDialog from "@/components/DeleteVideosDialog";
 import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
 import VideoCard from "@/components/VideoCard";
@@ -61,6 +63,13 @@ function VideosPageContent() {
 	const [showCreatePlaylistDialog, setShowCreatePlaylistDialog] =
 		useState(false);
 	const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
+
+	// Delete by tags state
+	const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+	const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
+	const [videosToDeleteCount, setVideosToDeleteCount] = useState(0);
+	const [deleteTagNames, setDeleteTagNames] = useState<string[]>([]);
+	const [isStartingDelete, setIsStartingDelete] = useState(false);
 
 	// Debounce search query
 	useEffect(() => {
@@ -240,6 +249,42 @@ function VideosPageContent() {
 		}
 	};
 
+	// Delete by tags handlers
+	const handleDeleteByTags = async (tagIds: number[], tagNames: string[]) => {
+		try {
+			const response = await videosApi.getVideoCountByTags(tagIds);
+			setVideosToDeleteCount(response.data.count);
+			setDeleteTagNames(tagNames);
+			setShowDeleteDialog(true);
+		} catch {
+			alert("Failed to count videos. Please try again.");
+		}
+	};
+
+	const handleConfirmDelete = async () => {
+		setIsStartingDelete(true);
+		try {
+			const response = await videosApi.startDeleteByTags(selectedTags);
+			setDeleteJobId(response.data.job_id);
+			setShowDeleteDialog(false);
+		} catch {
+			alert("Failed to start deletion. Please try again.");
+		} finally {
+			setIsStartingDelete(false);
+		}
+	};
+
+	const handleDeleteComplete = () => {
+		setDeleteJobId(null);
+		handleClearFilters();
+		fetchVideos();
+	};
+
+	const handleDeleteError = (error: string) => {
+		alert(`Deletion failed: ${error}`);
+		setDeleteJobId(null);
+	};
+
 	// Check if any filters are active
 	const hasActiveFilters =
 		selectedCategories.length > 0 ||
@@ -391,11 +436,21 @@ function VideosPageContent() {
 								onSearchChange={setSearchQuery}
 								onCategorizationFilterChange={handleCategorizationFilterChange}
 								onClearFilters={handleClearFilters}
+								onDeleteByTags={handleDeleteByTags}
 							/>
 						</div>
 
 						{/* Videos Grid */}
 						<div className="lg:col-span-3">
+							{/* Delete Progress */}
+							{deleteJobId && (
+								<DeleteProgressSSE
+									jobId={deleteJobId}
+									onComplete={handleDeleteComplete}
+									onError={handleDeleteError}
+								/>
+							)}
+
 							{loading ? (
 								<div className="flex justify-center items-center h-64">
 									<Spinner size="lg" />
@@ -464,6 +519,16 @@ function VideosPageContent() {
 					}}
 					videoCount={totalVideos}
 					isCreating={isCreatingPlaylist}
+				/>
+
+				{/* Delete Videos Dialog */}
+				<DeleteVideosDialog
+					isOpen={showDeleteDialog}
+					onClose={() => setShowDeleteDialog(false)}
+					onConfirm={handleConfirmDelete}
+					videoCount={videosToDeleteCount}
+					tagNames={deleteTagNames}
+					isDeleting={isStartingDelete}
 				/>
 			</div>
 		</div>
