@@ -1,3 +1,5 @@
-from app.main import app
+"""Vercel serverless entry point for FastAPI application."""
 
-handler = app
+
+# Vercel's Python runtime automatically detects and handles ASGI apps
+# No need for Mangum or special wrappers

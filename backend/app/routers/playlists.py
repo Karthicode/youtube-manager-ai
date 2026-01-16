@@ -389,7 +389,7 @@ async def create_playlist_from_filters(
             redis_client.set(
                 f"playlist_job:{job_id}",
                 json.dumps(job_data),
-                ex=3600,  # 1 hour expiry
+                expire=3600,  # 1 hour expiry
             )
 
             # Queue background job via QStash

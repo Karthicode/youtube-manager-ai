@@ -1800,6 +1800,24 @@ files = [
 windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
+name = "pyjwt"
+version = "2.10.1"
+description = "JSON Web Token implementation in Python"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "PyJWT-2.10.1-py3-none-any.whl", hash = "sha256:dcdd193e30abefd5debf142f9adfcdd2b58004e644f25406ffaebd50bd98dacb"},
+    {file = "pyjwt-2.10.1.tar.gz", hash = "sha256:3cc5772eb20009233caf06e9d8a0577824723b44e6648ee0a2aedb6cf9381953"},
+]
+
+[package.extras]
+crypto = ["cryptography (>=3.4.0)"]
+dev = ["coverage[toml] (==5.0.4)", "cryptography (>=3.4.0)", "pre-commit", "pytest (>=6.0.0,<7.0.0)", "sphinx", "sphinx-rtd-theme", "zope.interface"]
+docs = ["sphinx", "sphinx-rtd-theme", "zope.interface"]
+tests = ["coverage[toml] (==5.0.4)", "pytest (>=6.0.0,<7.0.0)"]
+
+[[package]]
 name = "pyparsing"
 version = "3.2.5"
 description = "pyparsing - Classes and methods to define and execute parsing grammars"
@@ -1940,6 +1958,22 @@ files = [
 
 [package.extras]
 dev = ["black", "build", "mypy", "pytest", "pytest-cov", "setuptools", "tox", "twine", "wheel"]
+
+[[package]]
+name = "qstash"
+version = "3.2.0"
+description = "Python SDK for Upstash QStash"
+optional = false
+python-versions = "<4.0,>=3.8"
+groups = ["main"]
+files = [
+    {file = "qstash-3.2.0-py3-none-any.whl", hash = "sha256:c5cb3f4521dc57108232dc80c3bf178a85b6787dc919087cef133073e764f0b4"},
+    {file = "qstash-3.2.0.tar.gz", hash = "sha256:3519d4cefb956703022a790531ccc31d13e68ad0d9e7d6ffe95459ae304210e9"},
+]
+
+[package.dependencies]
+httpx = ">=0.23.0,<1"
+pyjwt = ">=2.8.0,<3.0.0"
 
 [[package]]
 name = "redis"
@@ -2302,4 +2336,4 @@ standard = ["colorama (>=0.4) ; sys_platform == \"win32\"", "httptools (>=0.6.3)
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "c7f56ee47b8056167a1fe954344dff6a2f4667720468803a0bac9ba88ab1d7b4"
+content-hash = "b6cce58efaa48bf2ecb4ce6e11e41fbc5c17c2d323c784d2143f32e04c38b97b"

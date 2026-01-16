@@ -19,6 +19,10 @@ tests/
 .pytest_cache/
 .coverage
 
+# Ignore alembic migration files (migrations should be run manually in production)
+alembic/
+alembic.ini
+
 # Ignore IDE
 .vscode/
 .idea/
