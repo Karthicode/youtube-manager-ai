@@ -1,14 +1,3 @@
-[project]
-name = "youtube-manager-backend"
-version = "0.1.0"
-description = ""
-authors = [{name = "Karthik-Ananthnarayan", email = "karthikga124@gmail.com"}]
-readme = "README.md"
-
-[project.scripts]
-# Tell Vercel where to find the FastAPI app instance
-app = "app.main:app"
-
 [tool.poetry]
 name = "youtube-manager-backend"
 version = "0.1.0"
