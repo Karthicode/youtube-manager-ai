@@ -34,11 +34,11 @@ class YouTubeService:
             raise ValueError("User has no access token")
 
         # Determine if token might be expired based on stored expiry time
-        token_expiry = None
+        # Use getattr for backwards compatibility if column doesn't exist yet
+        token_expiry = getattr(self.user, "token_expires_at", None)
         is_expired = False
-        if self.user.token_expires_at:
-            token_expiry = self.user.token_expires_at
-            is_expired = datetime.utcnow() > self.user.token_expires_at
+        if token_expiry:
+            is_expired = datetime.utcnow() > token_expiry
 
         # Create credentials object
         creds = Credentials(
@@ -58,7 +58,7 @@ class YouTubeService:
                 creds.refresh(Request())
                 # Update user's tokens in database (will be done by caller)
                 self.user.access_token = creds.token
-                if creds.expiry:
+                if creds.expiry and hasattr(self.user, "token_expires_at"):
                     self.user.token_expires_at = creds.expiry
         except Exception as e:
             api_logger.warning(f"Token refresh failed, trying with current token: {e}")
