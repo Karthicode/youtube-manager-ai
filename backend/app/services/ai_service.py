@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 from openai import OpenAI, AsyncOpenAI
@@ -74,14 +74,11 @@ class AIService:
         # Build prompt with video information
         prompt = self._build_categorization_prompt(video)
 
-        # Call OpenAI API with structured output
+        # Call OpenAI API with structured output using the new Responses API
         try:
-            completion = self.client.beta.chat.completions.parse(
+            response = self.client.responses.parse(
                 model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": f"""You are an expert video content analyzer. Your task is to categorize YouTube videos and generate relevant tags.
+                instructions=f"""You are an expert video content analyzer. Your task is to categorize YouTube videos and generate relevant tags.
 
 Available categories: {", ".join(self.AVAILABLE_CATEGORIES)}
 
@@ -93,14 +90,12 @@ Rules:
 5. Choose only the TOP 5 most important tags that best represent the video content
 6. Assign a confidence score (0.0-1.0) based on how clear the video's content is
 7. Use only categories from the available list""",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                response_format=VideoCategorization,
-                max_completion_tokens=settings.openai_max_tokens,
+                input=prompt,
+                text_format=VideoCategorization,
+                max_output_tokens=settings.openai_max_tokens,
             )
 
-            result = completion.choices[0].message.parsed
+            result = response.output_parsed
             return result
 
         except Exception as e:
@@ -196,7 +191,7 @@ Rules:
 
         # Mark as categorized
         video.is_categorized = True
-        video.categorized_at = datetime.utcnow()
+        video.categorized_at = datetime.now(timezone.utc)
 
         db.commit()
         db.refresh(video)
@@ -270,12 +265,9 @@ Rules:
             class BatchCategorization(BaseModel):
                 videos: List[VideoCategorization]
 
-            completion = await self.async_client.beta.chat.completions.parse(
+            response = await self.async_client.responses.parse(
                 model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": f"""You are an expert video content analyzer. Categorize ALL videos in the batch.
+                instructions=f"""You are an expert video content analyzer. Categorize ALL videos in the batch.
 
 Available categories: {", ".join(self.AVAILABLE_CATEGORIES)}
 
@@ -286,14 +278,12 @@ For EACH video, provide:
 4. Assign confidence (0.0-1.0)
 
 Return results in the SAME ORDER as input.""",
-                    },
-                    {"role": "user", "content": batch_prompt},
-                ],
-                response_format=BatchCategorization,
-                max_completion_tokens=settings.openai_max_tokens,
+                input=batch_prompt,
+                text_format=BatchCategorization,
+                max_output_tokens=settings.openai_max_tokens,
             )
 
-            result = completion.choices[0].message.parsed
+            result = response.output_parsed
 
             # Ensure we got results for all videos
             if len(result.videos) != len(videos):
@@ -339,14 +329,11 @@ Return results in the SAME ORDER as input.""",
         # Build prompt with video information
         prompt = self._build_categorization_prompt(video)
 
-        # Call OpenAI API with structured output using async client
+        # Call OpenAI API with structured output using async client and Responses API
         try:
-            completion = await self.async_client.beta.chat.completions.parse(
+            response = await self.async_client.responses.parse(
                 model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": f"""You are an expert video content analyzer. Your task is to categorize YouTube videos and generate relevant tags.
+                instructions=f"""You are an expert video content analyzer. Your task is to categorize YouTube videos and generate relevant tags.
 
 Available categories: {", ".join(self.AVAILABLE_CATEGORIES)}
 
@@ -358,14 +345,12 @@ Rules:
 5. Choose only the TOP 5 most important tags that best represent the video content
 6. Assign a confidence score (0.0-1.0) based on how clear the video's content is
 7. Use only categories from the available list""",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                response_format=VideoCategorization,
-                max_completion_tokens=settings.openai_max_tokens,
+                input=prompt,
+                text_format=VideoCategorization,
+                max_output_tokens=settings.openai_max_tokens,
             )
 
-            result = completion.choices[0].message.parsed
+            result = response.output_parsed
             return result
 
         except Exception as e:

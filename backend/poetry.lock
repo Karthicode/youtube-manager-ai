@@ -1364,14 +1364,14 @@ signedtoken = ["cryptography (>=3.0.0)", "pyjwt (>=2.0.0,<3)"]
 
 [[package]]
 name = "openai"
-version = "2.6.1"
+version = "2.16.0"
 description = "The official Python library for the openai API"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "openai-2.6.1-py3-none-any.whl", hash = "sha256:904e4b5254a8416746a2f05649594fa41b19d799843cd134dac86167e094edef"},
-    {file = "openai-2.6.1.tar.gz", hash = "sha256:27ae704d190615fca0c0fc2b796a38f8b5879645a3a52c9c453b23f97141bb49"},
+    {file = "openai-2.16.0-py3-none-any.whl", hash = "sha256:5f46643a8f42899a84e80c38838135d7038e7718333ce61396994f887b09a59b"},
+    {file = "openai-2.16.0.tar.gz", hash = "sha256:42eaa22ca0d8ded4367a77374104d7a2feafee5bd60a107c3c11b5243a11cd12"},
 ]
 
 [package.dependencies]
@@ -2336,4 +2336,4 @@ standard = ["colorama (>=0.4) ; sys_platform == \"win32\"", "httptools (>=0.6.3)
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "b6cce58efaa48bf2ecb4ce6e11e41fbc5c17c2d323c784d2143f32e04c38b97b"
+content-hash = "096e46753e62ad9ff685ee009b9f1fef82a87ec13c8907902a477abb39163b49"
