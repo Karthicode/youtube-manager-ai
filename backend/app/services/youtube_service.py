@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Dict, Any
 import isodate
 
@@ -33,6 +33,13 @@ class YouTubeService:
         if not self.user.access_token:
             raise ValueError("User has no access token")
 
+        # Determine if token might be expired based on stored expiry time
+        token_expiry = None
+        is_expired = False
+        if self.user.token_expires_at:
+            token_expiry = self.user.token_expires_at
+            is_expired = datetime.utcnow() > self.user.token_expires_at
+
         # Create credentials object
         creds = Credentials(
             token=self.user.access_token,
@@ -41,16 +48,21 @@ class YouTubeService:
             client_id=settings.youtube_client_id,
             client_secret=settings.youtube_client_secret,
             scopes=settings.youtube_scopes,
+            expiry=token_expiry,
         )
 
         # Check if token is expired and refresh if needed
-        if creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-            # Update user's tokens in database (will be done by caller)
-            self.user.access_token = creds.token
-            self.user.token_expires_at = datetime.utcnow() + timedelta(
-                seconds=creds.expiry.timestamp() - datetime.utcnow().timestamp()
-            )
+        try:
+            if (is_expired or creds.expired) and creds.refresh_token:
+                api_logger.info("Refreshing expired YouTube access token")
+                creds.refresh(Request())
+                # Update user's tokens in database (will be done by caller)
+                self.user.access_token = creds.token
+                if creds.expiry:
+                    self.user.token_expires_at = creds.expiry
+        except Exception as e:
+            api_logger.warning(f"Token refresh failed, trying with current token: {e}")
+            # Continue with current token - it might still work
 
         self.youtube = build("youtube", "v3", credentials=creds)
 
