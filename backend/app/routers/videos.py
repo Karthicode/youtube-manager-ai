@@ -13,7 +13,7 @@ import asyncio
 import uuid
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_user_from_token
 from app.models.user import User
 from app.models.video import Video
 from app.models.category import Category
@@ -418,6 +418,119 @@ def set_embedding_job_data(job_id: str, data: dict, expire: int = 3600) -> None:
     redis_client.set(f"embedding_job:{job_id}", json.dumps(data), expire=expire)
 
 
+@router.get("/embeddings/generate/stream")
+async def stream_embedding_generation(
+    token: str = Query(..., description="Authentication token"),
+    max_videos: int | None = Query(
+        None, ge=1, description="Limit total videos to embed"
+    ),
+    max_concurrent: int = Query(5, ge=1, le=20, description="Max concurrent API calls"),
+    force_regenerate: bool = Query(
+        False, description="Regenerate embeddings for all videos"
+    ),
+):
+    """
+    Generate embeddings with real-time SSE progress streaming.
+
+    This endpoint runs the embedding generation inline within the SSE stream,
+    which works properly on serverless platforms like Vercel.
+    """
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+
+    try:
+        # Authenticate from query param token
+        user = get_user_from_token(token, db)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
+
+        # Get videos to embed
+        query = db.query(Video).filter(Video.user_id == user.id)
+
+        if not force_regenerate:
+            query = query.filter(Video.embedding.is_(None))
+
+        query = query.order_by(Video.liked_at.desc())
+
+        if max_videos:
+            query = query.limit(max_videos)
+
+        videos = query.all()
+        total_count = len(videos)
+
+        if total_count == 0:
+
+            async def empty_generator():
+                yield f"data: {json.dumps({'status': 'completed', 'total': 0, 'completed': 0, 'failed': 0, 'message': 'No videos to embed'})}\n\n"
+
+            return StreamingResponse(
+                empty_generator(),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
+
+        async def event_generator():
+            """Generate SSE events while processing embeddings inline."""
+            embedding_service = EmbeddingService()
+            semaphore = asyncio.Semaphore(max_concurrent)
+            completed = 0
+            failed = 0
+
+            # Send initial status
+            yield f"data: {json.dumps({'status': 'running', 'total': total_count, 'completed': 0, 'failed': 0, 'current_video': None})}\n\n"
+
+            async def embed_single(video: Video) -> bool:
+                async with semaphore:
+                    try:
+                        return await embedding_service.embed_video(db, video)
+                    except Exception as e:
+                        api_logger.error(f"Failed to embed video {video.id}: {e}")
+                        return False
+
+            # Process videos one at a time for better progress updates
+            for video in videos:
+                # Send current video status
+                yield f"data: {json.dumps({'status': 'running', 'total': total_count, 'completed': completed, 'failed': failed, 'current_video': video.title[:50] if video.title else None})}\n\n"
+
+                success = await embed_single(video)
+
+                if success:
+                    completed += 1
+                else:
+                    failed += 1
+
+                # Send progress update every video
+                yield f"data: {json.dumps({'status': 'running', 'total': total_count, 'completed': completed, 'failed': failed, 'current_video': video.title[:50] if video.title else None})}\n\n"
+
+            # Send final status
+            yield f"data: {json.dumps({'status': 'completed', 'total': total_count, 'completed': completed, 'failed': failed, 'current_video': None})}\n\n"
+
+            api_logger.info(
+                f"Embedding generation completed for user {user.id}: {completed} successful, {failed} failed"
+            )
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        api_logger.error(f"Embedding generation failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to start embedding generation",
+        )
+    finally:
+        db.close()
+
+
 @router.post("/embeddings/generate/start")
 async def start_embedding_generation(
     db: Annotated[Session, Depends(get_db)],
@@ -550,7 +663,7 @@ async def stream_embedding_progress(
 
 
 async def run_embedding_generation(
-    job_id: str, video_ids: list[int], max_concurrent: int, user_id: int
+    job_id: str, video_ids: list[int], max_concurrent: int, _user_id: int
 ):
     """Background task to generate embeddings with progress tracking."""
     from app.database import SessionLocal

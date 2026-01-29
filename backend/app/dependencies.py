@@ -40,3 +40,17 @@ async def get_current_user(
         raise credentials_exception
 
     return user
+
+
+def get_user_from_token(token: str, db: Session) -> User | None:
+    """Get user from a token string (for SSE endpoints that use query params)."""
+    try:
+        payload = jwt.decode(
+            token, settings.secret_key, algorithms=[settings.algorithm]
+        )
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            return None
+        return db.query(User).filter(User.id == int(user_id)).first()
+    except JWTError:
+        return None

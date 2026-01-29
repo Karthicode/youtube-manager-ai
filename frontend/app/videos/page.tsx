@@ -159,25 +159,25 @@ function VideosPageContent() {
 		currentVideo: string | null;
 	} | null>(null);
 
-	// Generate embeddings with SSE progress
+	// Generate embeddings with SSE progress (inline streaming)
 	const handleGenerateEmbeddings = async (forceRegenerate = false) => {
 		setIsGeneratingEmbeddings(true);
 		setEmbeddingProgress(null);
 
 		try {
-			// Start the job
-			const response = await videosApi.startEmbeddingGeneration({
-				max_concurrent: 10,
-				force_regenerate: forceRegenerate,
-			});
-			const jobId = response.data.job_id;
-
-			// Connect to SSE stream
 			const token = localStorage.getItem("access_token");
 			const apiUrl =
 				process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
+			// Connect directly to the inline SSE endpoint
+			const params = new URLSearchParams({
+				token: token || "",
+				max_concurrent: "5",
+				force_regenerate: forceRegenerate.toString(),
+			});
+
 			const eventSource = new EventSource(
-				`${apiUrl}/videos/embeddings/generate/stream/${jobId}?token=${token}`,
+				`${apiUrl}/videos/embeddings/generate/stream?${params.toString()}`,
 			);
 
 			eventSource.onmessage = (event) => {
