@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import or_, func
 from datetime import datetime, timezone
 import json
@@ -448,8 +448,12 @@ async def stream_embedding_generation(
                 detail="Invalid or expired token",
             )
 
-        # Get videos to embed
-        query = db.query(Video).filter(Video.user_id == user.id)
+        # Get videos to embed (eagerly load categories and tags to avoid detached session issues)
+        query = (
+            db.query(Video)
+            .options(selectinload(Video.categories), selectinload(Video.tags))
+            .filter(Video.user_id == user.id)
+        )
 
         if not force_regenerate:
             query = query.filter(Video.embedding.is_(None))
@@ -521,8 +525,8 @@ async def stream_embedding_generation(
                     "failed": failed,
                     "current_video": video.title[:50] if video.title else None,
                 }
-                if error and failed <= 3:  # Only show first few errors
-                    progress_data["last_error"] = error[:200]
+                if error:
+                    progress_data["last_error"] = error[:300]
                 yield f"data: {json.dumps(progress_data)}\n\n"
 
             # Send final status
