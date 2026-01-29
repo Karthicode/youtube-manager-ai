@@ -139,3 +139,54 @@ class CursorPaginatedVideosResponse(BaseModel):
     next_cursor: str | None = None
     has_more: bool = False
     total_count: int = 0
+
+
+class SemanticSearchResult(BaseModel):
+    """Single result from semantic search."""
+
+    id: int
+    youtube_id: str
+    title: str
+    description: str | None = None
+    thumbnail_url: str | None = None
+    channel_title: str | None = None
+    channel_id: str | None = None
+    duration_seconds: int | None = None
+    published_at: datetime | None = None
+    view_count: int | None = None
+    like_count: int | None = None
+    is_categorized: bool
+    categorized_at: datetime | None = None
+    liked_at: datetime | None = None
+    created_at: datetime | None = None
+    user_id: int
+    similarity: float
+    categories: list[CategoryResponse] = []
+    tags: list[TagResponse] = []
+
+
+class SemanticSearchResponse(BaseModel):
+    """Response for semantic search endpoint."""
+
+    query: str
+    results: list[SemanticSearchResult]
+    total_results: int
+
+
+class EmbeddingStatsResponse(BaseModel):
+    """Response for embedding statistics."""
+
+    total: int
+    embedded: int
+    not_embedded: int
+    percentage_embedded: float
+
+
+class EmbeddingGenerateResponse(BaseModel):
+    """Response for embedding generation."""
+
+    success_count: int
+    failed_count: int
+    total: int
+    skipped: int = 0
+    message: str

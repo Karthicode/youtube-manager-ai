@@ -9,6 +9,7 @@ from sqlalchemy import (
     Index,
 )
 from sqlalchemy.orm import relationship, Mapped, mapped_column
+from pgvector.sqlalchemy import Vector
 
 from app.database import Base
 from app.models.category import video_categories
@@ -48,6 +49,11 @@ class Video(Base):
     # AI categorization status
     is_categorized: Mapped[bool] = mapped_column(default=False)
     categorized_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+
+    # Semantic search embedding (1536 dimensions for text-embedding-3-small)
+    embedding: Mapped[Optional[List[float]]] = mapped_column(
+        Vector(1536), nullable=True
+    )
 
     # Timestamps
     liked_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)

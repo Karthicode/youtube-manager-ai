@@ -29,6 +29,7 @@ bcrypt = "^5.0.0"
 email-validator = "^2.3.0"
 isodate = "^0.7.2"
 qstash = "^3.2.0"
+pgvector = "^0.4.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"
@@ -38,6 +39,13 @@ black = "^25.9.0"
 ruff = "^0.14.1"
 mypy = "^1.18.2"
 types-requests = "^2.32.4.20260107"
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pgvector.*"
+ignore_missing_imports = true
 
 [build-system]
 requires = ["poetry-core>=2.0.0"]

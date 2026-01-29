@@ -26,9 +26,14 @@ from app.schemas.video import (
     BulkDeleteJobResponse,
     BulkDeleteResult,
     BulkDeleteFailure,
+    SemanticSearchResponse,
+    SemanticSearchResult,
+    EmbeddingStatsResponse,
+    EmbeddingGenerateResponse,
 )
 from app.services.youtube_service import YouTubeService
 from app.services.ai_service import AIService
+from app.services.embedding_service import EmbeddingService
 from app.logger import api_logger
 from app.utils.qstash_client import trigger_categorization_job
 import math
@@ -309,6 +314,170 @@ async def search_videos(
         page_size=page_size,
         total_pages=total_pages,
     )
+
+
+@router.get("/semantic-search", response_model=SemanticSearchResponse)
+async def semantic_search_videos(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    q: str = Query(..., min_length=1, description="Search query for semantic search"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of results"),
+    similarity_threshold: float = Query(
+        0.3, ge=0.0, le=1.0, description="Minimum similarity score (0-1)"
+    ),
+):
+    """
+    Semantic search across video content using AI embeddings.
+
+    This uses OpenAI's text-embedding-3-small model to find videos that are
+    semantically similar to your search query. Unlike keyword search, this
+    understands meaning and context.
+
+    Examples:
+    - "cooking recipes" will find cooking videos even if they don't use those exact words
+    - "learn programming" will find coding tutorials, software development content, etc.
+    - "funny cat videos" will find humor/comedy content about cats
+
+    Args:
+        q: Search query text
+        limit: Maximum number of results (1-100, default 20)
+        similarity_threshold: Minimum similarity score to include (0-1, default 0.3)
+
+    Returns:
+        List of videos with similarity scores, ordered by relevance
+    """
+    try:
+        embedding_service = EmbeddingService()
+        results = await embedding_service.search_similar_videos(
+            db=db,
+            query=q,
+            user_id=current_user.id,
+            limit=limit,
+            similarity_threshold=similarity_threshold,
+        )
+
+        return SemanticSearchResponse(
+            query=q,
+            results=[SemanticSearchResult(**r) for r in results],
+            total_results=len(results),
+        )
+
+    except Exception as e:
+        api_logger.error(
+            f"Semantic search failed for user {current_user.id}: {e}", exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Semantic search failed. Please try again later.",
+        )
+
+
+@router.get("/embeddings/stats", response_model=EmbeddingStatsResponse)
+async def get_embedding_stats(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Get statistics about video embeddings.
+
+    Returns counts of total videos, videos with embeddings, and videos without.
+    Use this to check if you need to generate embeddings before using semantic search.
+    """
+    embedding_service = EmbeddingService()
+    stats = embedding_service.get_embedding_stats(db, current_user.id)
+
+    percentage = (
+        round((stats["embedded"] / stats["total"]) * 100, 2)
+        if stats["total"] > 0
+        else 0.0
+    )
+
+    return EmbeddingStatsResponse(
+        total=stats["total"],
+        embedded=stats["embedded"],
+        not_embedded=stats["not_embedded"],
+        percentage_embedded=percentage,
+    )
+
+
+@router.post("/embeddings/generate", response_model=EmbeddingGenerateResponse)
+async def generate_embeddings(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    max_videos: int | None = Query(
+        None, ge=1, description="Limit total videos to embed (embeds all if not set)"
+    ),
+    max_concurrent: int = Query(
+        10, ge=1, le=50, description="Maximum concurrent API calls"
+    ),
+):
+    """
+    Generate embeddings for videos that don't have them yet.
+
+    This creates semantic embeddings for your videos, enabling semantic search.
+    Videos are processed in parallel for speed. Only processes videos without
+    existing embeddings.
+
+    Args:
+        max_videos: Optional limit on how many videos to embed
+        max_concurrent: Maximum concurrent OpenAI API calls (1-50, default 10)
+
+    Returns:
+        Summary of embedding generation results
+
+    Note: This may take a while for large video libraries. Each video requires
+    one OpenAI API call.
+    """
+    try:
+        # Get videos without embeddings
+        query = (
+            db.query(Video)
+            .filter(Video.user_id == current_user.id, Video.embedding.is_(None))
+            .order_by(Video.liked_at.desc())
+        )
+
+        if max_videos:
+            query = query.limit(max_videos)
+
+        videos = query.all()
+
+        if not videos:
+            return EmbeddingGenerateResponse(
+                success_count=0,
+                failed_count=0,
+                total=0,
+                skipped=0,
+                message="All videos already have embeddings",
+            )
+
+        api_logger.info(
+            f"Generating embeddings for {len(videos)} videos (user {current_user.id})"
+        )
+
+        embedding_service = EmbeddingService()
+        result = await embedding_service.embed_videos_batch(
+            db=db,
+            videos=videos,
+            max_concurrent=max_concurrent,
+        )
+
+        return EmbeddingGenerateResponse(
+            success_count=result["success_count"],
+            failed_count=result["failed_count"],
+            total=result["total"],
+            skipped=result.get("skipped", 0),
+            message=f"Generated embeddings for {result['success_count']} videos",
+        )
+
+    except Exception as e:
+        api_logger.error(
+            f"Embedding generation failed for user {current_user.id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Embedding generation failed. Please try again later.",
+        )
 
 
 @router.get("/stats")
