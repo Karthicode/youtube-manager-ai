@@ -76,8 +76,8 @@ export const authApi = {
 
 export const videosApi = {
 	getLikedVideos: (params?: {
-		page?: number;
-		page_size?: number;
+		cursor?: string;
+		limit?: number;
 		category_ids?: string;
 		tag_ids?: string;
 		search?: string;

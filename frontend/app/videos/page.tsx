@@ -3,7 +3,6 @@
 import {
 	Button,
 	ButtonGroup,
-	Pagination,
 	Select,
 	SelectItem,
 	Spinner,
@@ -20,7 +19,7 @@ import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
 import VideoCard from "@/components/VideoCard";
 import { useAuthGuard } from "@/hooks";
-import type { PaginatedVideosResponse, Video } from "@/types";
+import type { CursorPaginatedVideosResponse, Video } from "@/types";
 
 const SORT_OPTIONS = [
 	{ value: "liked_at", label: "Liked Date" },
@@ -37,6 +36,7 @@ function VideosPageContent() {
 
 	const [videos, setVideos] = useState<Video[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [loadingMore, setLoadingMore] = useState(false);
 	const [categorizingId, setCategorizingId] = useState<number | null>(null);
 
 	// Filter states
@@ -48,10 +48,12 @@ function VideosPageContent() {
 		boolean | null
 	>(null);
 
-	// Pagination and sorting
-	const [currentPage, setCurrentPage] = useState(1);
-	const [totalPages, setTotalPages] = useState(1);
+	// Cursor-based pagination state
+	const [nextCursor, setNextCursor] = useState<string | null>(null);
+	const [hasMore, setHasMore] = useState(false);
 	const [totalVideos, setTotalVideos] = useState(0);
+
+	// Sorting
 	const [sortBy, setSortBy] = useState("liked_at");
 	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 	const [pageSize, setPageSize] = useState(25);
@@ -80,62 +82,79 @@ function VideosPageContent() {
 		return () => clearTimeout(timer);
 	}, [searchQuery]);
 
-	const fetchVideos = useCallback(async () => {
-		setLoading(true);
-		try {
-			const params: {
-				page: number;
-				page_size: number;
-				sort_by: string;
-				sort_order: string;
-				category_ids?: string;
-				tag_ids?: string;
-				search?: string;
-				is_categorized?: boolean;
-			} = {
-				page: currentPage,
-				page_size: pageSize,
-				sort_by: sortBy,
-				sort_order: sortOrder,
-			};
-
-			if (selectedCategories.length > 0) {
-				params.category_ids = selectedCategories.join(",");
+	const fetchVideos = useCallback(
+		async (cursor?: string | null, append = false) => {
+			if (append) {
+				setLoadingMore(true);
+			} else {
+				setLoading(true);
 			}
 
-			if (selectedTags.length > 0) {
-				params.tag_ids = selectedTags.join(",");
+			try {
+				const params: {
+					cursor?: string;
+					limit: number;
+					sort_by: string;
+					sort_order: string;
+					category_ids?: string;
+					tag_ids?: string;
+					search?: string;
+					is_categorized?: boolean;
+				} = {
+					limit: pageSize,
+					sort_by: sortBy,
+					sort_order: sortOrder,
+				};
+
+				if (cursor) {
+					params.cursor = cursor;
+				}
+
+				if (selectedCategories.length > 0) {
+					params.category_ids = selectedCategories.join(",");
+				}
+
+				if (selectedTags.length > 0) {
+					params.tag_ids = selectedTags.join(",");
+				}
+
+				if (debouncedSearchQuery) {
+					params.search = debouncedSearchQuery;
+				}
+
+				if (showOnlyCategorized !== null) {
+					params.is_categorized = showOnlyCategorized;
+				}
+
+				const response = await videosApi.getLikedVideos(params);
+				const data: CursorPaginatedVideosResponse = response.data;
+
+				if (append) {
+					setVideos((prev) => [...prev, ...data.videos]);
+				} else {
+					setVideos(data.videos);
+				}
+
+				setNextCursor(data.next_cursor);
+				setHasMore(data.has_more);
+				setTotalVideos(data.total_count);
+			} catch {
+				// Failed to fetch videos - UI will show empty state
+			} finally {
+				setLoading(false);
+				setLoadingMore(false);
 			}
-
-			if (debouncedSearchQuery) {
-				params.search = debouncedSearchQuery;
-			}
-
-			if (showOnlyCategorized !== null) {
-				params.is_categorized = showOnlyCategorized;
-			}
-
-			const response = await videosApi.getLikedVideos(params);
-			const paginatedData: PaginatedVideosResponse = response.data;
-
-			setVideos(paginatedData.items);
-			setTotalPages(paginatedData.total_pages);
-			setTotalVideos(paginatedData.total);
-		} catch {
-			// Failed to fetch videos - UI will show empty state
-		} finally {
-			setLoading(false);
-		}
-	}, [
-		currentPage,
-		pageSize,
-		sortBy,
-		sortOrder,
-		selectedCategories,
-		selectedTags,
-		debouncedSearchQuery,
-		showOnlyCategorized,
-	]);
+		},
+		[
+			pageSize,
+			sortBy,
+			sortOrder,
+			selectedCategories,
+			selectedTags,
+			debouncedSearchQuery,
+			showOnlyCategorized,
+		],
+	);
 
 	// Initialize filters from URL on mount
 	useEffect(() => {
@@ -158,7 +177,6 @@ function VideosPageContent() {
 					);
 					if (match) {
 						setSelectedCategories([match.id]);
-						setCurrentPage(1);
 					}
 				} catch {
 					// Failed to map category from URL - ignore
@@ -172,6 +190,12 @@ function VideosPageContent() {
 		if (!isReady || !isAuthenticated) return;
 		fetchVideos();
 	}, [isReady, isAuthenticated, fetchVideos]);
+
+	const handleLoadMore = () => {
+		if (hasMore && nextCursor && !loadingMore) {
+			fetchVideos(nextCursor, true);
+		}
+	};
 
 	const handleCategorize = async (videoId: number) => {
 		setCategorizingId(videoId);
@@ -190,22 +214,18 @@ function VideosPageContent() {
 		setSelectedTags([]);
 		setSearchQuery("");
 		setShowOnlyCategorized(null);
-		setCurrentPage(1);
 	};
 
 	const handleCategorizationFilterChange = (value: boolean | null) => {
 		setShowOnlyCategorized(value);
-		setCurrentPage(1); // Reset to first page when filter changes
 	};
 
 	const handleCategoriesChange = (categories: number[]) => {
 		setSelectedCategories(categories);
-		setCurrentPage(1); // Reset to first page when filter changes
 	};
 
 	const handleTagsChange = (tags: number[]) => {
 		setSelectedTags(tags);
-		setCurrentPage(1); // Reset to first page when filter changes
 	};
 
 	const toggleSortOrder = () => {
@@ -315,9 +335,7 @@ function VideosPageContent() {
 							<p className="text-gray-600 dark:text-gray-400 mt-2">
 								{totalVideos > 0 && (
 									<>
-										Showing {(currentPage - 1) * pageSize + 1} -{" "}
-										{Math.min(currentPage * pageSize, totalVideos)} of{" "}
-										{totalVideos} videos
+										Showing {videos.length} of {totalVideos} videos
 									</>
 								)}
 							</p>
@@ -362,7 +380,7 @@ function VideosPageContent() {
 							{/* Per Page */}
 							<div className="flex flex-col gap-1">
 								<span className="text-sm text-gray-600 dark:text-gray-400">
-									Per page
+									Per load
 								</span>
 								<Select
 									selectedKeys={[String(pageSize)]}
@@ -370,13 +388,12 @@ function VideosPageContent() {
 										const selected = Array.from(keys)[0];
 										if (selected) {
 											setPageSize(Number(selected));
-											setCurrentPage(1);
 										}
 									}}
 									className="w-24"
 									size="md"
 									variant="bordered"
-									aria-label="Items per page"
+									aria-label="Items per load"
 								>
 									<SelectItem key="25">25</SelectItem>
 									<SelectItem key="50">50</SelectItem>
@@ -456,7 +473,7 @@ function VideosPageContent() {
 									<Spinner size="lg" />
 								</div>
 							) : videos.length > 0 ? (
-								<>
+								<div className="space-y-6">
 									<div
 										className={
 											viewMode === "grid"
@@ -475,25 +492,30 @@ function VideosPageContent() {
 										))}
 									</div>
 
-									{/* Pagination */}
-									{totalPages > 1 && (
-										<div className="flex justify-center mt-8">
-											<Pagination
-												total={totalPages}
-												page={currentPage}
-												onChange={setCurrentPage}
-												showControls
+									{/* Load More Button */}
+									{hasMore && (
+										<div className="flex justify-center pt-4">
+											<Button
 												color="primary"
-												size="lg"
-												variant="bordered"
-												radius="full"
-												classNames={{
-													cursor: "bg-primary text-white",
-												}}
-											/>
+												variant="flat"
+												onPress={handleLoadMore}
+												isLoading={loadingMore}
+												className="min-w-[200px]"
+											>
+												{loadingMore
+													? "Loading..."
+													: `Load More (${videos.length} of ${totalVideos})`}
+											</Button>
 										</div>
 									)}
-								</>
+
+									{/* Showing count */}
+									{!hasMore && videos.length > 0 && (
+										<p className="text-center text-sm text-gray-500">
+											Showing all {videos.length} videos
+										</p>
+									)}
+								</div>
 							) : (
 								<div className="text-center py-12">
 									<p className="text-gray-500 text-lg">No videos found</p>

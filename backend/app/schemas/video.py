@@ -128,3 +128,14 @@ class BulkDeleteResult(BaseModel):
     deleted_count: int
     failed_count: int
     failures: list[BulkDeleteFailure]
+
+
+class CursorPaginatedVideosResponse(BaseModel):
+    """Cursor-based pagination response for videos."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    videos: list[VideoResponse]
+    next_cursor: str | None = None
+    has_more: bool = False
+    total_count: int = 0

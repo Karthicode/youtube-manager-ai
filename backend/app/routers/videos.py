@@ -21,6 +21,7 @@ from app.models.tag import Tag
 from app.schemas.video import (
     VideoResponse,
     PaginatedVideosResponse,
+    CursorPaginatedVideosResponse,
     VideoCountResponse,
     BulkDeleteJobResponse,
     BulkDeleteResult,
@@ -35,12 +36,12 @@ import math
 router = APIRouter(prefix="/videos")
 
 
-@router.get("/liked", response_model=PaginatedVideosResponse)
+@router.get("/liked", response_model=CursorPaginatedVideosResponse)
 async def get_liked_videos(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    cursor: str | None = Query(None, description="Cursor for pagination (video_id)"),
+    limit: int = Query(20, ge=1, le=100, description="Number of videos to fetch"),
     category_ids: str | None = Query(None, description="Comma-separated category IDs"),
     tag_ids: str | None = Query(None, description="Comma-separated tag IDs"),
     search: str | None = Query(None, description="Search in title and description"),
@@ -51,12 +52,12 @@ async def get_liked_videos(
     sort_order: str = Query("desc", description="asc or desc"),
 ):
     """
-    Get user's liked videos with filtering, sorting, and pagination.
+    Get user's liked videos with cursor-based pagination.
 
     Supports:
     - Filtering by categories, tags, search query, categorization status
     - Sorting by liked_at, title, duration, published_at, view_count
-    - Pagination with total count
+    - Cursor-based pagination for efficient loading
     """
     # Build base query
     query = db.query(Video).filter(Video.user_id == current_user.id)
@@ -97,29 +98,74 @@ async def get_liked_videos(
     if is_categorized is not None:
         query = query.filter(Video.is_categorized == is_categorized)
 
-    # Get total count before pagination (no duplicates with subquery approach)
-    total = query.count()
+    # Get total count before cursor filtering
+    total_count = query.count()
 
-    # Apply sorting
+    # Determine sort column
     sort_column = getattr(Video, sort_by, Video.liked_at)
+
+    # Apply cursor filter if provided
+    if cursor:
+        try:
+            cursor_id = int(cursor)
+            # Get the cursor video to find its sort value
+            cursor_video = (
+                db.query(Video)
+                .filter(Video.id == cursor_id, Video.user_id == current_user.id)
+                .first()
+            )
+            if cursor_video:
+                cursor_sort_value = getattr(
+                    cursor_video, sort_by, cursor_video.liked_at
+                )
+                if cursor_sort_value is not None:
+                    if sort_order == "desc":
+                        # For descending: get items with smaller sort value OR same value but smaller id
+                        query = query.filter(
+                            or_(
+                                sort_column < cursor_sort_value,
+                                (sort_column == cursor_sort_value)
+                                & (Video.id < cursor_id),
+                            )
+                        )
+                    else:
+                        # For ascending: get items with larger sort value OR same value but larger id
+                        query = query.filter(
+                            or_(
+                                sort_column > cursor_sort_value,
+                                (sort_column == cursor_sort_value)
+                                & (Video.id > cursor_id),
+                            )
+                        )
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid cursor format"
+            )
+
+    # Apply sorting with secondary sort by id for stability
     if sort_order == "desc":
-        query = query.order_by(sort_column.desc())
+        query = query.order_by(sort_column.desc(), Video.id.desc())
     else:
-        query = query.order_by(sort_column.asc())
+        query = query.order_by(sort_column.asc(), Video.id.asc())
 
-    # Apply pagination
-    offset = (page - 1) * page_size
-    videos = query.offset(offset).limit(page_size).all()
+    # Fetch limit + 1 to check if there are more
+    videos = query.limit(limit + 1).all()
 
-    # Calculate total pages
-    total_pages = math.ceil(total / page_size) if total > 0 else 1
+    # Check if there are more results
+    has_more = len(videos) > limit
+    if has_more:
+        videos = videos[:limit]
 
-    return PaginatedVideosResponse(
-        items=[VideoResponse.model_validate(v) for v in videos],
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages,
+    # Determine next cursor
+    next_cursor = None
+    if has_more and videos:
+        next_cursor = str(videos[-1].id)
+
+    return CursorPaginatedVideosResponse(
+        videos=[VideoResponse.model_validate(v) for v in videos],
+        next_cursor=next_cursor,
+        has_more=has_more,
+        total_count=total_count,
     )
 
 
