@@ -192,7 +192,7 @@ class EmbeddingService:
         # Search using cosine similarity
         # pgvector uses <=> for cosine distance (1 - similarity)
         # So we convert: similarity = 1 - distance
-        # Cast the embedding string to vector type for proper comparison
+        # Use CAST() instead of :: to avoid SQLAlchemy parameter parsing issues
         result = db.execute(
             text(
                 """
@@ -213,12 +213,12 @@ class EmbeddingService:
                     v.liked_at,
                     v.created_at,
                     v.user_id,
-                    1 - (v.embedding <=> :query_embedding::vector) as similarity
+                    1 - (v.embedding <=> CAST(:query_embedding AS vector)) as similarity
                 FROM videos v
                 WHERE v.user_id = :user_id
                     AND v.embedding IS NOT NULL
-                    AND 1 - (v.embedding <=> :query_embedding::vector) > :threshold
-                ORDER BY v.embedding <=> :query_embedding::vector
+                    AND 1 - (v.embedding <=> CAST(:query_embedding AS vector)) > :threshold
+                ORDER BY v.embedding <=> CAST(:query_embedding AS vector)
                 LIMIT :limit
                 """
             ),
