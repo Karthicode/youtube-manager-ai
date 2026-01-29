@@ -75,3 +75,12 @@ class CreatePlaylistFromFiltersResponse(BaseModel):
     added_immediately: int
     queued_for_background: int
     job_id: str | None = None  # For tracking background progress
+
+
+class PlaylistVideosCursorResponse(BaseModel):
+    """Cursor-based pagination response for playlist videos."""
+
+    videos: list[VideoResponse]
+    next_cursor: str | None = None
+    has_more: bool = False
+    total_count: int = 0

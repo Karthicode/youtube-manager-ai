@@ -94,6 +94,13 @@ export interface PaginatedVideosResponse {
 	total_pages: number;
 }
 
+export interface CursorPaginatedVideosResponse {
+	videos: Video[];
+	next_cursor: string | null;
+	has_more: boolean;
+	total_count: number;
+}
+
 // Insights types
 export interface CategoryDistribution {
 	name: string;

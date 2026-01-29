@@ -20,7 +20,7 @@ import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
 import VideoCard from "@/components/VideoCard";
 import { useAuthGuard } from "@/hooks";
-import type { Playlist, Video } from "@/types";
+import type { CursorPaginatedVideosResponse, Playlist, Video } from "@/types";
 
 export default function PlaylistDetailPage() {
 	const router = useRouter();
@@ -31,8 +31,14 @@ export default function PlaylistDetailPage() {
 	const [playlist, setPlaylist] = useState<Playlist | null>(null);
 	const [videos, setVideos] = useState<Video[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [loadingMore, setLoadingMore] = useState(false);
 	const [syncing, setSyncing] = useState(false);
 	const [categorizingId, setCategorizingId] = useState<number | null>(null);
+
+	// Cursor-based pagination state
+	const [nextCursor, setNextCursor] = useState<string | null>(null);
+	const [hasMore, setHasMore] = useState(false);
+	const [totalCount, setTotalCount] = useState(0);
 
 	// Filter states
 	const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
@@ -42,35 +48,71 @@ export default function PlaylistDetailPage() {
 		boolean | null
 	>(null);
 
-	const fetchPlaylistDetails = useCallback(async () => {
-		setLoading(true);
-		try {
-			// Fetch playlist info and videos
-			const [playlistRes, videosRes] = await Promise.all([
-				playlistsApi.getPlaylist(playlistId),
-				playlistsApi.getPlaylistVideos(playlistId, {
+	const fetchPlaylistDetails = useCallback(
+		async (cursor?: string | null, append = false) => {
+			if (append) {
+				setLoadingMore(true);
+			} else {
+				setLoading(true);
+			}
+
+			try {
+				// Fetch playlist info (only on initial load)
+				const playlistPromise = append
+					? Promise.resolve({ data: playlist })
+					: playlistsApi.getPlaylist(playlistId);
+
+				const videosPromise = playlistsApi.getPlaylistVideos(playlistId, {
+					cursor: cursor || undefined,
+					limit: 20,
 					category_ids:
 						selectedCategories.length > 0
 							? selectedCategories.join(",")
 							: undefined,
 					tag_ids: selectedTags.length > 0 ? selectedTags.join(",") : undefined,
 					search: searchQuery || undefined,
-				}),
-			]);
+				});
 
-			setPlaylist(playlistRes.data);
-			setVideos(videosRes.data);
-		} catch {
-			// Failed to fetch playlist details - UI will show empty state
-		} finally {
-			setLoading(false);
-		}
-	}, [playlistId, selectedCategories, selectedTags, searchQuery]);
+				const [playlistRes, videosRes] = await Promise.all([
+					playlistPromise,
+					videosPromise,
+				]);
+
+				if (!append) {
+					setPlaylist(playlistRes.data);
+				}
+
+				const response = videosRes.data as CursorPaginatedVideosResponse;
+
+				if (append) {
+					setVideos((prev) => [...prev, ...response.videos]);
+				} else {
+					setVideos(response.videos);
+				}
+
+				setNextCursor(response.next_cursor);
+				setHasMore(response.has_more);
+				setTotalCount(response.total_count);
+			} catch {
+				// Failed to fetch playlist details - UI will show empty state
+			} finally {
+				setLoading(false);
+				setLoadingMore(false);
+			}
+		},
+		[playlistId, selectedCategories, selectedTags, searchQuery, playlist],
+	);
 
 	useEffect(() => {
 		if (!isReady || !isAuthenticated) return;
 		fetchPlaylistDetails();
 	}, [isReady, isAuthenticated, fetchPlaylistDetails]);
+
+	const handleLoadMore = () => {
+		if (hasMore && nextCursor && !loadingMore) {
+			fetchPlaylistDetails(nextCursor, true);
+		}
+	};
 
 	const handleSyncVideos = async () => {
 		setSyncing(true);
@@ -150,7 +192,10 @@ export default function PlaylistDetailPage() {
 										</p>
 									)}
 									<div className="flex gap-4 mt-3 text-sm text-gray-500">
-										<span>{playlist.video_count} videos</span>
+										<span>
+											{totalCount > 0 ? totalCount : playlist.video_count}{" "}
+											videos
+										</span>
 										{playlist.channel_title && <span>•</span>}
 										{playlist.channel_title && (
 											<span>{playlist.channel_title}</span>
@@ -220,15 +265,41 @@ export default function PlaylistDetailPage() {
 									<Spinner size="lg" />
 								</div>
 							) : videos.length > 0 ? (
-								<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-									{videos.map((video) => (
-										<VideoCard
-											key={video.id}
-											video={video}
-											onCategorize={handleCategorize}
-											isCategorizing={categorizingId === video.id}
-										/>
-									))}
+								<div className="space-y-6">
+									<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+										{videos.map((video) => (
+											<VideoCard
+												key={video.id}
+												video={video}
+												onCategorize={handleCategorize}
+												isCategorizing={categorizingId === video.id}
+											/>
+										))}
+									</div>
+
+									{/* Load More Button */}
+									{hasMore && (
+										<div className="flex justify-center pt-4">
+											<Button
+												color="primary"
+												variant="flat"
+												onPress={handleLoadMore}
+												isLoading={loadingMore}
+												className="min-w-[200px]"
+											>
+												{loadingMore
+													? "Loading..."
+													: `Load More (${videos.length} of ${totalCount})`}
+											</Button>
+										</div>
+									)}
+
+									{/* Showing count */}
+									{!hasMore && videos.length > 0 && (
+										<p className="text-center text-sm text-gray-500">
+											Showing all {videos.length} videos
+										</p>
+									)}
 								</div>
 							) : (
 								<div className="text-center py-12">

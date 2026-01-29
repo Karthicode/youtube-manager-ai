@@ -21,8 +21,8 @@ from app.schemas.playlist import (
     PlaylistWithVideos,
     CreatePlaylistFromFiltersRequest,
     CreatePlaylistFromFiltersResponse,
+    PlaylistVideosCursorResponse,
 )
-from app.schemas.video import VideoResponse
 from app.services.youtube_service import YouTubeService
 from app.logger import api_logger
 from app.utils.qstash_client import trigger_playlist_video_addition_job
@@ -92,21 +92,21 @@ async def get_playlist(
     return playlist
 
 
-@router.get("/{playlist_id}/videos", response_model=List[VideoResponse])
+@router.get("/{playlist_id}/videos", response_model=PlaylistVideosCursorResponse)
 async def get_playlist_videos(
     playlist_id: int,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    cursor: str | None = Query(None, description="Cursor for pagination (position)"),
+    limit: int = Query(20, ge=1, le=100, description="Number of videos to fetch"),
     category_ids: str | None = Query(None, description="Comma-separated category IDs"),
     tag_ids: str | None = Query(None, description="Comma-separated tag IDs"),
     search: str | None = Query(None, description="Search in title and description"),
 ):
     """
-    Get videos from a specific playlist with filtering.
+    Get videos from a specific playlist with cursor-based pagination.
 
-    Supports same filtering as liked videos endpoint.
+    Uses position in playlist as cursor for efficient pagination.
     """
     # Verify playlist exists and belongs to user
     playlist = (
@@ -123,8 +123,9 @@ async def get_playlist_videos(
     # Build query for playlist videos
     from app.models.playlist import PlaylistVideo
 
-    query = (
-        db.query(Video)
+    # Base query with join
+    base_query = (
+        db.query(Video, PlaylistVideo.position)
         .join(PlaylistVideo, PlaylistVideo.video_id == Video.id)
         .filter(PlaylistVideo.playlist_id == playlist_id)
     )
@@ -132,15 +133,15 @@ async def get_playlist_videos(
     # Apply filters
     if category_ids:
         cat_ids = [int(cid) for cid in category_ids.split(",")]
-        query = query.join(Video.categories).filter(Category.id.in_(cat_ids))
+        base_query = base_query.join(Video.categories).filter(Category.id.in_(cat_ids))
 
     if tag_ids:
         t_ids = [int(tid) for tid in tag_ids.split(",")]
-        query = query.join(Video.tags).filter(Tag.id.in_(t_ids))
+        base_query = base_query.join(Video.tags).filter(Tag.id.in_(t_ids))
 
     if search:
         search_term = f"%{search}%"
-        query = query.filter(
+        base_query = base_query.filter(
             or_(
                 Video.title.ilike(search_term),
                 Video.description.ilike(search_term),
@@ -148,14 +149,41 @@ async def get_playlist_videos(
             )
         )
 
-    # Order by position in playlist
-    query = query.order_by(PlaylistVideo.position.asc())
+    # Get total count (before cursor filtering)
+    total_count = base_query.count()
 
-    # Apply pagination
-    offset = (page - 1) * page_size
-    videos = query.offset(offset).limit(page_size).all()
+    # Apply cursor filter if provided
+    if cursor:
+        try:
+            cursor_position = int(cursor)
+            base_query = base_query.filter(PlaylistVideo.position > cursor_position)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid cursor format"
+            )
 
-    return videos
+    # Order by position and fetch limit + 1 to check if there are more
+    results = base_query.order_by(PlaylistVideo.position.asc()).limit(limit + 1).all()
+
+    # Check if there are more results
+    has_more = len(results) > limit
+    if has_more:
+        results = results[:limit]
+
+    # Extract videos and determine next cursor
+    videos = [video for video, _ in results]
+    next_cursor = None
+    if has_more and results:
+        # Use the last video's position as the next cursor
+        _, last_position = results[-1]
+        next_cursor = str(last_position)
+
+    return PlaylistVideosCursorResponse(
+        videos=videos,
+        next_cursor=next_cursor,
+        has_more=has_more,
+        total_count=total_count,
+    )
 
 
 @router.post("/sync")
