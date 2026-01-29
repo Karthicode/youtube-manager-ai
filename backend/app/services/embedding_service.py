@@ -336,7 +336,7 @@ class EmbeddingService:
             categories_result = db.execute(
                 text(
                     """
-                    SELECT vc.video_id, c.id, c.name, c.slug, c.description, c.color, c.icon
+                    SELECT vc.video_id, c.id, c.name, c.slug, c.description, c.color
                     FROM video_categories vc
                     JOIN categories c ON c.id = vc.category_id
                     WHERE vc.video_id = ANY(:video_ids)
@@ -354,7 +354,6 @@ class EmbeddingService:
                         "slug": row.slug,
                         "description": row.description,
                         "color": row.color,
-                        "icon": row.icon,
                     }
                 )
 
