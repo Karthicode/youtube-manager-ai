@@ -210,3 +210,47 @@ export interface DeleteProgressData {
 	error?: string;
 	failures: DeleteFailure[];
 }
+
+// Semantic search types
+export interface SemanticSearchResult {
+	id: number;
+	youtube_id: string;
+	title: string;
+	description: string | null;
+	thumbnail_url: string | null;
+	channel_title: string | null;
+	channel_id: string | null;
+	duration_seconds: number | null;
+	published_at: string | null;
+	view_count: number | null;
+	like_count: number | null;
+	is_categorized: boolean;
+	categorized_at: string | null;
+	liked_at: string | null;
+	created_at: string | null;
+	user_id: number;
+	similarity: number;
+	categories: Category[];
+	tags: Tag[];
+}
+
+export interface SemanticSearchResponse {
+	query: string;
+	results: SemanticSearchResult[];
+	total_results: number;
+}
+
+export interface EmbeddingStats {
+	total: number;
+	embedded: number;
+	not_embedded: number;
+	percentage_embedded: number;
+}
+
+export interface EmbeddingGenerateResponse {
+	success_count: number;
+	failed_count: number;
+	total: number;
+	skipped: number;
+	message: string;
+}

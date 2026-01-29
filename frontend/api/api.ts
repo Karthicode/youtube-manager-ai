@@ -133,6 +133,21 @@ export const videosApi = {
 
 	cancelDeleteJob: (jobId: string) =>
 		api.post(`/videos/delete-by-tags/cancel/${jobId}`),
+
+	// Semantic search
+	semanticSearch: (params: {
+		q: string;
+		limit?: number;
+		similarity_threshold?: number;
+	}) => api.get("/videos/semantic-search", { params }),
+
+	// Embeddings
+	getEmbeddingStats: () => api.get("/videos/embeddings/stats"),
+
+	generateEmbeddings: (params?: {
+		max_videos?: number;
+		max_concurrent?: number;
+	}) => api.post("/videos/embeddings/generate", null, { params }),
 };
 
 export const playlistsApi = {

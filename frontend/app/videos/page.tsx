@@ -3,11 +3,20 @@
 import {
 	Button,
 	ButtonGroup,
+	Card,
+	CardBody,
+	Chip,
+	Input,
+	Progress,
 	Select,
 	SelectItem,
 	Spinner,
+	Switch,
+	Tooltip,
 } from "@heroui/react";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import GridViewIcon from "@mui/icons-material/GridView";
+import SearchIcon from "@mui/icons-material/Search";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
@@ -19,7 +28,12 @@ import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
 import VideoCard from "@/components/VideoCard";
 import { useAuthGuard } from "@/hooks";
-import type { CursorPaginatedVideosResponse, Video } from "@/types";
+import type {
+	CursorPaginatedVideosResponse,
+	EmbeddingStats,
+	SemanticSearchResult,
+	Video,
+} from "@/types";
 
 const SORT_OPTIONS = [
 	{ value: "liked_at", label: "Liked Date" },
@@ -73,6 +87,18 @@ function VideosPageContent() {
 	const [deleteTagNames, setDeleteTagNames] = useState<string[]>([]);
 	const [isStartingDelete, setIsStartingDelete] = useState(false);
 
+	// Semantic search state
+	const [semanticSearchEnabled, setSemanticSearchEnabled] = useState(false);
+	const [semanticQuery, setSemanticQuery] = useState("");
+	const [semanticResults, setSemanticResults] = useState<
+		SemanticSearchResult[]
+	>([]);
+	const [semanticLoading, setSemanticLoading] = useState(false);
+	const [embeddingStats, setEmbeddingStats] = useState<EmbeddingStats | null>(
+		null,
+	);
+	const [isGeneratingEmbeddings, setIsGeneratingEmbeddings] = useState(false);
+
 	// Debounce search query
 	useEffect(() => {
 		const timer = setTimeout(() => {
@@ -81,6 +107,74 @@ function VideosPageContent() {
 
 		return () => clearTimeout(timer);
 	}, [searchQuery]);
+
+	// Fetch embedding stats when semantic search is enabled
+	const fetchEmbeddingStats = useCallback(async () => {
+		try {
+			const response = await videosApi.getEmbeddingStats();
+			setEmbeddingStats(response.data);
+		} catch {
+			// Failed to fetch embedding stats
+		}
+	}, []);
+
+	// Semantic search function
+	const performSemanticSearch = useCallback(async (query: string) => {
+		if (!query.trim()) {
+			setSemanticResults([]);
+			return;
+		}
+
+		setSemanticLoading(true);
+		try {
+			const response = await videosApi.semanticSearch({
+				q: query,
+				limit: 50,
+				similarity_threshold: 0.25,
+			});
+			setSemanticResults(response.data.results);
+		} catch {
+			setSemanticResults([]);
+		} finally {
+			setSemanticLoading(false);
+		}
+	}, []);
+
+	// Debounced semantic search
+	useEffect(() => {
+		if (!semanticSearchEnabled) return;
+
+		const timer = setTimeout(() => {
+			performSemanticSearch(semanticQuery);
+		}, 500);
+
+		return () => clearTimeout(timer);
+	}, [semanticQuery, semanticSearchEnabled, performSemanticSearch]);
+
+	// Generate embeddings
+	const handleGenerateEmbeddings = async () => {
+		setIsGeneratingEmbeddings(true);
+		try {
+			const response = await videosApi.generateEmbeddings({
+				max_concurrent: 10,
+			});
+			alert(
+				`${response.data.message}. ${response.data.failed_count > 0 ? `${response.data.failed_count} failed.` : ""}`,
+			);
+			await fetchEmbeddingStats();
+		} catch {
+			alert("Failed to generate embeddings. Please try again.");
+		} finally {
+			setIsGeneratingEmbeddings(false);
+		}
+	};
+
+	// Fetch embedding stats when semantic search is toggled on
+	useEffect(() => {
+		if (semanticSearchEnabled) {
+			fetchEmbeddingStats();
+		}
+	}, [semanticSearchEnabled, fetchEmbeddingStats]);
 
 	const fetchVideos = useCallback(
 		async (cursor?: string | null, append = false) => {
@@ -333,26 +427,64 @@ function VideosPageContent() {
 								Liked Videos
 							</h1>
 							<p className="text-gray-600 dark:text-gray-400 mt-2">
-								{totalVideos > 0 && (
-									<>
-										Showing {videos.length} of {totalVideos} videos
-									</>
+								{semanticSearchEnabled ? (
+									semanticResults.length > 0 ? (
+										<>Found {semanticResults.length} similar videos</>
+									) : semanticQuery ? (
+										<>Searching...</>
+									) : (
+										<>Enter a query to search semantically</>
+									)
+								) : (
+									totalVideos > 0 && (
+										<>
+											Showing {videos.length} of {totalVideos} videos
+										</>
+									)
 								)}
 							</p>
 						</div>
 
 						<div className="flex gap-3 items-end flex-wrap">
-							{/* Create Playlist Button */}
-							{hasActiveFilters && totalVideos > 0 && (
-								<Button
-									color="success"
-									variant="shadow"
-									onPress={() => setShowCreatePlaylistDialog(true)}
-									className="h-10"
+							{/* Semantic Search Toggle */}
+							<div className="flex flex-col gap-1">
+								<span className="text-sm text-gray-600 dark:text-gray-400">
+									AI Search
+								</span>
+								<Tooltip
+									content="Search by meaning, not just keywords"
+									placement="bottom"
 								>
-									Create Playlist ({totalVideos})
-								</Button>
-							)}
+									<div className="flex items-center gap-2 h-10 px-3 border rounded-lg border-gray-300 dark:border-gray-600">
+										<AutoAwesomeIcon
+											fontSize="small"
+											className={
+												semanticSearchEnabled ? "text-primary" : "text-gray-400"
+											}
+										/>
+										<Switch
+											size="sm"
+											isSelected={semanticSearchEnabled}
+											onValueChange={setSemanticSearchEnabled}
+											aria-label="Enable semantic search"
+										/>
+									</div>
+								</Tooltip>
+							</div>
+
+							{/* Create Playlist Button */}
+							{!semanticSearchEnabled &&
+								hasActiveFilters &&
+								totalVideos > 0 && (
+									<Button
+										color="success"
+										variant="shadow"
+										onPress={() => setShowCreatePlaylistDialog(true)}
+										className="h-10"
+									>
+										Create Playlist ({totalVideos})
+									</Button>
+								)}
 
 							{/* View Toggle */}
 							<div className="flex flex-col gap-1">
@@ -441,20 +573,104 @@ function VideosPageContent() {
 
 					{/* Content Grid */}
 					<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-						{/* Filters Sidebar */}
+						{/* Filters Sidebar / Semantic Search Panel */}
 						<div className="lg:col-span-1">
-							<FilterPanel
-								selectedCategories={selectedCategories}
-								selectedTags={selectedTags}
-								searchQuery={searchQuery}
-								showOnlyCategorized={showOnlyCategorized}
-								onCategoriesChange={handleCategoriesChange}
-								onTagsChange={handleTagsChange}
-								onSearchChange={setSearchQuery}
-								onCategorizationFilterChange={handleCategorizationFilterChange}
-								onClearFilters={handleClearFilters}
-								onDeleteByTags={handleDeleteByTags}
-							/>
+							{semanticSearchEnabled ? (
+								<Card className="w-full shadow-md">
+									<CardBody className="gap-4">
+										<div className="flex items-center gap-2">
+											<AutoAwesomeIcon className="text-primary" />
+											<h3 className="text-lg font-semibold">
+												AI Semantic Search
+											</h3>
+										</div>
+										<p className="text-sm text-gray-500 dark:text-gray-400">
+											Search by meaning, not just keywords. Find videos even if
+											they don&apos;t contain your exact words.
+										</p>
+
+										{/* Embedding Stats */}
+										{embeddingStats && (
+											<div className="space-y-2">
+												<div className="flex justify-between text-sm">
+													<span className="text-gray-600 dark:text-gray-400">
+														Videos indexed:
+													</span>
+													<span className="font-medium">
+														{embeddingStats.embedded} / {embeddingStats.total}
+													</span>
+												</div>
+												<Progress
+													value={embeddingStats.percentage_embedded}
+													color={
+														embeddingStats.percentage_embedded === 100
+															? "success"
+															: "primary"
+													}
+													size="sm"
+													className="max-w-full"
+												/>
+												{embeddingStats.not_embedded > 0 && (
+													<Button
+														color="primary"
+														variant="flat"
+														size="sm"
+														onPress={handleGenerateEmbeddings}
+														isLoading={isGeneratingEmbeddings}
+														className="w-full mt-2"
+													>
+														{isGeneratingEmbeddings
+															? "Indexing..."
+															: `Index ${embeddingStats.not_embedded} Videos`}
+													</Button>
+												)}
+											</div>
+										)}
+
+										{/* Search Input */}
+										<Input
+											type="text"
+											placeholder="e.g., 'cooking tutorials' or 'learn python'"
+											value={semanticQuery}
+											onValueChange={setSemanticQuery}
+											startContent={
+												<SearchIcon
+													fontSize="small"
+													className="text-default-400"
+												/>
+											}
+											isClearable
+											onClear={() => setSemanticQuery("")}
+											variant="bordered"
+											size="lg"
+											radius="lg"
+											classNames={{
+												input: "text-base",
+											}}
+										/>
+
+										<p className="text-xs text-gray-400">
+											Try describing what you&apos;re looking for in natural
+											language
+										</p>
+									</CardBody>
+								</Card>
+							) : (
+								<FilterPanel
+									selectedCategories={selectedCategories}
+									selectedTags={selectedTags}
+									searchQuery={searchQuery}
+									showOnlyCategorized={showOnlyCategorized}
+									onCategoriesChange={handleCategoriesChange}
+									onTagsChange={handleTagsChange}
+									onSearchChange={setSearchQuery}
+									onCategorizationFilterChange={
+										handleCategorizationFilterChange
+									}
+									onClearFilters={handleClearFilters}
+									onDeleteByTags={handleDeleteByTags}
+								/>
+							)}
 						</div>
 
 						{/* Videos Grid */}
@@ -468,7 +684,74 @@ function VideosPageContent() {
 								/>
 							)}
 
-							{loading ? (
+							{/* Semantic Search Results */}
+							{semanticSearchEnabled ? (
+								semanticLoading ? (
+									<div className="flex justify-center items-center h-64">
+										<Spinner size="lg" />
+									</div>
+								) : semanticResults.length > 0 ? (
+									<div className="space-y-6">
+										<div
+											className={
+												viewMode === "grid"
+													? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+													: "flex flex-col gap-4"
+											}
+										>
+											{semanticResults.map((result) => (
+												<div key={result.id} className="relative">
+													<VideoCard
+														video={result as unknown as Video}
+														onCategorize={handleCategorize}
+														isCategorizing={categorizingId === result.id}
+														viewMode={viewMode}
+													/>
+													{/* Similarity Score Badge */}
+													<Chip
+														color={
+															result.similarity > 0.5
+																? "success"
+																: result.similarity > 0.35
+																	? "primary"
+																	: "warning"
+														}
+														variant="flat"
+														size="sm"
+														className="absolute top-2 right-2 z-10"
+													>
+														{Math.round(result.similarity * 100)}% match
+													</Chip>
+												</div>
+											))}
+										</div>
+									</div>
+								) : semanticQuery ? (
+									<div className="text-center py-12">
+										<p className="text-gray-500 text-lg">
+											No similar videos found
+										</p>
+										<p className="text-gray-400 text-sm mt-2">
+											Try a different search query
+										</p>
+									</div>
+								) : (
+									<div className="text-center py-12">
+										<AutoAwesomeIcon
+											className="text-gray-300 dark:text-gray-600 mb-4"
+											style={{ fontSize: 64 }}
+										/>
+										<p className="text-gray-500 text-lg">
+											Enter a search query to find similar videos
+										</p>
+										<p className="text-gray-400 text-sm mt-2">
+											{embeddingStats && embeddingStats.embedded > 0
+												? `${embeddingStats.embedded} videos are indexed and ready to search`
+												: "Index your videos first to enable semantic search"}
+										</p>
+									</div>
+								)
+							) : loading ? (
 								<div className="flex justify-center items-center h-64">
 									<Spinner size="lg" />
 								</div>
