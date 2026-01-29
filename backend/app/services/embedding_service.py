@@ -24,6 +24,14 @@ class EmbeddingService:
         """Initialize OpenAI client."""
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
 
+    def _format_embedding_for_pgvector(self, embedding: List[float]) -> str:
+        """
+        Format embedding list for pgvector.
+
+        pgvector expects format: '[0.1,0.2,0.3]' without spaces.
+        """
+        return "[" + ",".join(str(x) for x in embedding) + "]"
+
     def _build_embedding_text(self, video: Video) -> str:
         """
         Build text to embed for a video.
@@ -84,9 +92,10 @@ class EmbeddingService:
             embedding = await self.generate_embedding(embedding_text)
 
             # Update video with embedding using raw SQL for pgvector
+            embedding_str = self._format_embedding_for_pgvector(embedding)
             db.execute(
                 text("UPDATE videos SET embedding = :embedding WHERE id = :id"),
-                {"embedding": str(embedding), "id": video.id},
+                {"embedding": embedding_str, "id": video.id},
             )
             db.commit()
 
@@ -173,6 +182,7 @@ class EmbeddingService:
         """
         # Generate embedding for the query
         query_embedding = await self.generate_embedding(query)
+        query_embedding_str = self._format_embedding_for_pgvector(query_embedding)
 
         # Search using cosine similarity
         # pgvector uses <=> for cosine distance (1 - similarity)
@@ -208,7 +218,7 @@ class EmbeddingService:
                 """
             ),
             {
-                "query_embedding": str(query_embedding),
+                "query_embedding": query_embedding_str,
                 "user_id": user_id,
                 "threshold": similarity_threshold,
                 "limit": limit,
