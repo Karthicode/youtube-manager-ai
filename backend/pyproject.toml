@@ -32,7 +32,7 @@ qstash = "^3.2.0"
 pgvector = "^0.4.2"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.4.2"
+pytest = "^9.0.2"
 pytest-asyncio = "^1.2.0"
 pytest-cov = "^7.0.0"
 black = "^25.9.0"
