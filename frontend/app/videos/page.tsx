@@ -151,20 +151,64 @@ function VideosPageContent() {
 		return () => clearTimeout(timer);
 	}, [semanticQuery, semanticSearchEnabled, performSemanticSearch]);
 
-	// Generate embeddings
-	const handleGenerateEmbeddings = async () => {
+	// Embedding progress state
+	const [embeddingProgress, setEmbeddingProgress] = useState<{
+		total: number;
+		completed: number;
+		failed: number;
+		currentVideo: string | null;
+	} | null>(null);
+
+	// Generate embeddings with SSE progress
+	const handleGenerateEmbeddings = async (forceRegenerate = false) => {
 		setIsGeneratingEmbeddings(true);
+		setEmbeddingProgress(null);
+
 		try {
-			const response = await videosApi.generateEmbeddings({
+			// Start the job
+			const response = await videosApi.startEmbeddingGeneration({
 				max_concurrent: 10,
+				force_regenerate: forceRegenerate,
 			});
-			alert(
-				`${response.data.message}. ${response.data.failed_count > 0 ? `${response.data.failed_count} failed.` : ""}`,
+			const jobId = response.data.job_id;
+
+			// Connect to SSE stream
+			const token = localStorage.getItem("access_token");
+			const apiUrl =
+				process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+			const eventSource = new EventSource(
+				`${apiUrl}/videos/embeddings/generate/stream/${jobId}?token=${token}`,
 			);
-			await fetchEmbeddingStats();
+
+			eventSource.onmessage = (event) => {
+				const data = JSON.parse(event.data);
+				setEmbeddingProgress({
+					total: data.total,
+					completed: data.completed,
+					failed: data.failed,
+					currentVideo: data.current_video,
+				});
+
+				if (data.status === "completed" || data.status === "error") {
+					eventSource.close();
+					setIsGeneratingEmbeddings(false);
+					fetchEmbeddingStats();
+
+					if (data.status === "completed") {
+						setTimeout(() => setEmbeddingProgress(null), 3000);
+					} else if (data.error) {
+						alert(`Embedding failed: ${data.error}`);
+					}
+				}
+			};
+
+			eventSource.onerror = () => {
+				eventSource.close();
+				setIsGeneratingEmbeddings(false);
+				fetchEmbeddingStats();
+			};
 		} catch {
-			alert("Failed to generate embeddings. Please try again.");
-		} finally {
+			alert("Failed to start embedding generation. Please try again.");
 			setIsGeneratingEmbeddings(false);
 		}
 	};
@@ -589,40 +633,95 @@ function VideosPageContent() {
 											they don&apos;t contain your exact words.
 										</p>
 
-										{/* Embedding Stats */}
+										{/* Embedding Stats & Progress */}
 										{embeddingStats && (
 											<div className="space-y-2">
-												<div className="flex justify-between text-sm">
-													<span className="text-gray-600 dark:text-gray-400">
-														Videos indexed:
-													</span>
-													<span className="font-medium">
-														{embeddingStats.embedded} / {embeddingStats.total}
-													</span>
-												</div>
-												<Progress
-													value={embeddingStats.percentage_embedded}
-													color={
-														embeddingStats.percentage_embedded === 100
-															? "success"
-															: "primary"
-													}
-													size="sm"
-													className="max-w-full"
-												/>
-												{embeddingStats.not_embedded > 0 && (
-													<Button
-														color="primary"
-														variant="flat"
-														size="sm"
-														onPress={handleGenerateEmbeddings}
-														isLoading={isGeneratingEmbeddings}
-														className="w-full mt-2"
-													>
-														{isGeneratingEmbeddings
-															? "Indexing..."
-															: `Index ${embeddingStats.not_embedded} Videos`}
-													</Button>
+												{embeddingProgress ? (
+													<>
+														<div className="flex justify-between text-sm">
+															<span className="text-gray-600 dark:text-gray-400">
+																Indexing progress:
+															</span>
+															<span className="font-medium">
+																{embeddingProgress.completed} /{" "}
+																{embeddingProgress.total}
+															</span>
+														</div>
+														<Progress
+															value={
+																(embeddingProgress.completed /
+																	embeddingProgress.total) *
+																100
+															}
+															color="primary"
+															size="sm"
+															className="max-w-full"
+														/>
+														{embeddingProgress.currentVideo && (
+															<p className="text-xs text-gray-500 truncate">
+																{embeddingProgress.currentVideo}
+															</p>
+														)}
+														{embeddingProgress.failed > 0 && (
+															<p className="text-xs text-danger">
+																{embeddingProgress.failed} failed
+															</p>
+														)}
+													</>
+												) : (
+													<>
+														<div className="flex justify-between text-sm">
+															<span className="text-gray-600 dark:text-gray-400">
+																Videos indexed:
+															</span>
+															<span className="font-medium">
+																{embeddingStats.embedded} /{" "}
+																{embeddingStats.total}
+															</span>
+														</div>
+														<Progress
+															value={embeddingStats.percentage_embedded}
+															color={
+																embeddingStats.percentage_embedded === 100
+																	? "success"
+																	: "primary"
+															}
+															size="sm"
+															className="max-w-full"
+														/>
+													</>
+												)}
+												{!embeddingProgress && (
+													<div className="flex gap-2 mt-2">
+														{embeddingStats.not_embedded > 0 && (
+															<Button
+																color="primary"
+																variant="flat"
+																size="sm"
+																onPress={() => handleGenerateEmbeddings(false)}
+																isLoading={isGeneratingEmbeddings}
+																className="flex-1"
+															>
+																{isGeneratingEmbeddings
+																	? "Starting..."
+																	: `Index ${embeddingStats.not_embedded} Videos`}
+															</Button>
+														)}
+														{embeddingStats.embedded > 0 && (
+															<Tooltip content="Re-index all videos with fresh embeddings">
+																<Button
+																	color="secondary"
+																	variant="flat"
+																	size="sm"
+																	onPress={() => handleGenerateEmbeddings(true)}
+																	isLoading={isGeneratingEmbeddings}
+																	isDisabled={isGeneratingEmbeddings}
+																>
+																	Regenerate All
+																</Button>
+															</Tooltip>
+														)}
+													</div>
 												)}
 											</div>
 										)}

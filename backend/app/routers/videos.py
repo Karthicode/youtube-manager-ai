@@ -400,6 +400,236 @@ async def get_embedding_stats(
     )
 
 
+# ============================================================================
+# EMBEDDING GENERATION WITH SSE PROGRESS
+# ============================================================================
+
+
+def get_embedding_job_data(job_id: str) -> dict | None:
+    """Get embedding job data from Redis."""
+    redis_client = get_redis()
+    data = redis_client.get(f"embedding_job:{job_id}")
+    return json.loads(data) if data else None
+
+
+def set_embedding_job_data(job_id: str, data: dict, expire: int = 3600) -> None:
+    """Set embedding job data in Redis with expiration (default 1 hour)."""
+    redis_client = get_redis()
+    redis_client.set(f"embedding_job:{job_id}", json.dumps(data), expire=expire)
+
+
+@router.post("/embeddings/generate/start")
+async def start_embedding_generation(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    max_videos: int | None = Query(
+        None, ge=1, description="Limit total videos to embed (embeds all if not set)"
+    ),
+    max_concurrent: int = Query(
+        10, ge=1, le=50, description="Maximum concurrent API calls"
+    ),
+    force_regenerate: bool = Query(
+        False, description="Regenerate embeddings for all videos (including existing)"
+    ),
+):
+    """
+    Start embedding generation job and return job_id for progress tracking.
+
+    Use /embeddings/generate/stream/{job_id} to get real-time progress via SSE.
+    Set force_regenerate=true to regenerate embeddings for all videos.
+    """
+    # Get videos - either without embeddings or all if force_regenerate
+    query = db.query(Video).filter(Video.user_id == current_user.id)
+
+    if not force_regenerate:
+        query = query.filter(Video.embedding.is_(None))
+
+    query = query.order_by(Video.liked_at.desc())
+
+    if max_videos:
+        query = query.limit(max_videos)
+
+    videos = query.all()
+    total_count = len(videos)
+
+    if total_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No videos found for embedding generation",
+        )
+
+    # Extract video IDs
+    video_ids = [video.id for video in videos]
+
+    # Generate unique job ID
+    job_id = str(uuid.uuid4())
+
+    # Initialize job progress in Redis
+    set_embedding_job_data(
+        job_id,
+        {
+            "user_id": current_user.id,
+            "total": total_count,
+            "completed": 0,
+            "failed": 0,
+            "current_video": None,
+            "status": "running",
+        },
+    )
+
+    # Start background task
+    asyncio.create_task(
+        run_embedding_generation(job_id, video_ids, max_concurrent, current_user.id)
+    )
+
+    api_logger.info(
+        f"Started embedding job {job_id} for {total_count} videos (user {current_user.id})"
+    )
+
+    return {"job_id": job_id, "total_videos": total_count}
+
+
+@router.get("/embeddings/generate/stream/{job_id}")
+async def stream_embedding_progress(
+    job_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Stream real-time progress updates for embedding generation via SSE.
+    """
+    data = get_embedding_job_data(job_id)
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+        )
+
+    # Verify job belongs to current user
+    if data.get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this job",
+        )
+
+    async def event_generator():
+        """Generate SSE events for embedding job progress."""
+        try:
+            while True:
+                data = get_embedding_job_data(job_id)
+                if not data:
+                    break
+
+                progress_data = {
+                    "status": data.get("status", "running"),
+                    "total": data.get("total", 0),
+                    "completed": data.get("completed", 0),
+                    "failed": data.get("failed", 0),
+                    "current_video": data.get("current_video"),
+                }
+
+                if "error" in data:
+                    progress_data["error"] = data["error"]
+
+                yield f"data: {json.dumps(progress_data)}\n\n"
+
+                # Stop streaming if job is complete or errored
+                if data.get("status") in ["completed", "error"]:
+                    break
+
+                await asyncio.sleep(0.5)
+
+        except Exception as e:
+            api_logger.error(f"SSE stream error for embedding job {job_id}: {e}")
+            error_data = {"status": "error", "error": str(e)}
+            yield f"data: {json.dumps(error_data)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+async def run_embedding_generation(
+    job_id: str, video_ids: list[int], max_concurrent: int, user_id: int
+):
+    """Background task to generate embeddings with progress tracking."""
+    from app.database import SessionLocal
+
+    api_logger.info(
+        f"Starting embedding generation job {job_id} for {len(video_ids)} videos"
+    )
+
+    db = SessionLocal()
+
+    try:
+        embedding_service = EmbeddingService()
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        # Fetch all videos
+        videos = db.query(Video).filter(Video.id.in_(video_ids)).all()
+        video_map = {video.id: video for video in videos}
+
+        async def embed_with_progress(video_id: int):
+            async with semaphore:
+                video = video_map.get(video_id)
+                if not video:
+                    return False
+
+                # Update current video in Redis
+                data = get_embedding_job_data(job_id)
+                if data:
+                    data["current_video"] = video.title[:50] if video.title else None
+                    set_embedding_job_data(job_id, data)
+
+                try:
+                    success = await embedding_service.embed_video(db, video)
+
+                    # Update progress
+                    data = get_embedding_job_data(job_id)
+                    if data:
+                        if success:
+                            data["completed"] += 1
+                        else:
+                            data["failed"] += 1
+                        set_embedding_job_data(job_id, data)
+
+                    return success
+                except Exception as e:
+                    api_logger.error(f"Failed to embed video {video_id}: {e}")
+                    data = get_embedding_job_data(job_id)
+                    if data:
+                        data["failed"] += 1
+                        set_embedding_job_data(job_id, data)
+                    return False
+
+        # Process all videos
+        tasks = [embed_with_progress(vid_id) for vid_id in video_ids]
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Mark job as complete
+        data = get_embedding_job_data(job_id)
+        if data:
+            data["status"] = "completed"
+            data["current_video"] = None
+            set_embedding_job_data(job_id, data, expire=7200)
+
+        api_logger.info(
+            f"Embedding job {job_id} completed: {data['completed'] if data else 0} successful, "
+            f"{data['failed'] if data else 0} failed"
+        )
+
+    except Exception as e:
+        data = get_embedding_job_data(job_id)
+        if data:
+            data["status"] = "error"
+            data["error"] = str(e)
+            set_embedding_job_data(job_id, data)
+        api_logger.error(f"Embedding job {job_id} failed: {e}", exc_info=True)
+
+    finally:
+        db.close()
+
+
 @router.post("/embeddings/generate", response_model=EmbeddingGenerateResponse)
 async def generate_embeddings(
     db: Annotated[Session, Depends(get_db)],
@@ -412,24 +642,12 @@ async def generate_embeddings(
     ),
 ):
     """
-    Generate embeddings for videos that don't have them yet.
+    Generate embeddings synchronously (use /embeddings/generate/start for async with progress).
 
-    This creates semantic embeddings for your videos, enabling semantic search.
-    Videos are processed in parallel for speed. Only processes videos without
-    existing embeddings.
-
-    Args:
-        max_videos: Optional limit on how many videos to embed
-        max_concurrent: Maximum concurrent OpenAI API calls (1-50, default 10)
-
-    Returns:
-        Summary of embedding generation results
-
-    Note: This may take a while for large video libraries. Each video requires
-    one OpenAI API call.
+    Note: This endpoint may timeout for large video libraries. For better UX,
+    use /embeddings/generate/start and stream progress via SSE.
     """
     try:
-        # Get videos without embeddings
         query = (
             db.query(Video)
             .filter(Video.user_id == current_user.id, Video.embedding.is_(None))

@@ -148,6 +148,13 @@ export const videosApi = {
 		max_videos?: number;
 		max_concurrent?: number;
 	}) => api.post("/videos/embeddings/generate", null, { params }),
+
+	// Embedding generation with SSE progress
+	startEmbeddingGeneration: (params?: {
+		max_videos?: number;
+		max_concurrent?: number;
+		force_regenerate?: boolean;
+	}) => api.post("/videos/embeddings/generate/start", null, { params }),
 };
 
 export const playlistsApi = {
