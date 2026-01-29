@@ -483,28 +483,47 @@ async def stream_embedding_generation(
             # Send initial status
             yield f"data: {json.dumps({'status': 'running', 'total': total_count, 'completed': 0, 'failed': 0, 'current_video': None})}\n\n"
 
-            async def embed_single(video: Video) -> bool:
+            last_error: str | None = None
+
+            async def embed_single(video: Video) -> tuple[bool, str | None]:
+                nonlocal last_error
                 async with semaphore:
                     try:
-                        return await embedding_service.embed_video(db, video)
+                        success, error = await embedding_service.embed_video(db, video)
+                        if error:
+                            last_error = error
+                        return success, error
                     except Exception as e:
-                        api_logger.error(f"Failed to embed video {video.id}: {e}")
-                        return False
+                        error_msg = str(e)
+                        api_logger.error(
+                            f"Failed to embed video {video.id}: {e}", exc_info=True
+                        )
+                        last_error = error_msg
+                        return False, error_msg
 
             # Process videos one at a time for better progress updates
             for video in videos:
                 # Send current video status
                 yield f"data: {json.dumps({'status': 'running', 'total': total_count, 'completed': completed, 'failed': failed, 'current_video': video.title[:50] if video.title else None})}\n\n"
 
-                success = await embed_single(video)
+                success, error = await embed_single(video)
 
                 if success:
                     completed += 1
                 else:
                     failed += 1
 
-                # Send progress update every video
-                yield f"data: {json.dumps({'status': 'running', 'total': total_count, 'completed': completed, 'failed': failed, 'current_video': video.title[:50] if video.title else None})}\n\n"
+                # Send progress update with error info if any
+                progress_data = {
+                    "status": "running",
+                    "total": total_count,
+                    "completed": completed,
+                    "failed": failed,
+                    "current_video": video.title[:50] if video.title else None,
+                }
+                if error and failed <= 3:  # Only show first few errors
+                    progress_data["last_error"] = error[:200]
+                yield f"data: {json.dumps(progress_data)}\n\n"
 
             # Send final status
             yield f"data: {json.dumps({'status': 'completed', 'total': total_count, 'completed': completed, 'failed': failed, 'current_video': None})}\n\n"

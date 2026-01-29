@@ -157,6 +157,7 @@ function VideosPageContent() {
 		completed: number;
 		failed: number;
 		currentVideo: string | null;
+		lastError: string | null;
 	} | null>(null);
 
 	// Generate embeddings with SSE progress (inline streaming)
@@ -187,6 +188,7 @@ function VideosPageContent() {
 					completed: data.completed,
 					failed: data.failed,
 					currentVideo: data.current_video,
+					lastError: data.last_error || null,
 				});
 
 				if (data.status === "completed" || data.status === "error") {
@@ -665,6 +667,11 @@ function VideosPageContent() {
 														{embeddingProgress.failed > 0 && (
 															<p className="text-xs text-danger">
 																{embeddingProgress.failed} failed
+															</p>
+														)}
+														{embeddingProgress.lastError && (
+															<p className="text-xs text-danger mt-1 break-words">
+																Error: {embeddingProgress.lastError}
 															</p>
 														)}
 													</>

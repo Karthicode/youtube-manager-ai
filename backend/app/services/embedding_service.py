@@ -76,7 +76,7 @@ class EmbeddingService:
         )
         return response.data[0].embedding
 
-    async def embed_video(self, db: Session, video: Video) -> bool:
+    async def embed_video(self, db: Session, video: Video) -> tuple[bool, str | None]:
         """
         Generate and store embedding for a single video.
 
@@ -85,7 +85,7 @@ class EmbeddingService:
             video: Video to embed
 
         Returns:
-            True if successful, False otherwise
+            Tuple of (success, error_message)
         """
         try:
             embedding_text = self._build_embedding_text(video)
@@ -99,10 +99,15 @@ class EmbeddingService:
             )
             db.commit()
 
-            return True
+            return True, None
         except Exception as e:
-            api_logger.error(f"Failed to embed video {video.id}: {e}")
-            return False
+            error_msg = str(e)
+            api_logger.error(f"Failed to embed video {video.id}: {e}", exc_info=True)
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            return False, error_msg
 
     async def embed_videos_batch(
         self,
