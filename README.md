@@ -1,265 +1,117 @@
-# YouTube Video Manager with AI Categorization
+# YouTube Manager AI
 
-A full-stack application for managing YouTube liked videos and playlists with automatic AI-powered categorization and tagging using OpenAI.
+A full-stack application for managing YouTube liked videos and playlists with AI-powered categorization, semantic search, and analytics. Authenticate with YouTube, import your library, and let OpenAI organize everything automatically.
 
 ## Features
 
-- YouTube OAuth 2.0 authentication
-- View and manage liked videos
-- Browse and organize playlists
-- **AI-powered automatic categorization** using OpenAI GPT-4o-mini
-- **Intelligent tag generation** for easy discovery
-- Advanced filtering by categories, tags, date, and duration
-- Sorting options (date, title, duration, popularity)
-- Full-text search across videos and playlists
-- Responsive design with dark/light mode
-- Real-time sync with YouTube
+- **YouTube OAuth & Import** - Authenticate and sync liked videos, playlists, and channel data
+- **AI Categorization** - Automatic video categorization using OpenAI (gpt-4.1-mini) with confidence scoring
+- **Intelligent Tag Generation** - AI-generated tags per video for improved discovery
+- **Semantic Search** - Vector-based search powered by pgvector embeddings
+- **Watch Later Management** - Track and manage videos to watch later
+- **Analytics & Insights** - Dashboard with engagement stats, category breakdowns, and channel recommendations
+- **Playlist Creation** - Create custom playlists from filtered video sets
+- **Bulk Operations** - Batch categorize, delete, or manage videos by tags/categories
+- **Real-Time Progress** - Server-Sent Events for live sync and categorization progress
+- **Advanced Filtering & Sorting** - Filter by category, tags, date, duration; sort by multiple criteria
+- **Dark/Light Theme** - Full theme support via next-themes and HeroUI
+- **Background Jobs** - Async task processing with QStash
 
 ## Tech Stack
 
-### Backend
+**Backend:** FastAPI, PostgreSQL, Redis, SQLAlchemy 2.0, Alembic, OpenAI SDK, pgvector, QStash
 
-- **FastAPI** - Modern Python web framework
-- **PostgreSQL** - Primary database
-- **Redis** - Caching layer
-- **SQLAlchemy 2.0** - ORM with async support
-- **Alembic** - Database migrations
-- **OpenAI Python SDK** - AI categorization
-- **Google YouTube Data API v3** - YouTube integration
-- **Poetry** - Dependency management
+**Frontend:** Next.js 16, React 19, TypeScript, HeroUI, Tailwind CSS 4, Zustand, SWR, Visx, Framer Motion
 
-### Frontend
+**Infrastructure:** Docker Compose, Kubernetes, GitHub Actions CI/CD
 
-- **Next.js 16** - React framework with App Router
-- **React 19** - Latest React version
-- **TypeScript** - Type-safe JavaScript
-- **Hero UI** - Modern React UI component library
-- **Tailwind CSS** - Utility-first CSS framework
-- **SWR** - Data fetching and caching
-- **Zustand** - State management
-- **Axios** - HTTP client
-- **date-fns** - Date formatting
-
-## Setup Instructions
+## Quick Start
 
 ### Prerequisites
 
 - Python 3.11+
-- Node.js 18+
+- Node.js 22+
 - Docker and Docker Compose
-- Poetry (Python package manager)
-- pnpm/npm (Node package manager)
+- Poetry
 
-### Backend Setup
+### 1. Start Infrastructure
 
-1. **Start Docker services**:
+```bash
+docker-compose up -d  # PostgreSQL + Redis
+```
 
-   ```bash
-   docker-compose up -d
-   ```
+### 2. Backend Setup
 
-2. **Navigate to backend directory**:
+```bash
+cd backend
+poetry install
+cp .env.example .env  # Edit with your YouTube, OpenAI, and JWT credentials
+poetry run alembic upgrade head
+poetry run uvicorn app.main:app --reload
+```
 
-   ```bash
-   cd backend
-   ```
+### 3. Frontend Setup
 
-3. **Install dependencies**:
+```bash
+cd frontend
+npm install
+cp .env.example .env.local  # Set NEXT_PUBLIC_API_URL
+npm run dev
+```
 
-   ```bash
-   poetry install
-   ```
+### 4. Access
 
-4. **Set up environment variables**:
+- **App:** <http://localhost:3000>
+- **API docs:** <http://localhost:8000/api/v1/docs>
 
-   ```bash
-   cp .env.example .env
-   # Edit .env with your actual values
-   ```
-
-5. **Configure API Keys**:
-   - **YouTube API**: Get credentials from [Google Cloud Console](https://console.cloud.google.com/)
-     - Create OAuth 2.0 Client ID
-     - Enable YouTube Data API v3
-   - **OpenAI API**: Get key from [OpenAI Platform](https://platform.openai.com/)
-   - **JWT Secret**: Generate with `openssl rand -hex 32`
-
-6. **Run database migrations**:
-
-   ```bash
-   poetry run alembic upgrade head
-   ```
-
-7. **Start the development server**:
-
-   ```bash
-   poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   ```
-
-8. **Access API documentation**:
-   - Swagger UI: <http://localhost:8000/api/v1/docs>
-   - ReDoc: <http://localhost:8000/api/v1/redoc>
-
-### Frontend Setup
-
-1. **Navigate to frontend directory**:
-
-   ```bash
-   cd frontend
-   ```
-
-2. **Install dependencies**:
-
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**:
-
-   ```bash
-   cp .env.example .env.local
-   # Edit .env.local with your API URL (default: http://localhost:8000/api/v1)
-   ```
-
-4. **Start development server**:
-
-   ```bash
-   npm run dev
-   ```
-
-5. **Access the application**:
-   - Frontend: <http://localhost:3000>
-   - Login with your YouTube account to get started
-
-## API Endpoints
-
-### Authentication
-
-- `POST /api/v1/auth/youtube/login` - Initiate YouTube OAuth flow
-- `GET /api/v1/auth/youtube/callback` - OAuth callback handler
-- `POST /api/v1/auth/refresh` - Refresh JWT token
-
-### Videos
-
-- `GET /api/v1/videos/liked` - Get liked videos with filters
-- `POST /api/v1/videos/sync` - Sync videos from YouTube
-- `GET /api/v1/videos/{id}` - Get video details
-- `POST /api/v1/videos/{id}/categorize` - Re-categorize video with AI
-
-### Playlists
-
-- `GET /api/v1/playlists` - Get user playlists
-- `GET /api/v1/playlists/{id}` - Get playlist details
-- `GET /api/v1/playlists/{id}/videos` - Get playlist videos with filters
-- `POST /api/v1/playlists/sync` - Sync playlists from YouTube
-
-### Categories & Tags
-
-- `GET /api/v1/categories` - Get all categories
-- `GET /api/v1/tags` - Get all tags with usage count
-
-### Search
-
-- `GET /api/v1/search?q=query` - Search across liked videos and playlists
-
-## AI Categorization
-
-The app uses OpenAI's GPT-4o-mini model to automatically categorize videos based on:
-
-- Video title
-- Description
-- Existing YouTube tags
-- Duration and metadata
-
-### Predefined Categories
-
-- Education
-- Entertainment
-- Music
-- Gaming
-- Technology
-- Science
-- Sports
-- Lifestyle
-- News
-- DIY/How-to
-- Comedy
-- Documentary
-- And more...
-
-### Tag Generation
-
-The AI generates 5-10 relevant tags per video for improved searchability and filtering.
-
-## Development Commands
+## Development
 
 ### Backend
 
 ```bash
-# Format code
-poetry run black app/
-
-# Lint code
-poetry run ruff check app/ --fix
-
-# Type checking
-poetry run mypy app/
-
-# Run tests
-poetry run pytest
-
-# Create new migration
-poetry run alembic revision --autogenerate -m "description"
-
-# Apply migrations
-poetry run alembic upgrade head
+cd backend
+black . && ruff check . && mypy .
 ```
 
 ### Frontend
 
 ```bash
-# Format code
-pnpm format
-
-# Lint code
-pnpm lint
-
-# Build for production
-pnpm build
-
-# Run tests
-pnpm test
+cd frontend
+npm run check:fix && npm run typecheck
 ```
+
+## Project Structure
+
+```text
+backend/app/
+├── models/          # SQLAlchemy models (User, Video, Playlist, Category, Tag, ...)
+├── routers/         # FastAPI route handlers
+├── services/        # Business logic (AI, YouTube, Auth)
+├── schemas/         # Pydantic request/response schemas
+├── utils/           # Logging, helpers
+├── config.py        # Pydantic Settings configuration
+├── database.py      # Async database connection
+├── dependencies.py  # Dependency injection (auth, db session)
+└── main.py          # FastAPI app entrypoint
+
+frontend/
+├── app/             # Next.js App Router (auth, dashboard, videos, playlists, insights, settings)
+├── components/      # UI components (VideoCard, FilterPanel, Navbar, insights/)
+├── store/           # Zustand state management
+├── api/             # API client and hooks
+└── hooks/           # Custom React hooks
+```
+
+## API Documentation
+
+Interactive docs are available at `/api/v1/docs` when the backend is running.
+
+**Route groups:** auth, videos, playlists, categories, tags, insights, progress, worker
 
 ## Environment Variables
 
-See `backend/.env.example` for all required environment variables.
-
-## Database Schema
-
-The application uses the following main tables:
-
-- `users` - User accounts and OAuth tokens
-- `videos` - YouTube video metadata and AI categorization
-- `playlists` - User playlists
-- `playlist_videos` - Playlist-video associations
-- `categories` - Video categories
-- `tags` - Video tags
-- `video_categories` - Many-to-many: videos � categories
-- `video_tags` - Many-to-many: videos � tags
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+See `backend/.env.example` and `frontend/.env.example` for all required configuration.
 
 ## License
 
-MIT License
-
-## Support
-
-For issues and questions, please create an issue on GitHub.
+MIT
