@@ -311,7 +311,132 @@ class YouTubeService:
             api_logger.error(f"YouTube API error: {e}")
             raise
 
-    def _process_video_item(self, db: Session, item: Dict[str, Any]) -> Video | None:
+    def fetch_watch_later_videos(
+        self, db: Session, max_results: int = 50
+    ) -> tuple[List[Video], int]:
+        """
+        Fetch user's Watch Later playlist videos from YouTube.
+
+        The Watch Later playlist has a special ID of 'WL'.
+
+        Args:
+            db: Database session
+            max_results: Maximum number of videos to fetch
+
+        Returns:
+            Tuple of (list of Video objects, total count)
+        """
+        try:
+            videos: List[Video] = []
+            next_page_token = None
+            total_fetched = 0
+
+            while total_fetched < max_results:
+                # Get playlist items from Watch Later (special playlist ID 'WL')
+                request = self.youtube.playlistItems().list(
+                    part="snippet,contentDetails",
+                    playlistId="WL",
+                    maxResults=min(50, max_results - total_fetched),
+                    pageToken=next_page_token,
+                )
+
+                response = request.execute()
+
+                # Get video IDs for batch details request
+                video_ids = [
+                    item["contentDetails"]["videoId"]
+                    for item in response.get("items", [])
+                ]
+
+                if video_ids:
+                    # Fetch full video details
+                    videos_response = (
+                        self.youtube.videos()
+                        .list(
+                            part="snippet,contentDetails,statistics",
+                            id=",".join(video_ids),
+                        )
+                        .execute()
+                    )
+
+                    for video_item in videos_response.get("items", []):
+                        video = self._process_video_item(
+                            db, video_item, video_source="watch_later"
+                        )
+                        if video:
+                            videos.append(video)
+
+                total_fetched += len(response.get("items", []))
+                next_page_token = response.get("nextPageToken")
+
+                if not next_page_token:
+                    break
+
+            return videos, total_fetched
+
+        except HttpError as e:
+            api_logger.error(f"YouTube API error fetching Watch Later: {e}")
+            raise
+
+    def fetch_watch_later_videos_paginated(
+        self, db: Session, page_token: str | None = None, max_results: int = 50
+    ) -> tuple[List[Video], str | None]:
+        """
+        Fetch a single page of Watch Later videos from YouTube.
+
+        Args:
+            db: Database session
+            page_token: Token for the next page (None for first page)
+            max_results: Maximum number of videos to fetch in this page
+
+        Returns:
+            Tuple of (list of Video objects, next page token or None)
+        """
+        try:
+            # Get playlist items from Watch Later (special playlist ID 'WL')
+            request = self.youtube.playlistItems().list(
+                part="snippet,contentDetails",
+                playlistId="WL",
+                maxResults=min(50, max_results),
+                pageToken=page_token,
+            )
+
+            response = request.execute()
+
+            # Get video IDs for batch details request
+            video_ids = [
+                item["contentDetails"]["videoId"] for item in response.get("items", [])
+            ]
+
+            videos: List[Video] = []
+            if video_ids:
+                # Fetch full video details
+                videos_response = (
+                    self.youtube.videos()
+                    .list(
+                        part="snippet,contentDetails,statistics",
+                        id=",".join(video_ids),
+                    )
+                    .execute()
+                )
+
+                for video_item in videos_response.get("items", []):
+                    video = self._process_video_item(
+                        db, video_item, video_source="watch_later"
+                    )
+                    if video:
+                        videos.append(video)
+
+            next_page_token = response.get("nextPageToken")
+            return videos, next_page_token
+
+        except HttpError as e:
+            api_logger.error(f"YouTube API error fetching Watch Later: {e}")
+            raise
+
+    def _process_video_item(
+        self, db: Session, item: Dict[str, Any], video_source: str = "liked"
+    ) -> Video | None:
         """Process a video item from YouTube API response."""
         try:
             youtube_id = item["id"]
@@ -325,10 +450,14 @@ class YouTubeService:
                 duration = isodate.parse_duration(content_details["duration"])
                 duration_seconds = int(duration.total_seconds())
 
-            # Check if video already exists
+            # Check if video already exists for this source
             video = (
                 db.query(Video)
-                .filter_by(user_id=self.user.id, youtube_id=youtube_id)
+                .filter_by(
+                    user_id=self.user.id,
+                    youtube_id=youtube_id,
+                    video_source=video_source,
+                )
                 .first()
             )
 
@@ -336,6 +465,7 @@ class YouTubeService:
                 video = Video(
                     user_id=self.user.id,
                     youtube_id=youtube_id,
+                    video_source=video_source,
                     title=snippet.get("title", ""),
                     description=snippet.get("description"),
                     thumbnail_url=snippet.get("thumbnails", {})

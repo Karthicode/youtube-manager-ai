@@ -12,12 +12,17 @@ import {
 	SelectItem,
 	Spinner,
 	Switch,
+	Tab,
+	Tabs,
 	Tooltip,
 } from "@heroui/react";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import FavoriteIcon from "@mui/icons-material/Favorite";
 import GridViewIcon from "@mui/icons-material/GridView";
 import SearchIcon from "@mui/icons-material/Search";
+import SyncIcon from "@mui/icons-material/Sync";
 import ViewListIcon from "@mui/icons-material/ViewList";
+import WatchLaterIcon from "@mui/icons-material/WatchLater";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { categoriesApi, playlistsApi, videosApi } from "@/api/api";
@@ -52,6 +57,10 @@ function VideosPageContent() {
 	const [loading, setLoading] = useState(true);
 	const [loadingMore, setLoadingMore] = useState(false);
 	const [categorizingId, setCategorizingId] = useState<number | null>(null);
+
+	// Tab state - "liked" or "watch_later"
+	const [activeTab, setActiveTab] = useState<"liked" | "watch_later">("liked");
+	const [syncingWatchLater, setSyncingWatchLater] = useState(false);
 
 	// Filter states
 	const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
@@ -266,7 +275,11 @@ function VideosPageContent() {
 					params.is_categorized = showOnlyCategorized;
 				}
 
-				const response = await videosApi.getLikedVideos(params);
+				// Use the correct API based on active tab
+				const response =
+					activeTab === "liked"
+						? await videosApi.getLikedVideos(params)
+						: await videosApi.getWatchLaterVideos(params);
 				const data: CursorPaginatedVideosResponse = response.data;
 
 				if (append) {
@@ -293,6 +306,7 @@ function VideosPageContent() {
 			selectedTags,
 			debouncedSearchQuery,
 			showOnlyCategorized,
+			activeTab,
 		],
 	);
 
@@ -354,6 +368,29 @@ function VideosPageContent() {
 		setSelectedTags([]);
 		setSearchQuery("");
 		setShowOnlyCategorized(null);
+	};
+
+	const handleTabChange = (key: string | number) => {
+		const newTab = key as "liked" | "watch_later";
+		if (newTab !== activeTab) {
+			setActiveTab(newTab);
+			// Reset pagination state when switching tabs
+			setNextCursor(null);
+			setHasMore(false);
+			setVideos([]);
+		}
+	};
+
+	const handleSyncWatchLater = async () => {
+		setSyncingWatchLater(true);
+		try {
+			await videosApi.syncWatchLaterVideos({ max_results: 20 });
+			await fetchVideos();
+		} catch {
+			alert("Failed to sync Watch Later videos. Please try again.");
+		} finally {
+			setSyncingWatchLater(false);
+		}
 	};
 
 	const handleCategorizationFilterChange = (value: boolean | null) => {
@@ -466,155 +503,204 @@ function VideosPageContent() {
 			<Navbar />
 			<div className="container mx-auto px-4 py-8 max-w-7xl">
 				<div className="space-y-6">
-					{/* Header */}
-					<div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
-						<div>
+					{/* Header with Tabs */}
+					<div className="flex flex-col gap-4">
+						<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 							<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-								Liked Videos
+								Videos
 							</h1>
-							<p className="text-gray-600 dark:text-gray-400 mt-2">
-								{semanticSearchEnabled ? (
-									semanticResults.length > 0 ? (
-										<>Found {semanticResults.length} similar videos</>
-									) : semanticQuery ? (
-										<>Searching...</>
-									) : (
-										<>Enter a query to search semantically</>
-									)
-								) : (
-									totalVideos > 0 && (
-										<>
-											Showing {videos.length} of {totalVideos} videos
-										</>
-									)
-								)}
-							</p>
+							{/* Sync Watch Later Button - Only show when Watch Later tab is active */}
+							{activeTab === "watch_later" && (
+								<Button
+									color="primary"
+									variant="flat"
+									onPress={handleSyncWatchLater}
+									isLoading={syncingWatchLater}
+									startContent={
+										!syncingWatchLater && <SyncIcon fontSize="small" />
+									}
+								>
+									Sync Watch Later
+								</Button>
+							)}
 						</div>
 
-						<div className="flex gap-3 items-end flex-wrap">
-							{/* Semantic Search Toggle */}
-							<div className="flex flex-col gap-1">
-								<span className="text-sm text-gray-600 dark:text-gray-400">
-									AI Search
-								</span>
-								<Tooltip
-									content="Search by meaning, not just keywords"
-									placement="bottom"
-								>
-									<div className="flex items-center gap-2 h-10 px-3 border rounded-lg border-gray-300 dark:border-gray-600">
-										<AutoAwesomeIcon
-											fontSize="small"
-											className={
-												semanticSearchEnabled ? "text-primary" : "text-gray-400"
-											}
-										/>
-										<Switch
-											size="sm"
-											isSelected={semanticSearchEnabled}
-											onValueChange={setSemanticSearchEnabled}
-											aria-label="Enable semantic search"
-										/>
+						{/* Tabs */}
+						<Tabs
+							selectedKey={activeTab}
+							onSelectionChange={handleTabChange}
+							aria-label="Video source tabs"
+							color="primary"
+							variant="underlined"
+							classNames={{
+								tabList: "gap-6",
+								cursor: "w-full",
+								tab: "max-w-fit px-0 h-12",
+							}}
+						>
+							<Tab
+								key="liked"
+								title={
+									<div className="flex items-center gap-2">
+										<FavoriteIcon fontSize="small" />
+										<span>Liked Videos</span>
 									</div>
-								</Tooltip>
-							</div>
+								}
+							/>
+							<Tab
+								key="watch_later"
+								title={
+									<div className="flex items-center gap-2">
+										<WatchLaterIcon fontSize="small" />
+										<span>Watch Later</span>
+									</div>
+								}
+							/>
+						</Tabs>
 
-							{/* Create Playlist Button */}
-							{!semanticSearchEnabled &&
-								hasActiveFilters &&
+						<p className="text-gray-600 dark:text-gray-400">
+							{semanticSearchEnabled ? (
+								semanticResults.length > 0 ? (
+									<>Found {semanticResults.length} similar videos</>
+								) : semanticQuery ? (
+									<>Searching...</>
+								) : (
+									<>Enter a query to search semantically</>
+								)
+							) : (
 								totalVideos > 0 && (
-									<Button
-										color="success"
-										variant="shadow"
-										onPress={() => setShowCreatePlaylistDialog(true)}
-										className="h-10"
-									>
-										Create Playlist ({totalVideos})
-									</Button>
-								)}
+									<>
+										Showing {videos.length} of {totalVideos}{" "}
+										{activeTab === "liked"
+											? "liked videos"
+											: "Watch Later videos"}
+									</>
+								)
+							)}
+						</p>
+					</div>
 
-							{/* View Toggle */}
-							<div className="flex flex-col gap-1">
-								<span className="text-sm text-gray-600 dark:text-gray-400">
-									View
-								</span>
-								<ButtonGroup size="md" variant="bordered">
-									<Button
-										onPress={() => setViewMode("grid")}
-										color={viewMode === "grid" ? "primary" : "default"}
-										isIconOnly
-									>
-										<GridViewIcon fontSize="small" />
-									</Button>
-									<Button
-										onPress={() => setViewMode("list")}
-										color={viewMode === "list" ? "primary" : "default"}
-										isIconOnly
-									>
-										<ViewListIcon fontSize="small" />
-									</Button>
-								</ButtonGroup>
-							</div>
-
-							{/* Per Page */}
-							<div className="flex flex-col gap-1">
-								<span className="text-sm text-gray-600 dark:text-gray-400">
-									Per load
-								</span>
-								<Select
-									selectedKeys={[String(pageSize)]}
-									onSelectionChange={(keys) => {
-										const selected = Array.from(keys)[0];
-										if (selected) {
-											setPageSize(Number(selected));
+					<div className="flex justify-end gap-3 items-end flex-wrap">
+						{/* Semantic Search Toggle */}
+						<div className="flex flex-col gap-1">
+							<span className="text-sm text-gray-600 dark:text-gray-400">
+								AI Search
+							</span>
+							<Tooltip
+								content="Search by meaning, not just keywords"
+								placement="bottom"
+							>
+								<div className="flex items-center gap-2 h-10 px-3 border rounded-lg border-gray-300 dark:border-gray-600">
+									<AutoAwesomeIcon
+										fontSize="small"
+										className={
+											semanticSearchEnabled ? "text-primary" : "text-gray-400"
 										}
-									}}
-									className="w-24"
-									size="md"
-									variant="bordered"
-									aria-label="Items per load"
-								>
-									<SelectItem key="25">25</SelectItem>
-									<SelectItem key="50">50</SelectItem>
-									<SelectItem key="100">100</SelectItem>
-								</Select>
-							</div>
+									/>
+									<Switch
+										size="sm"
+										isSelected={semanticSearchEnabled}
+										onValueChange={setSemanticSearchEnabled}
+										aria-label="Enable semantic search"
+									/>
+								</div>
+							</Tooltip>
+						</div>
 
-							{/* Sort By */}
-							<div className="flex flex-col gap-1">
-								<label
-									className="text-sm text-gray-600 dark:text-gray-400"
-									htmlFor="sort-by"
-								>
-									Sort by
-								</label>
-								<Select
-									selectedKeys={[sortBy]}
-									onSelectionChange={(keys) => {
-										const selected = Array.from(keys)[0];
-										if (selected) setSortBy(selected as string);
-									}}
-									className="w-48"
-									size="md"
-									variant="bordered"
-									aria-label="Sort by"
-								>
-									{SORT_OPTIONS.map((option) => (
-										<SelectItem key={option.value}>{option.label}</SelectItem>
-									))}
-								</Select>
-							</div>
-
-							{/* Sort Order */}
+						{/* Create Playlist Button */}
+						{!semanticSearchEnabled && hasActiveFilters && totalVideos > 0 && (
 							<Button
+								color="success"
+								variant="shadow"
+								onPress={() => setShowCreatePlaylistDialog(true)}
+								className="h-10"
+							>
+								Create Playlist ({totalVideos})
+							</Button>
+						)}
+
+						{/* View Toggle */}
+						<div className="flex flex-col gap-1">
+							<span className="text-sm text-gray-600 dark:text-gray-400">
+								View
+							</span>
+							<ButtonGroup size="md" variant="bordered">
+								<Button
+									onPress={() => setViewMode("grid")}
+									color={viewMode === "grid" ? "primary" : "default"}
+									isIconOnly
+								>
+									<GridViewIcon fontSize="small" />
+								</Button>
+								<Button
+									onPress={() => setViewMode("list")}
+									color={viewMode === "list" ? "primary" : "default"}
+									isIconOnly
+								>
+									<ViewListIcon fontSize="small" />
+								</Button>
+							</ButtonGroup>
+						</div>
+
+						{/* Per Page */}
+						<div className="flex flex-col gap-1">
+							<span className="text-sm text-gray-600 dark:text-gray-400">
+								Per load
+							</span>
+							<Select
+								selectedKeys={[String(pageSize)]}
+								onSelectionChange={(keys) => {
+									const selected = Array.from(keys)[0];
+									if (selected) {
+										setPageSize(Number(selected));
+									}
+								}}
+								className="w-24"
 								size="md"
 								variant="bordered"
-								onPress={toggleSortOrder}
-								className="h-10 mt-6"
-								color="primary"
+								aria-label="Items per load"
 							>
-								{sortOrder === "asc" ? "↑ Asc" : "↓ Desc"}
-							</Button>
+								<SelectItem key="25">25</SelectItem>
+								<SelectItem key="50">50</SelectItem>
+								<SelectItem key="100">100</SelectItem>
+							</Select>
 						</div>
+
+						{/* Sort By */}
+						<div className="flex flex-col gap-1">
+							<label
+								className="text-sm text-gray-600 dark:text-gray-400"
+								htmlFor="sort-by"
+							>
+								Sort by
+							</label>
+							<Select
+								selectedKeys={[sortBy]}
+								onSelectionChange={(keys) => {
+									const selected = Array.from(keys)[0];
+									if (selected) setSortBy(selected as string);
+								}}
+								className="w-48"
+								size="md"
+								variant="bordered"
+								aria-label="Sort by"
+							>
+								{SORT_OPTIONS.map((option) => (
+									<SelectItem key={option.value}>{option.label}</SelectItem>
+								))}
+							</Select>
+						</div>
+
+						{/* Sort Order */}
+						<Button
+							size="md"
+							variant="bordered"
+							onPress={toggleSortOrder}
+							className="h-10 mt-6"
+							color="primary"
+						>
+							{sortOrder === "asc" ? "↑ Asc" : "↓ Desc"}
+						</Button>
 					</div>
 
 					{/* Content Grid */}

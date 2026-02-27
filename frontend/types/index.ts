@@ -64,6 +64,8 @@ export interface Playlist {
 
 export interface VideoStats {
 	total_videos: number;
+	liked_videos: number;
+	watch_later_videos: number;
 	categorized: number;
 	uncategorized: number;
 	categorization_percentage: number;

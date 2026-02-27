@@ -32,6 +32,9 @@ class Video(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
 
+    # Video source (liked or watch_later)
+    video_source: Mapped[str] = mapped_column(String(20), default="liked", index=True)
+
     # YouTube video details
     youtube_id: Mapped[str] = mapped_column(String(20), index=True)
     title: Mapped[str] = mapped_column(String(500))
@@ -76,6 +79,13 @@ class Video(Base):
 
     # Composite index for better query performance
     __table_args__ = (
-        Index("idx_user_youtube_id", "user_id", "youtube_id", unique=True),
+        Index(
+            "idx_user_youtube_id_source",
+            "user_id",
+            "youtube_id",
+            "video_source",
+            unique=True,
+        ),
         Index("idx_user_categorized", "user_id", "is_categorized"),
+        Index("idx_user_source", "user_id", "video_source"),
     )

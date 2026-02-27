@@ -18,6 +18,7 @@ import {
 	ModalHeader,
 	Spinner,
 } from "@heroui/react";
+import WatchLaterIcon from "@mui/icons-material/WatchLater";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -34,6 +35,7 @@ export default function Dashboard() {
 	const [loading, setLoading] = useState(true);
 	const [syncing, setSyncing] = useState(false);
 	const [batchSyncing, setBatchSyncing] = useState(false);
+	const [syncingWatchLater, setSyncingWatchLater] = useState(false);
 	const [batchCategorizing, setBatchCategorizing] = useState(false);
 	const [categorizationJobId, setCategorizationJobId] = useState<string | null>(
 		null,
@@ -85,6 +87,18 @@ export default function Dashboard() {
 			alert("Failed to batch sync videos. Please try again.");
 		} finally {
 			setBatchSyncing(false);
+		}
+	};
+
+	const handleSyncWatchLater = async () => {
+		setSyncingWatchLater(true);
+		try {
+			await videosApi.syncWatchLaterVideos({ max_results: 20 });
+			await fetchStats();
+		} catch {
+			alert("Failed to sync Watch Later videos. Please try again.");
+		} finally {
+			setSyncingWatchLater(false);
 		}
 	};
 
@@ -307,14 +321,31 @@ export default function Dashboard() {
 					) : stats ? (
 						<>
 							{/* Stats Overview */}
-							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
 								<Card className="bg-linear-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-none shadow-lg">
 									<CardBody className="p-4 sm:p-6">
 										<h3 className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 mb-1 sm:mb-2">
-											Total Videos
+											Liked Videos
 										</h3>
 										<p className="text-3xl sm:text-4xl lg:text-5xl font-bold text-blue-600 dark:text-blue-400">
-											{stats.total_videos}
+											{stats.liked_videos}
+										</p>
+									</CardBody>
+								</Card>
+
+								<Card className="bg-linear-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-none shadow-lg">
+									<CardBody className="p-4 sm:p-6">
+										<div className="flex items-center gap-2 mb-1 sm:mb-2">
+											<WatchLaterIcon
+												fontSize="small"
+												className="text-purple-600 dark:text-purple-400"
+											/>
+											<h3 className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
+												Watch Later
+											</h3>
+										</div>
+										<p className="text-3xl sm:text-4xl lg:text-5xl font-bold text-purple-600 dark:text-purple-400">
+											{stats.watch_later_videos}
 										</p>
 									</CardBody>
 								</Card>
@@ -381,6 +412,22 @@ export default function Dashboard() {
 											className="min-w-[140px] flex-1 sm:flex-none"
 										>
 											View Uncategorized
+										</Button>
+										<Button
+											color="secondary"
+											variant="flat"
+											onPress={handleSyncWatchLater}
+											isLoading={syncingWatchLater}
+											radius="md"
+											size="md"
+											className="min-w-[140px] flex-1 sm:flex-none"
+											startContent={
+												!syncingWatchLater && (
+													<WatchLaterIcon fontSize="small" />
+												)
+											}
+										>
+											Sync Watch Later
 										</Button>
 										{stats && stats.uncategorized > 0 && (
 											<Dropdown>
