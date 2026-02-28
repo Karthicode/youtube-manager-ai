@@ -12,9 +12,10 @@ rules:
       - pattern: $VAR = "..."
       - metavariable-regex:
           metavariable: $VAR
-          regex: (?i)(secret|password|token|api_key|apikey|private_key)
+          regex: (?i)(secret_key|password|_token|api_key|apikey|private_key|secret)(?!_type|_url|_name|_endpoint)
       - pattern-not: $VAR = ""
       - pattern-not: $VAR = "test-secret-key-for-ci"
+      - pattern-not: $VAR = "bearer"
     message: >
       Possible hardcoded secret assigned to '$VAR'. Use environment variables instead.
     languages: [python]

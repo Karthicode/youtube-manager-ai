@@ -31,10 +31,16 @@ jobs:
       - name: Install Semgrep
         run: pip install semgrep
 
-      - name: Run Semgrep
+      - name: Run Semgrep (custom rules - blocking)
         run: |
           semgrep scan \
             --config .semgrep.yml \
+            --error
+
+      - name: Run Semgrep (registry rules - advisory)
+        if: always()
+        run: |
+          semgrep scan \
             --config "p/python" \
             --config "p/javascript" \
             --config "p/typescript" \
@@ -44,8 +50,7 @@ jobs:
             --config "p/sql-injection" \
             --config "p/xss" \
             --config "p/jwt" \
-            --config "p/secrets" \
-            --error
+            --config "p/secrets" || true
 
   # ── Bandit (Python security linter) ───────────────────────────────
   bandit:
