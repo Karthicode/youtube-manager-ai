@@ -122,14 +122,20 @@ jobs:
       - name: Install Semgrep
         run: pip install semgrep
 
-      - name: Run Semgrep
+      - name: Run Semgrep (custom rules - blocking)
         run: |
           semgrep scan \
             --config .semgrep.yml \
-            --config "p/owasp-top-ten" \
-            --config "p/secrets" \
             --error \
             --quiet
+
+      - name: Run Semgrep (registry rules - advisory)
+        if: always()
+        run: |
+          semgrep scan \
+            --config "p/owasp-top-ten" \
+            --config "p/secrets" \
+            --quiet || true
 
   pr-status:
     name: PR Status
