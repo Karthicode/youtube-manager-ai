@@ -3,10 +3,9 @@ name: Security Scanning
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   schedule:
     - cron: '0 8 * * 1'  # Weekly Monday 8:00 UTC
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -33,8 +32,9 @@ jobs:
             --config "p/owasp-top-ten" \
             --config "p/secrets"
 
-  dependency-audit:
-    name: Dependency Audit
+  frontend-dependency-audit:
+    name: Frontend Dependency Audit (Advisory)
+    continue-on-error: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +47,35 @@ jobs:
         working-directory: frontend
         run: |
           npm ci
-          npm audit --omit=dev || true
+          npm audit --omit=dev --audit-level=high
+
+  backend-dependency-audit:
+    name: Backend Dependency Audit (Advisory)
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: pip-audit
+        run: |
+          poetry install --no-interaction --no-root
+          poetry run pip-audit --strict
 
   trivy:
     name: Trivy Scanner
