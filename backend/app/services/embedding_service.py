@@ -267,7 +267,8 @@ class EmbeddingService:
         # So we convert: similarity = 1 - distance
         # Use CAST() instead of :: to avoid SQLAlchemy parameter parsing issues
         result = db.execute(
-            text("""
+            text(
+                """
                 SELECT
                     v.id,
                     v.youtube_id,
@@ -292,7 +293,8 @@ class EmbeddingService:
                     AND 1 - (v.embedding <=> CAST(:query_embedding AS vector)) > :threshold
                 ORDER BY v.embedding <=> CAST(:query_embedding AS vector)
                 LIMIT :limit
-                """),
+                """
+            ),
             {
                 "query_embedding": query_embedding_str,
                 "user_id": user_id,
@@ -332,12 +334,14 @@ class EmbeddingService:
 
             # Fetch categories
             categories_result = db.execute(
-                text("""
+                text(
+                    """
                     SELECT vc.video_id, c.id, c.name, c.slug, c.description, c.color
                     FROM video_categories vc
                     JOIN categories c ON c.id = vc.category_id
                     WHERE vc.video_id = ANY(:video_ids)
-                    """),
+                    """
+                ),
                 {"video_ids": video_ids},
             )
 
@@ -355,12 +359,14 @@ class EmbeddingService:
 
             # Fetch tags
             tags_result = db.execute(
-                text("""
+                text(
+                    """
                     SELECT vt.video_id, t.id, t.name, t.slug, t.usage_count
                     FROM video_tags vt
                     JOIN tags t ON t.id = vt.tag_id
                     WHERE vt.video_id = ANY(:video_ids)
-                    """),
+                    """
+                ),
                 {"video_ids": video_ids},
             )
 
@@ -394,14 +400,16 @@ class EmbeddingService:
             Dict with total, embedded, and not_embedded counts
         """
         result = db.execute(
-            text("""
+            text(
+                """
                 SELECT
                     COUNT(*) as total,
                     COUNT(embedding) as embedded,
                     COUNT(*) - COUNT(embedding) as not_embedded
                 FROM videos
                 WHERE user_id = :user_id
-                """),
+                """
+            ),
             {"user_id": user_id},
         )
 
