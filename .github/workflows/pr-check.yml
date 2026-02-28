@@ -107,35 +107,21 @@ jobs:
         run: npm run build
 
   security-checks:
-    name: Security Checks
+    name: Security Checks (Semgrep)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install Semgrep
         run: pip install semgrep
 
-      - name: Run Semgrep (custom rules - blocking)
-        run: |
-          semgrep scan \
-            --config .semgrep.yml \
-            --error \
-            --quiet
-
-      - name: Run Semgrep (registry rules - advisory)
-        if: always()
-        run: |
-          semgrep scan \
-            --config "p/owasp-top-ten" \
-            --config "p/secrets" \
-            --quiet || true
+      - name: Run Semgrep
+        run: semgrep scan --config .semgrep.yml --error --quiet
 
   pr-status:
     name: PR Status
