@@ -100,6 +100,12 @@ async def process_categorization_job(
     # Verify signature using QStash SDK
     if settings.qstash_token and settings.qstash_current_signing_key:
         try:
+            if not upstash_signature:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Missing signature",
+                )
+
             receiver = Receiver(
                 current_signing_key=settings.qstash_current_signing_key,
                 next_signing_key=settings.qstash_next_signing_key,
@@ -601,6 +607,12 @@ async def process_playlist_video_addition_job(
     # Verify signature using QStash SDK
     if settings.qstash_token and settings.qstash_current_signing_key:
         try:
+            if not upstash_signature:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Missing signature",
+                )
+
             receiver = Receiver(
                 current_signing_key=settings.qstash_current_signing_key,
                 next_signing_key=settings.qstash_next_signing_key,
