@@ -106,15 +106,34 @@ jobs:
           NEXT_PUBLIC_API_URL: https://api.example.com
         run: npm run build
 
+  security-checks:
+    name: Security Checks (Semgrep)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep
+        run: semgrep scan --config .semgrep.yml --error --quiet
+
   pr-status:
     name: PR Status
     runs-on: ubuntu-latest
-    needs: [detect-changes, backend-checks, frontend-checks]
+    needs: [detect-changes, backend-checks, frontend-checks, security-checks]
     if: always()
     steps:
       - name: Check status
         run: |
-          if [ "${{ needs.backend-checks.result }}" == "failure" ] || [ "${{ needs.frontend-checks.result }}" == "failure" ]; then
+          if [ "${{ needs.backend-checks.result }}" == "failure" ] || \
+             [ "${{ needs.frontend-checks.result }}" == "failure" ] || \
+             [ "${{ needs.security-checks.result }}" == "failure" ]; then
             echo "One or more checks failed"
             exit 1
           fi

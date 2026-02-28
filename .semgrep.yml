@@ -1,0 +1,70 @@
+# Semgrep configuration for YouTube Manager AI
+# Docs: https://semgrep.dev/docs/
+#
+# Run locally:   semgrep scan --config .semgrep.yml
+# Run with auto:  semgrep scan --config auto   (uses Semgrep registry rules)
+
+rules:
+  # ── Python / FastAPI ──────────────────────────────────────────────
+
+  - id: hardcoded-secret-in-source
+    patterns:
+      - pattern: $VAR = "..."
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(secret_key|password|_token|api_key|apikey|private_key|secret)(?!_type|_url|_name|_endpoint)
+      - pattern-not: $VAR = ""
+      - pattern-not: $VAR = "test-secret-key-for-ci"
+      - pattern-not: $VAR = "bearer"
+    message: >
+      Possible hardcoded secret assigned to '$VAR'. Use environment variables instead.
+    languages: [python]
+    severity: WARNING
+
+  - id: sql-string-concatenation
+    pattern-either:
+      - pattern: $DB.execute(f"..." + ...)
+      - pattern: $DB.execute("..." + ...)
+    message: >
+      String concatenation in SQL query detected. Use parameterized queries
+      via SQLAlchemy ORM or text() with bind parameters.
+    languages: [python]
+    severity: ERROR
+
+  - id: no-verify-ssl
+    pattern: httpx.$METHOD(..., verify=False, ...)
+    message: >
+      SSL verification is disabled. This makes the connection vulnerable to
+      man-in-the-middle attacks.
+    languages: [python]
+    severity: WARNING
+
+  # ── TypeScript / React ────────────────────────────────────────────
+
+  - id: dangerously-set-innerhtml
+    pattern: dangerouslySetInnerHTML={...}
+    message: >
+      Usage of dangerouslySetInnerHTML can lead to XSS vulnerabilities.
+      Sanitize input with DOMPurify or avoid raw HTML injection.
+    languages: [typescript, javascript]
+    severity: WARNING
+
+  - id: localstorage-sensitive-data
+    patterns:
+      - pattern: localStorage.setItem("$KEY", ...)
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: (?i)(password|secret|credit_card|ssn|private_key)
+    message: >
+      Storing sensitive data ('$KEY') in localStorage. Consider using
+      httpOnly cookies or server-side sessions for secrets.
+    languages: [typescript, javascript]
+    severity: WARNING
+
+  - id: eval-usage
+    pattern: eval(...)
+    message: >
+      eval() executes arbitrary code and is a common source of injection attacks.
+      Avoid eval() entirely.
+    languages: [typescript, javascript, python]
+    severity: ERROR

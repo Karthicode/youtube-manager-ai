@@ -154,7 +154,7 @@ class EmbeddingService:
         success_count = 0
         failed_count = 0
 
-        async def embed_with_semaphore(video: Video) -> bool:
+        async def embed_with_semaphore(video: Video) -> tuple[bool, str | None]:
             async with semaphore:
                 return await self.embed_video(db, video)
 
