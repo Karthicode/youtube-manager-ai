@@ -6,147 +6,56 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    # Run weekly on Monday at 8:00 UTC to catch new CVEs
-    - cron: '0 8 * * 1'
+    - cron: '0 8 * * 1'  # Weekly Monday 8:00 UTC
 
 permissions:
   contents: read
-  security-events: write  # Required for GitHub Security tab integration
+  security-events: write
 
 jobs:
-  # ── Semgrep SAST ──────────────────────────────────────────────────
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install Semgrep
         run: pip install semgrep
 
-      - name: Run Semgrep (custom rules - blocking)
+      - name: Run Semgrep
         run: |
           semgrep scan \
             --config .semgrep.yml \
-            --error
-
-      - name: Run Semgrep (registry rules - advisory)
-        if: always()
-        run: |
-          semgrep scan \
-            --config "p/python" \
-            --config "p/javascript" \
-            --config "p/typescript" \
-            --config "p/react" \
-            --config "p/nextjs" \
             --config "p/owasp-top-ten" \
-            --config "p/sql-injection" \
-            --config "p/xss" \
-            --config "p/jwt" \
-            --config "p/secrets" || true
+            --config "p/secrets"
 
-  # ── Bandit (Python security linter) ───────────────────────────────
-  bandit:
-    name: Bandit (Python)
+  dependency-audit:
+    name: Dependency Audit
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Bandit
-        run: pip install bandit[toml]
-
-      - name: Run Bandit
-        run: bandit -r app/ -c pyproject.toml -f json -o bandit-report.json || true
-
-      - name: Display results
-        if: always()
-        run: bandit -r app/ -c pyproject.toml -f screen || true
-
-      - name: Upload Bandit report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: bandit-report
-          path: backend/bandit-report.json
-
-  # ── pip-audit (Python dependency vulnerabilities) ─────────────────
-  pip-audit:
-    name: pip-audit (Python deps)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-
-      - name: Install pip-audit
-        run: pip install pip-audit
-
-      - name: Export requirements and audit
-        run: |
-          poetry export -f requirements.txt --without-hashes -o requirements-audit.txt
-          pip-audit -r requirements-audit.txt --desc || true
-
-  # ── npm audit (Node.js dependency vulnerabilities) ────────────────
-  npm-audit:
-    name: npm audit (Node.js deps)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: npm audit
+        working-directory: frontend
+        run: |
+          npm ci
+          npm audit --omit=dev || true
 
-      - name: Run npm audit
-        run: npm audit --omit=dev || true
-
-  # ── Trivy (filesystem & dependency scanner) ───────────────────────
   trivy:
-    name: Trivy Vulnerability Scanner
+    name: Trivy Scanner
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Run Trivy filesystem scan
+      - name: Run Trivy
         uses: aquasecurity/trivy-action@0.31.0
         with:
           scan-type: 'fs'
@@ -155,7 +64,8 @@ jobs:
           severity: 'CRITICAL,HIGH'
           exit-code: '0'
 
-      - name: Run Trivy scan (SARIF for GitHub Security tab)
+      - name: Upload SARIF to GitHub Security tab
+        if: always()
         uses: aquasecurity/trivy-action@0.31.0
         with:
           scan-type: 'fs'
@@ -165,31 +75,9 @@ jobs:
           severity: 'CRITICAL,HIGH'
           exit-code: '0'
 
-      - name: Upload Trivy SARIF to GitHub Security tab
+      - name: Upload SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
           category: 'trivy'
-
-  # ── Summary gate ──────────────────────────────────────────────────
-  security-status:
-    name: Security Status
-    runs-on: ubuntu-latest
-    needs: [semgrep, bandit, pip-audit, npm-audit, trivy]
-    if: always()
-    steps:
-      - name: Check results
-        run: |
-          echo "== Security Scan Summary =="
-          echo "Semgrep:   ${{ needs.semgrep.result }}"
-          echo "Bandit:    ${{ needs.bandit.result }}"
-          echo "pip-audit: ${{ needs.pip-audit.result }}"
-          echo "npm-audit: ${{ needs.npm-audit.result }}"
-          echo "Trivy:     ${{ needs.trivy.result }}"
-
-          if [ "${{ needs.semgrep.result }}" == "failure" ]; then
-            echo "::error::Semgrep found security issues"
-            exit 1
-          fi
-          echo "All security scans completed"

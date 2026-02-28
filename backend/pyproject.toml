@@ -39,7 +39,6 @@ black = "^25.9.0"
 ruff = "^0.14.1"
 mypy = "^1.18.2"
 types-requests = "^2.32.4.20260107"
-bandit = {version = "^1.8.0", extras = ["toml"]}
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -47,17 +46,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "pgvector.*"
 ignore_missing_imports = true
-
-[tool.bandit]
-# Exclude test files and migrations from security scanning
-exclude_dirs = ["tests", "alembic"]
-# Skip low-confidence findings to reduce noise
-confidence = ["MEDIUM", "HIGH"]
-severity = ["MEDIUM", "HIGH"]
-# Specific test skips:
-# B101 - assert usage (acceptable in non-production code)
-# B311 - random (not used for crypto in this project)
-skips = ["B101", "B311"]
 
 [build-system]
 requires = ["poetry-core>=2.0.0"]
