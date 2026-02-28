@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
     if not settings.is_production:
         try:
             from alembic.config import Config
-            from alembic import command
+            import alembic.command as command
             import os
 
             # Get the directory containing alembic.ini
