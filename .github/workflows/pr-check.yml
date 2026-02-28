@@ -107,7 +107,7 @@ jobs:
         run: npm run build
 
   security-checks:
-    name: Security Checks (Semgrep)
+    name: Security Checks
     runs-on: ubuntu-latest
 
     steps:
@@ -117,11 +117,42 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Semgrep
-        run: pip install semgrep
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install security tooling
+        run: pip install semgrep pip-audit
 
       - name: Run Semgrep
-        run: semgrep scan --config .semgrep.yml --error --quiet
+        run: |
+          semgrep scan \
+            --config .semgrep.yml \
+            --config "p/owasp-top-ten" \
+            --config "p/secrets" \
+            --error \
+            --quiet
+
+      - name: Backend dependency audit
+        working-directory: backend
+        run: |
+          poetry install --no-interaction --no-root
+          poetry run pip-audit --strict
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend dependency audit
+        working-directory: frontend
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high
 
   pr-status:
     name: PR Status
