@@ -16,7 +16,6 @@ from app.services.ai_service import AIService
 from app.services.progress_service import ProgressService
 from app.redis_client import get_redis
 
-
 router = APIRouter(prefix="/worker", tags=["worker"])
 
 

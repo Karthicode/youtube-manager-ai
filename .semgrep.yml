@@ -21,11 +21,9 @@ rules:
     severity: WARNING
 
   - id: sql-string-concatenation
-    patterns:
-      - pattern: |
-          $DB.execute(f"..." + ...)
-      - pattern: |
-          $DB.execute("..." + ...)
+    pattern-either:
+      - pattern: $DB.execute(f"..." + ...)
+      - pattern: $DB.execute("..." + ...)
     message: >
       String concatenation in SQL query detected. Use parameterized queries
       via SQLAlchemy ORM or text() with bind parameters.
@@ -33,8 +31,7 @@ rules:
     severity: ERROR
 
   - id: no-verify-ssl
-    patterns:
-      - pattern: httpx.$METHOD(..., verify=False, ...)
+    pattern: httpx.$METHOD(..., verify=False, ...)
     message: >
       SSL verification is disabled. This makes the connection vulnerable to
       man-in-the-middle attacks.
