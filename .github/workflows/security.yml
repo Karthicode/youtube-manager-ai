@@ -100,12 +100,6 @@ jobs:
 
       - name: Install Poetry
         uses: snok/install-poetry@v1
-        with:
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-      - name: Install dependencies
-        run: poetry install --no-interaction --no-root
 
       - name: Install pip-audit
         run: pip install pip-audit
@@ -113,7 +107,7 @@ jobs:
       - name: Export requirements and audit
         run: |
           poetry export -f requirements.txt --without-hashes -o requirements-audit.txt
-          pip-audit -r requirements-audit.txt --desc --fix --dry-run || true
+          pip-audit -r requirements-audit.txt --desc || true
 
   # ── npm audit (Node.js dependency vulnerabilities) ────────────────
   npm-audit:
@@ -168,7 +162,7 @@ jobs:
 
       - name: Upload Trivy SARIF to GitHub Security tab
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: 'trivy-results.sarif'
           category: 'trivy'

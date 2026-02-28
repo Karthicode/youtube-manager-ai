@@ -45,7 +45,7 @@ rules:
     message: >
       Usage of dangerouslySetInnerHTML can lead to XSS vulnerabilities.
       Sanitize input with DOMPurify or avoid raw HTML injection.
-    languages: [typescript, javascript, tsx, jsx]
+    languages: [typescript, javascript]
     severity: WARNING
 
   - id: localstorage-sensitive-data
@@ -57,7 +57,7 @@ rules:
     message: >
       Storing sensitive data ('$KEY') in localStorage. Consider using
       httpOnly cookies or server-side sessions for secrets.
-    languages: [typescript, javascript, tsx, jsx]
+    languages: [typescript, javascript]
     severity: WARNING
 
   - id: eval-usage
@@ -65,5 +65,5 @@ rules:
     message: >
       eval() executes arbitrary code and is a common source of injection attacks.
       Avoid eval() entirely.
-    languages: [typescript, javascript, python, tsx, jsx]
+    languages: [typescript, javascript, python]
     severity: ERROR
