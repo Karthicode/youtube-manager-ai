@@ -256,3 +256,27 @@ export interface EmbeddingGenerateResponse {
 	skipped: number;
 	message: string;
 }
+
+// Smart Playlist types
+export interface PlaylistVideoSelection {
+	video_id: number;
+	reason: string;
+	order_position: number;
+}
+
+export interface PlaylistSuggestion {
+	suggestion_id: string;
+	title: string;
+	description: string;
+	videos: PlaylistVideoSelection[];
+	watching_order_rationale: string;
+	theme_summary: string;
+}
+
+export interface SmartPlaylistConfirmResponse {
+	playlist: Playlist;
+	total_videos: number;
+	added_immediately: number;
+	queued_for_background: number;
+	job_id: string | null;
+}

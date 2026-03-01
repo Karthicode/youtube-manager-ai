@@ -8,11 +8,13 @@ import {
 	Image,
 	Spinner,
 } from "@heroui/react";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { playlistsApi } from "@/api/api";
 import Navbar from "@/components/Navbar";
+import SmartPlaylistDialog from "@/components/SmartPlaylistDialog";
 import { useAuthGuard } from "@/hooks";
 import type { Playlist } from "@/types";
 
@@ -23,6 +25,7 @@ export default function PlaylistsPage() {
 	const [playlists, setPlaylists] = useState<Playlist[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [syncing, setSyncing] = useState(false);
+	const [smartDialogOpen, setSmartDialogOpen] = useState(false);
 
 	const fetchPlaylists = useCallback(async () => {
 		setLoading(true);
@@ -84,6 +87,14 @@ export default function PlaylistsPage() {
 										: "No playlists found"}
 							</p>
 						</div>
+						<Button
+							color="primary"
+							variant="shadow"
+							startContent={<AutoAwesomeIcon fontSize="small" />}
+							onPress={() => setSmartDialogOpen(true)}
+						>
+							AI Generate
+						</Button>
 					</div>
 
 					{/* Content */}
@@ -213,6 +224,12 @@ export default function PlaylistsPage() {
 					)}
 				</div>
 			</div>
+
+			<SmartPlaylistDialog
+				isOpen={smartDialogOpen}
+				onClose={() => setSmartDialogOpen(false)}
+				onPlaylistCreated={fetchPlaylists}
+			/>
 		</div>
 	);
 }

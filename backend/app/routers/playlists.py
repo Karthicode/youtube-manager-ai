@@ -22,8 +22,12 @@ from app.schemas.playlist import (
     CreatePlaylistFromFiltersRequest,
     CreatePlaylistFromFiltersResponse,
     PlaylistVideosCursorResponse,
+    SmartPlaylistRequest,
+    PlaylistSuggestion,
+    SmartPlaylistConfirmRequest,
 )
 from app.services.youtube_service import YouTubeService
+from app.services.ai_service import AIService
 from app.logger import api_logger
 from app.utils.qstash_client import trigger_playlist_video_addition_job
 from app.redis_client import get_redis
@@ -448,4 +452,203 @@ async def create_playlist_from_filters(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create playlist. Please try again later.",
+        )
+
+
+@router.post("/ai-generate", response_model=PlaylistSuggestion)
+async def generate_smart_playlist(
+    request: SmartPlaylistRequest,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Generate a smart playlist from a natural language description using AI.
+
+    Uses hybrid retrieval (semantic search + category matching) to find candidates,
+    then asks LLM to curate the final selection with reasons and watch order.
+
+    Returns a suggestion that can be confirmed to create the actual YouTube playlist.
+    """
+    try:
+        ai_service = AIService()
+
+        # If refining, load previous suggestion from Redis
+        previous_video_ids = None
+        if request.refinement and request.previous_suggestion_id:
+            redis_client = get_redis()
+            cached = redis_client.get(
+                f"smart_playlist:{request.previous_suggestion_id}"
+            )
+            if cached:
+                import json
+
+                prev = json.loads(cached)
+                previous_video_ids = [v["video_id"] for v in prev.get("videos", [])]
+
+        result = await ai_service.generate_smart_playlist(
+            description=request.description,
+            user_id=current_user.id,
+            max_videos=request.max_videos,
+            db=db,
+            refinement=request.refinement,
+            previous_video_ids=previous_video_ids,
+        )
+
+        return PlaylistSuggestion(**result)
+
+    except Exception as e:
+        api_logger.error(
+            f"Smart playlist generation failed for user {current_user.id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate smart playlist. Please try again.",
+        )
+
+
+@router.post("/ai-generate/confirm", response_model=CreatePlaylistFromFiltersResponse)
+async def confirm_smart_playlist(
+    request: SmartPlaylistConfirmRequest,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Confirm a smart playlist suggestion and create it on YouTube.
+
+    Takes a suggestion_id from a previous ai-generate call, retrieves the
+    cached suggestion, and creates the playlist on YouTube.
+    """
+    import json
+
+    redis_client = get_redis()
+    cached = redis_client.get(f"smart_playlist:{request.suggestion_id}")
+
+    if not cached:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Suggestion expired or not found. Please generate a new one.",
+        )
+
+    suggestion = json.loads(cached)
+
+    # Verify the suggestion belongs to this user
+    if suggestion.get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This suggestion does not belong to you.",
+        )
+
+    try:
+        # Get video IDs in watch order
+        sorted_videos = sorted(suggestion["videos"], key=lambda v: v["order_position"])
+        video_ids = [v["video_id"] for v in sorted_videos]
+
+        # Fetch the actual videos to get YouTube IDs
+        videos = (
+            db.query(Video)
+            .filter(Video.id.in_(video_ids), Video.user_id == current_user.id)
+            .all()
+        )
+
+        video_map = {v.id: v for v in videos}
+        youtube_ids = [
+            video_map[vid].youtube_id for vid in video_ids if vid in video_map
+        ]
+
+        if not youtube_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No valid videos found in the suggestion.",
+            )
+
+        # Create playlist on YouTube
+        youtube_service = YouTubeService(current_user)
+        yt_playlist = youtube_service.create_playlist(
+            title=suggestion["title"],
+            description=suggestion["description"],
+            privacy_status=request.privacy_status,
+        )
+
+        if not yt_playlist:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create playlist on YouTube.",
+            )
+
+        # Add videos (up to 250 immediately)
+        immediate_batch = youtube_ids[:250]
+        remaining = youtube_ids[250:]
+
+        add_result = youtube_service.add_videos_to_playlist(
+            playlist_id=yt_playlist["id"],
+            video_ids=immediate_batch,
+            position_offset=0,
+        )
+
+        # Save playlist to local database
+        db_playlist = Playlist(
+            user_id=current_user.id,
+            youtube_id=yt_playlist["id"],
+            title=yt_playlist["snippet"]["title"],
+            description=yt_playlist["snippet"].get("description"),
+            thumbnail_url=None,
+            video_count=len(youtube_ids),
+            published_at=datetime.utcnow(),
+            last_synced_at=datetime.utcnow(),
+        )
+        db.add(db_playlist)
+        db.commit()
+        db.refresh(db_playlist)
+
+        # Queue remaining if needed
+        job_id = None
+        if remaining:
+            job_id = str(uuid.uuid4())
+            job_data = {
+                "job_id": job_id,
+                "user_id": current_user.id,
+                "playlist_id": str(db_playlist.id),
+                "youtube_playlist_id": yt_playlist["id"],
+                "total": len(remaining),
+                "completed": 0,
+                "failed": 0,
+                "status": "pending",
+                "results": [],
+            }
+            redis_client.set(
+                f"playlist_job:{job_id}",
+                json.dumps(job_data),
+                expire=3600,
+            )
+            await trigger_playlist_video_addition_job(
+                job_id=job_id,
+                user_id=current_user.id,
+                playlist_id=str(db_playlist.id),
+                youtube_playlist_id=yt_playlist["id"],
+                video_youtube_ids=remaining,
+                position_offset=len(immediate_batch),
+            )
+
+        # Clean up the suggestion from cache
+        redis_client.delete(f"smart_playlist:{request.suggestion_id}")
+
+        return CreatePlaylistFromFiltersResponse(
+            playlist=PlaylistResponse.model_validate(db_playlist),
+            total_videos=len(youtube_ids),
+            added_immediately=add_result["succeeded"],
+            queued_for_background=len(remaining),
+            job_id=job_id,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        api_logger.error(
+            f"Failed to confirm smart playlist for user {current_user.id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create playlist. Please try again.",
         )
