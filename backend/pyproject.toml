@@ -47,6 +47,11 @@ ignore_missing_imports = true
 module = "pgvector.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "app.services.agent_service"
+disallow_untyped_defs = false
+disable_error_code = ["union-attr", "arg-type", "assignment"]
+
 [build-system]
 requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"

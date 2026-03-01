@@ -280,3 +280,29 @@ export interface SmartPlaylistConfirmResponse {
 	queued_for_background: number;
 	job_id: string | null;
 }
+
+// Chat types
+export interface ChatMessage {
+	role: "user" | "assistant";
+	content: string;
+	toolCalls?: ChatToolCall[];
+	toolResults?: ChatToolResult[];
+	videos?: Video[];
+}
+
+export interface ChatToolCall {
+	tool: string;
+	arguments: Record<string, unknown>;
+}
+
+export interface ChatToolResult {
+	tool: string;
+	result: unknown;
+}
+
+export interface ChatSession {
+	session_id: string;
+	created_at: string;
+	last_message_at: string;
+	message_count: number;
+}

@@ -14,6 +14,7 @@ import {
 	NavbarMenuItem,
 	NavbarMenuToggle,
 } from "@heroui/react";
+import ChatIcon from "@mui/icons-material/Chat";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import InsightsIcon from "@mui/icons-material/Insights";
 import PlaylistPlayIcon from "@mui/icons-material/PlaylistPlay";
@@ -47,6 +48,7 @@ export default function Navbar() {
 		{ label: "Insights", path: "/insights", icon: <InsightsIcon /> },
 		{ label: "Liked Videos", path: "/videos", icon: <VideoLibraryIcon /> },
 		{ label: "Playlists", path: "/playlists", icon: <PlaylistPlayIcon /> },
+		{ label: "Chat", path: "/chat", icon: <ChatIcon /> },
 	];
 
 	return (
@@ -126,6 +128,19 @@ export default function Navbar() {
 					>
 						<PlaylistPlayIcon fontSize="small" />
 						<span>Playlists</span>
+					</Link>
+				</NavbarItem>
+				<NavbarItem isActive={isActive("/chat")}>
+					<Link
+						href="/chat"
+						className={`flex items-center gap-2 px-2 ${
+							isActive("/chat")
+								? "text-primary font-medium"
+								: "text-foreground font-medium hover:text-primary transition-colors"
+						}`}
+					>
+						<ChatIcon fontSize="small" />
+						<span>Chat</span>
 					</Link>
 				</NavbarItem>
 			</NavbarContent>

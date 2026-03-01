@@ -461,7 +461,6 @@ async def generate_smart_playlist(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    
     """
     Generate a smart playlist from a natural language description using AI.
 

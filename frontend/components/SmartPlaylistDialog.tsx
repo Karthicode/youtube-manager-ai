@@ -12,7 +12,6 @@ import {
 	ModalFooter,
 	ModalHeader,
 	Slider,
-	Spinner,
 	Textarea,
 } from "@heroui/react";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
