@@ -20,6 +20,7 @@ import {
 } from "@heroui/react";
 import WatchLaterIcon from "@mui/icons-material/WatchLater";
 import { formatDistanceToNow } from "date-fns";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { videosApi } from "@/api/api";
@@ -386,7 +387,8 @@ export default function Dashboard() {
 										<Button
 											color="primary"
 											variant="flat"
-											onPress={() => router.push("/videos")}
+											as={Link}
+											href="/videos"
 											radius="md"
 											size="md"
 											className="min-w-[140px] flex-1 sm:flex-none"
@@ -396,7 +398,8 @@ export default function Dashboard() {
 										<Button
 											color="secondary"
 											variant="flat"
-											onPress={() => router.push("/playlists")}
+											as={Link}
+											href="/playlists"
 											radius="md"
 											size="md"
 											className="min-w-[140px] flex-1 sm:flex-none"
@@ -406,7 +409,8 @@ export default function Dashboard() {
 										<Button
 											color="success"
 											variant="flat"
-											onPress={() => router.push("/videos?categorized=false")}
+											as={Link}
+											href="/videos?categorized=false"
 											radius="md"
 											size="md"
 											className="min-w-[140px] flex-1 sm:flex-none"
