@@ -3,6 +3,7 @@
 import { Spinner } from "@heroui/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { setCookie } from "@/lib/cookies";
 import { useAuthStore } from "@/store/auth";
 
 function AuthCallbackContent() {
@@ -38,6 +39,9 @@ function AuthCallbackContent() {
 					// Also store in localStorage for API interceptor
 					localStorage.setItem("access_token", accessToken);
 					localStorage.setItem("refresh_token", refreshToken);
+
+					// Set cookie for middleware auth check (7 days)
+					setCookie("is_authenticated", "true", 604800);
 
 					// Redirect to dashboard
 					router.push("/dashboard");
