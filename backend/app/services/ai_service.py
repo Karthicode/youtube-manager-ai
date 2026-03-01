@@ -3,18 +3,22 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import uuid
 from datetime import datetime, timezone
 from typing import List
 
 from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
 
 from app.config import settings
 from app.logger import api_logger
 from app.models.video import Video
 from app.models.category import Category
 from app.models.tag import Tag
+from app.redis_client import get_redis
 
 
 # Pydantic models for OpenAI structured output
@@ -25,6 +29,25 @@ class VideoCategorization(BaseModel):
     secondary_categories: List[str] = []  # Optional additional categories
     tags: List[str]  # Exactly 5 most relevant tags
     confidence: float  # 0.0 to 1.0
+
+
+# Smart playlist structured output models
+class SmartPlaylistVideoChoice(BaseModel):
+    """LLM output for a single video selection."""
+
+    video_id: int
+    reason: str
+    order_position: int
+
+
+class SmartPlaylistOutput(BaseModel):
+    """LLM structured output for smart playlist generation."""
+
+    title: str
+    description: str
+    videos: List[SmartPlaylistVideoChoice]
+    watching_order_rationale: str
+    theme_summary: str
 
 
 class AIService:
@@ -547,3 +570,240 @@ Rules:
             "failed_count": failed_count,
             "results": categorization_results,
         }
+
+    async def generate_smart_playlist(
+        self,
+        description: str,
+        user_id: int,
+        max_videos: int,
+        db: Session,
+        refinement: str | None = None,
+        previous_video_ids: list[int] | None = None,
+    ) -> dict:
+        """
+        Generate a smart playlist from a natural language description.
+
+        Uses hybrid retrieval: vector similarity + category/tag matching.
+        Then asks the LLM to curate the final selection with reasons.
+
+        Args:
+            description: Natural language playlist description
+            user_id: User ID
+            max_videos: Maximum videos to include
+            db: Database session
+            refinement: Optional refinement to previous suggestion
+            previous_video_ids: Video IDs from previous suggestion (for refinement)
+
+        Returns:
+            Dict with suggestion data and suggestion_id for caching
+        """
+        from app.services.embedding_service import EmbeddingService
+
+        embedding_service = EmbeddingService()
+
+        # 1. Retrieve candidates via semantic search (top 50)
+        semantic_candidates = await embedding_service.search_similar_videos(
+            db=db,
+            query=description,
+            user_id=user_id,
+            limit=50,
+            similarity_threshold=0.2,
+        )
+
+        # 2. Retrieve candidates via category/tag matching
+        #    Infer likely categories from description using keyword matching
+        category_candidates = self._get_category_matched_videos(
+            db, description, user_id, limit=30
+        )
+
+        # 3. Merge and deduplicate
+        seen_ids: set[int] = set()
+        merged_candidates: list[dict] = []
+
+        for video in semantic_candidates:
+            if video["id"] not in seen_ids:
+                seen_ids.add(video["id"])
+                video["source"] = "semantic"
+                merged_candidates.append(video)
+
+        for video in category_candidates:
+            if video["id"] not in seen_ids:
+                seen_ids.add(video["id"])
+                video["source"] = "category_match"
+                merged_candidates.append(video)
+
+        if not merged_candidates:
+            return {
+                "suggestion_id": "",
+                "title": "",
+                "description": "",
+                "videos": [],
+                "watching_order_rationale": "No matching videos found in your library.",
+                "theme_summary": "",
+            }
+
+        # 4. Build candidate info for LLM
+        candidate_info = []
+        for v in merged_candidates[:80]:  # Cap at 80 to stay within token limits
+            duration_str = self._format_duration(v.get("duration_seconds"))
+            cats = ", ".join(c["name"] for c in v.get("categories", []))
+            tags = ", ".join(t["name"] for t in v.get("tags", []))
+            candidate_info.append(
+                f"ID:{v['id']} | {v['title']} | {v.get('channel_title', 'Unknown')} | "
+                f"{duration_str} | Categories: {cats or 'None'} | Tags: {tags or 'None'}"
+            )
+
+        candidates_text = "\n".join(candidate_info)
+
+        # 5. Build prompt
+        prompt = f"""User's playlist request: "{description}"
+
+Available videos from their library (select up to {max_videos}):
+{candidates_text}"""
+
+        if refinement and previous_video_ids:
+            prompt += f'\n\nPrevious selection IDs: {previous_video_ids}\nUser\'s refinement request: "{refinement}"\nAdjust the selection based on the refinement.'
+
+        instructions = f"""You are a smart playlist curator. Given a user's playlist description and their video library, select the best matching videos and arrange them in an optimal watch order.
+
+Rules:
+1. Select up to {max_videos} videos that best match the playlist description
+2. For each video, provide a brief reason why it fits the playlist
+3. Arrange videos in a logical watch order (e.g., beginner to advanced, or thematic flow)
+4. Generate a catchy playlist title and description
+5. Provide a rationale for the watching order
+6. Summarize the overall theme
+7. Use the video ID numbers exactly as provided
+8. Only select videos from the provided list"""
+
+        try:
+            response = await self.async_client.responses.parse(
+                model=self.model,
+                instructions=instructions,
+                input=prompt,
+                text_format=SmartPlaylistOutput,
+                max_output_tokens=settings.openai_max_tokens,
+            )
+
+            result = response.output_parsed
+
+            # 6. Cache the suggestion in Redis
+            suggestion_id = str(uuid.uuid4())
+            redis_client = get_redis()
+
+            suggestion_data = {
+                "suggestion_id": suggestion_id,
+                "title": result.title,
+                "description": result.description,
+                "videos": [v.model_dump() for v in result.videos],
+                "watching_order_rationale": result.watching_order_rationale,
+                "theme_summary": result.theme_summary,
+                "user_id": user_id,
+            }
+
+            redis_client.set(
+                f"smart_playlist:{suggestion_id}",
+                json.dumps(suggestion_data, default=str),
+                expire=600,  # 10 min TTL
+            )
+
+            return suggestion_data
+
+        except Exception as e:
+            api_logger.error(f"Smart playlist generation failed: {e}", exc_info=True)
+            raise
+
+    def _get_category_matched_videos(
+        self, db: Session, description: str, user_id: int, limit: int = 30
+    ) -> list[dict]:
+        """
+        Find videos matching categories/tags inferred from the description.
+
+        Uses keyword matching against category names and tag names.
+        """
+        description_lower = description.lower()
+
+        # Find matching categories
+        matching_categories = (
+            db.query(Category)
+            .filter(
+                func.lower(Category.name).in_(
+                    [
+                        cat.lower()
+                        for cat in self.AVAILABLE_CATEGORIES
+                        if cat.lower() in description_lower
+                    ]
+                )
+            )
+            .all()
+        )
+
+        # Find matching tags
+        matching_tags = (
+            db.query(Tag)
+            .filter(func.lower(Tag.name).op("LIKE")(f"%{description_lower[:50]}%"))
+            .limit(10)
+            .all()
+        )
+
+        if not matching_categories and not matching_tags:
+            return []
+
+        # Build query
+        query = db.query(Video).filter(Video.user_id == user_id)
+
+        conditions = []
+        if matching_categories:
+            cat_ids = [c.id for c in matching_categories]
+            conditions.append(Video.categories.any(Category.id.in_(cat_ids)))
+        if matching_tags:
+            tag_ids = [t.id for t in matching_tags]
+            conditions.append(Video.tags.any(Tag.id.in_(tag_ids)))
+
+        query = query.filter(or_(*conditions))
+        videos = query.limit(limit).all()
+
+        # Convert to dicts
+        result = []
+        for v in videos:
+            result.append(
+                {
+                    "id": v.id,
+                    "youtube_id": v.youtube_id,
+                    "title": v.title,
+                    "description": v.description,
+                    "thumbnail_url": v.thumbnail_url,
+                    "channel_title": v.channel_title,
+                    "channel_id": v.channel_id,
+                    "duration_seconds": v.duration_seconds,
+                    "published_at": v.published_at,
+                    "view_count": v.view_count,
+                    "like_count": v.like_count,
+                    "is_categorized": v.is_categorized,
+                    "categorized_at": v.categorized_at,
+                    "liked_at": v.liked_at,
+                    "created_at": v.created_at,
+                    "user_id": v.user_id,
+                    "categories": [
+                        {
+                            "id": c.id,
+                            "name": c.name,
+                            "slug": c.slug,
+                            "description": c.description,
+                            "color": c.color,
+                        }
+                        for c in v.categories
+                    ],
+                    "tags": [
+                        {
+                            "id": t.id,
+                            "name": t.name,
+                            "slug": t.slug,
+                            "usage_count": t.usage_count,
+                        }
+                        for t in v.tags
+                    ],
+                }
+            )
+
+        return result

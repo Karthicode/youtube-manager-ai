@@ -212,6 +212,18 @@ export const playlistsApi = {
 			is_categorized?: boolean;
 		};
 	}) => api.post("/playlists/create-from-filters", data),
+
+	generateSmartPlaylist: (data: {
+		description: string;
+		max_videos?: number;
+		refinement?: string;
+		previous_suggestion_id?: string;
+	}) => api.post("/playlists/ai-generate", data),
+
+	confirmSmartPlaylist: (data: {
+		suggestion_id: string;
+		privacy_status?: string;
+	}) => api.post("/playlists/ai-generate/confirm", data),
 };
 
 export const categoriesApi = {

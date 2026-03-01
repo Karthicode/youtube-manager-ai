@@ -84,3 +84,41 @@ class PlaylistVideosCursorResponse(BaseModel):
     next_cursor: str | None = None
     has_more: bool = False
     total_count: int = 0
+
+
+# Smart Playlist Generation schemas
+
+
+class SmartPlaylistRequest(BaseModel):
+    """Request for AI-powered smart playlist generation."""
+
+    description: str
+    max_videos: int = 25
+    refinement: str | None = None  # Modification to previous suggestion
+    previous_suggestion_id: str | None = None  # Redis key for previous result
+
+
+class PlaylistVideoSelection(BaseModel):
+    """A single video selected for the smart playlist."""
+
+    video_id: int
+    reason: str
+    order_position: int
+
+
+class PlaylistSuggestion(BaseModel):
+    """AI-generated smart playlist suggestion."""
+
+    suggestion_id: str  # Redis cache key
+    title: str
+    description: str
+    videos: list[PlaylistVideoSelection]
+    watching_order_rationale: str
+    theme_summary: str
+
+
+class SmartPlaylistConfirmRequest(BaseModel):
+    """Request to confirm and create a smart playlist on YouTube."""
+
+    suggestion_id: str
+    privacy_status: str = "private"
