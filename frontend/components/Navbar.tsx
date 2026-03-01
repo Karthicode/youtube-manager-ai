@@ -22,6 +22,7 @@ import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import React from "react";
+import { deleteCookie } from "@/lib/cookies";
 import { useAuthStore } from "@/store/auth";
 import ThemeToggle from "./ThemeToggle";
 
@@ -35,6 +36,7 @@ export default function Navbar() {
 		clearAuth();
 		localStorage.removeItem("access_token");
 		localStorage.removeItem("refresh_token");
+		deleteCookie("is_authenticated");
 		router.push("/");
 	};
 
@@ -148,11 +150,7 @@ export default function Navbar() {
 						aria-label="Profile Actions"
 						variant="flat"
 						onAction={(key) => {
-							if (key === "settings") {
-								router.push("/settings");
-							} else if (key === "help") {
-								router.push("/help");
-							} else if (key === "logout") {
+							if (key === "logout") {
 								handleLogout();
 							}
 						}}
@@ -161,8 +159,12 @@ export default function Navbar() {
 							<p className="font-semibold">Signed in as</p>
 							<p className="font-semibold">{user?.email}</p>
 						</DropdownItem>
-						<DropdownItem key="settings">Settings</DropdownItem>
-						<DropdownItem key="help">Help & Feedback</DropdownItem>
+						<DropdownItem key="settings" as={Link} href="/settings">
+							Settings
+						</DropdownItem>
+						<DropdownItem key="help" as={Link} href="/help">
+							Help & Feedback
+						</DropdownItem>
 						<DropdownItem key="logout" color="danger">
 							Log Out
 						</DropdownItem>
