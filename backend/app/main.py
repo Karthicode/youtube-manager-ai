@@ -17,6 +17,7 @@ from app.routers import (
     progress,
     worker,
     insights,
+    chat,
 )
 
 
@@ -126,6 +127,7 @@ app.include_router(tags.router, prefix=settings.api_prefix, tags=["Tags"])
 app.include_router(progress.router, prefix=settings.api_prefix, tags=["Progress"])
 app.include_router(worker.router, prefix=settings.api_prefix, tags=["Worker"])
 app.include_router(insights.router, prefix=settings.api_prefix, tags=["Insights"])
+app.include_router(chat.router, prefix=settings.api_prefix, tags=["Chat"])
 
 
 @app.get("/")

@@ -247,6 +247,17 @@ export const tagsApi = {
 	) => api.get(`/tags/${tagId}/videos/`, { params }),
 };
 
+export const chatApi = {
+	newSession: () => api.post<{ session_id: string }>("/chat/new"),
+
+	getSessions: () => api.get("/chat/sessions"),
+
+	deleteSession: (sessionId: string) =>
+		api.delete(`/chat/sessions/${sessionId}`),
+
+	getMessageEndpoint: () => `${API_BASE_URL}/chat/message`,
+};
+
 export const insightsApi = {
 	getOverview: (params?: { force_refresh?: boolean }) =>
 		api.get("/insights/overview", { params }),
