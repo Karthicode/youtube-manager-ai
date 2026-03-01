@@ -1,4 +1,5 @@
 import axios from "axios";
+import { deleteCookie } from "@/lib/cookies";
 
 const API_BASE_URL =
 	process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -56,6 +57,7 @@ api.interceptors.response.use(
 					// Refresh failed, clear tokens and redirect to login
 					localStorage.removeItem("access_token");
 					localStorage.removeItem("refresh_token");
+					deleteCookie("is_authenticated");
 					window.location.href = "/";
 					return Promise.reject(refreshError);
 				}
