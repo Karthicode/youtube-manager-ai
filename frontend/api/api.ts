@@ -258,6 +258,9 @@ export const chatApi = {
 
 	getSessions: () => api.get("/chat/sessions"),
 
+	getSessionMessages: (sessionId: string) =>
+		api.get(`/chat/sessions/${sessionId}/messages`),
+
 	deleteSession: (sessionId: string) =>
 		api.delete(`/chat/sessions/${sessionId}`),
 

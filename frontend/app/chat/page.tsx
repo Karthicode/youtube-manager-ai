@@ -36,6 +36,7 @@ export default function ChatPage() {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [input, setInput] = useState("");
 	const [loading, setLoading] = useState(false);
+	const [loadingSessionMessages, setLoadingSessionMessages] = useState(false);
 	const [activeTool, setActiveTool] = useState<string | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -48,19 +49,79 @@ export default function ChatPage() {
 		scrollToBottom();
 	}, [messages, scrollToBottom]);
 
+	const loadSessionMessages = useCallback(async (sessionId: string) => {
+		setLoadingSessionMessages(true);
+		try {
+			const response = await chatApi.getSessionMessages(sessionId);
+			const history: ChatMessage[] = response.data.map(
+				(msg: {
+					id: number;
+					role: "user" | "assistant";
+					content: string;
+					tool_calls?: Array<{
+						tool: string;
+						arguments: Record<string, unknown>;
+					}>;
+					tool_results?: Array<{ tool: string; result: unknown }>;
+					created_at: string;
+				}) => ({
+					id: msg.id,
+					role: msg.role,
+					content: msg.content,
+					toolCalls: msg.tool_calls || [],
+					toolResults: msg.tool_results || [],
+					created_at: msg.created_at,
+				}),
+			);
+			setMessages(history);
+		} catch {
+			setMessages([]);
+		} finally {
+			setLoadingSessionMessages(false);
+		}
+	}, []);
+
 	const fetchSessions = useCallback(async () => {
 		try {
 			const response = await chatApi.getSessions();
-			setSessions(response.data);
+			const fetchedSessions: ChatSession[] = response.data;
+			setSessions(fetchedSessions);
+
+			if (fetchedSessions.length === 0) {
+				setActiveSessionId(null);
+				setMessages([]);
+				return;
+			}
+
+			const storedSessionId = localStorage.getItem("active_chat_session_id");
+			const preferredSessionId =
+				activeSessionId ||
+				(storedSessionId &&
+				fetchedSessions.some((s) => s.session_id === storedSessionId)
+					? storedSessionId
+					: fetchedSessions[0].session_id);
+
+			if (!preferredSessionId) return;
+
+			if (activeSessionId !== preferredSessionId) {
+				setActiveSessionId(preferredSessionId);
+				await loadSessionMessages(preferredSessionId);
+			}
 		} catch {
 			// Failed to fetch sessions
 		}
-	}, []);
+	}, [activeSessionId, loadSessionMessages]);
 
 	useEffect(() => {
 		if (!isReady || !isAuthenticated) return;
 		fetchSessions();
 	}, [isReady, isAuthenticated, fetchSessions]);
+
+	useEffect(() => {
+		if (activeSessionId) {
+			localStorage.setItem("active_chat_session_id", activeSessionId);
+		}
+	}, [activeSessionId]);
 
 	const createNewSession = useCallback(async () => {
 		try {
@@ -68,11 +129,22 @@ export default function ChatPage() {
 			const newId = response.data.session_id;
 			setActiveSessionId(newId);
 			setMessages([]);
-			fetchSessions();
+			localStorage.setItem("active_chat_session_id", newId);
+			await fetchSessions();
 		} catch {
 			// Failed to create session
 		}
 	}, [fetchSessions]);
+
+	const openSession = useCallback(
+		async (sessionId: string) => {
+			if (sessionId === activeSessionId) return;
+			setActiveSessionId(sessionId);
+			setActiveTool(null);
+			await loadSessionMessages(sessionId);
+		},
+		[activeSessionId, loadSessionMessages],
+	);
 
 	const deleteSession = useCallback(
 		async (sessionId: string) => {
@@ -81,8 +153,9 @@ export default function ChatPage() {
 				if (activeSessionId === sessionId) {
 					setActiveSessionId(null);
 					setMessages([]);
+					localStorage.removeItem("active_chat_session_id");
 				}
-				fetchSessions();
+				await fetchSessions();
 			} catch {
 				// Failed to delete session
 			}
@@ -100,7 +173,7 @@ export default function ChatPage() {
 					const response = await chatApi.newSession();
 					sessionId = response.data.session_id;
 					setActiveSessionId(sessionId);
-					fetchSessions();
+					localStorage.setItem("active_chat_session_id", sessionId);
 				} catch {
 					return;
 				}
@@ -226,6 +299,7 @@ export default function ChatPage() {
 			} finally {
 				setLoading(false);
 				setActiveTool(null);
+				fetchSessions();
 			}
 		},
 		[activeSessionId, loading, fetchSessions],
@@ -276,18 +350,14 @@ export default function ChatPage() {
 									role="button"
 									tabIndex={0}
 									className="flex-1 truncate"
-									onClick={() => {
-										setActiveSessionId(session.session_id);
-										setMessages([]);
-									}}
+									onClick={() => openSession(session.session_id)}
 									onKeyDown={(e) => {
 										if (e.key === "Enter" || e.key === " ") {
-											setActiveSessionId(session.session_id);
-											setMessages([]);
+											openSession(session.session_id);
 										}
 									}}
 								>
-									Chat ({session.message_count} msgs)
+									{session.title || "Chat"} ({session.message_count} msgs)
 								</div>
 								<Button
 									isIconOnly
@@ -306,7 +376,13 @@ export default function ChatPage() {
 				<div className="flex-1 flex flex-col">
 					{/* Messages */}
 					<ScrollShadow className="flex-1 overflow-y-auto p-4 space-y-4">
-						{messages.length === 0 && (
+						{loadingSessionMessages && (
+							<div className="flex justify-center py-8">
+								<Spinner />
+							</div>
+						)}
+
+						{messages.length === 0 && !loadingSessionMessages && (
 							<div className="flex flex-col items-center justify-center h-full gap-6">
 								<AutoAwesomeIcon
 									className="text-primary"

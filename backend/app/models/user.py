@@ -10,6 +10,7 @@ from app.database import Base
 if TYPE_CHECKING:
     from app.models.video import Video
     from app.models.playlist import Playlist
+    from app.models.chat import ChatSession
 
 
 class User(Base):
@@ -44,5 +45,8 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     playlists: Mapped[List["Playlist"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    chat_sessions: Mapped[List["ChatSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )

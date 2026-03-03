@@ -16,7 +16,7 @@ from app.logger import api_logger
 from app.models.video import Video
 from app.models.category import Category
 from app.models.tag import Tag
-from app.redis_client import get_redis
+from app.models.chat import ChatSession
 from app.services.embedding_service import EmbeddingService
 
 # Maximum tool call iterations per turn to prevent runaway loops
@@ -158,7 +158,6 @@ class AgentService:
         self.db = db
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
         self.embedding_service = EmbeddingService()
-        self.redis = get_redis()
 
     def _get_system_prompt(self) -> str:
         """Build system prompt with user's library summary for grounding."""
@@ -203,42 +202,30 @@ Guidelines:
 - If a query is ambiguous, ask for clarification
 - Reference specific videos by their titles when possible"""
 
-    def _get_session_key(self, session_id: str) -> str:
-        return f"chat:{self.user_id}:{session_id}"
-
     def _get_previous_response_id(self, session_id: str) -> str | None:
         """Get the previous response ID for conversation continuity."""
-        key = self._get_session_key(session_id)
-        data = self.redis.get(key)
-        if data:
-            session_data = json.loads(data)
-            return session_data.get("previous_response_id")
-        return None
+        session = (
+            self.db.query(ChatSession)
+            .filter(ChatSession.id == session_id, ChatSession.user_id == self.user_id)
+            .first()
+        )
+        return session.previous_response_id if session else None
 
     def _save_session(
-        self, session_id: str, response_id: str, message_count: int
+        self, session_id: str, response_id: str, _message_count: int
     ) -> None:
-        """Save session state to Redis."""
-        key = self._get_session_key(session_id)
-        now = datetime.now(timezone.utc).isoformat()
+        """Save response continuity state to DB session metadata."""
+        session = (
+            self.db.query(ChatSession)
+            .filter(ChatSession.id == session_id, ChatSession.user_id == self.user_id)
+            .first()
+        )
+        if not session:
+            return
 
-        # Get existing data or create new
-        existing = self.redis.get(key)
-        if existing:
-            session_data = json.loads(existing)
-            session_data["previous_response_id"] = response_id
-            session_data["last_message_at"] = now
-            session_data["message_count"] = session_data.get("message_count", 0) + 1
-        else:
-            session_data = {
-                "session_id": session_id,
-                "previous_response_id": response_id,
-                "created_at": now,
-                "last_message_at": now,
-                "message_count": message_count,
-            }
-
-        self.redis.set(key, json.dumps(session_data), expire=3600)  # 1h TTL
+        session.previous_response_id = response_id
+        session.last_message_at = datetime.now(timezone.utc)
+        self.db.commit()
 
     async def _execute_tool(self, tool_name: str, arguments: dict) -> Any:
         """Execute a tool call and return the result."""

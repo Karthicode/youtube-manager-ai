@@ -283,11 +283,13 @@ export interface SmartPlaylistConfirmResponse {
 
 // Chat types
 export interface ChatMessage {
+	id?: number;
 	role: "user" | "assistant";
 	content: string;
 	toolCalls?: ChatToolCall[];
 	toolResults?: ChatToolResult[];
 	videos?: Video[];
+	created_at?: string;
 }
 
 export interface ChatToolCall {
@@ -302,6 +304,7 @@ export interface ChatToolResult {
 
 export interface ChatSession {
 	session_id: string;
+	title?: string | null;
 	created_at: string;
 	last_message_at: string;
 	message_count: number;

@@ -3,6 +3,7 @@ from app.models.video import Video
 from app.models.playlist import Playlist, PlaylistVideo
 from app.models.category import Category, video_categories
 from app.models.tag import Tag, video_tags
+from app.models.chat import ChatSession, ChatMessage
 
 __all__ = [
     "User",
@@ -11,6 +12,8 @@ __all__ = [
     "PlaylistVideo",
     "Category",
     "Tag",
+    "ChatSession",
+    "ChatMessage",
     "video_categories",
     "video_tags",
 ]
