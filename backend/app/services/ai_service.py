@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import List
 
 from openai import OpenAI, AsyncOpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 
@@ -25,9 +25,9 @@ from app.redis_client import get_redis
 class VideoCategorization(BaseModel):
     """Structured output for video categorization."""
 
-    primary_categories: List[str]  # 1-2 main categories
-    secondary_categories: List[str] = []  # Optional additional categories
-    tags: List[str]  # Exactly 5 most relevant tags
+    primary_categories: List[str] = Field(min_length=1, max_length=2)
+    secondary_categories: List[str] = Field(default_factory=list, max_length=2)
+    tags: List[str] = Field(min_length=5, max_length=5)
     confidence: float  # 0.0 to 1.0
 
 
@@ -116,24 +116,17 @@ Rules:
                 input=prompt,
                 text_format=VideoCategorization,
                 max_output_tokens=settings.openai_max_tokens,
-                reasoning={"effort": "none"},
             )
 
             result = response.output_parsed
             return result
 
         except Exception as e:
-            import traceback
-
-            api_logger.error(f"Error categorizing video {video.id}: {str(e)}")
-            api_logger.debug(f"Full traceback: {traceback.format_exc()}")
-            # Return default categorization on error
-            return VideoCategorization(
-                primary_categories=["Entertainment"],
-                secondary_categories=[],
-                tags=["video"],
-                confidence=0.0,
+            api_logger.error(
+                f"Error categorizing video {video.id}: {e}",
+                exc_info=True,
             )
+            raise
 
     def _build_categorization_prompt(self, video: Video) -> str:
         """Build prompt for video categorization."""
@@ -305,39 +298,25 @@ Return results in the SAME ORDER as input.""",
                 input=batch_prompt,
                 text_format=BatchCategorization,
                 max_output_tokens=settings.openai_max_tokens,
-                reasoning={"effort": "none"},
             )
 
             result = response.output_parsed
 
             # Ensure we got results for all videos
             if len(result.videos) != len(videos):
-                api_logger.warning(
-                    f"Batch categorization returned {len(result.videos)} results for {len(videos)} videos"
+                raise ValueError(
+                    "Batch categorization result count mismatch: "
+                    f"got {len(result.videos)} results for {len(videos)} videos"
                 )
-                # Pad with defaults if needed
-                while len(result.videos) < len(videos):
-                    result.videos.append(
-                        VideoCategorization(
-                            primary_categories=["Entertainment"],
-                            tags=["video"],
-                            confidence=0.0,
-                        )
-                    )
 
             return result.videos
 
         except Exception as e:
-            api_logger.error(f"Error batch categorizing {len(videos)} videos: {str(e)}")
-            # Return default categorizations
-            return [
-                VideoCategorization(
-                    primary_categories=["Entertainment"],
-                    tags=["video"],
-                    confidence=0.0,
-                )
-                for _ in videos
-            ]
+            api_logger.error(
+                f"Error batch categorizing {len(videos)} videos: {e}",
+                exc_info=True,
+            )
+            raise
 
     async def categorize_video_async(self, video: Video) -> VideoCategorization:
         """
@@ -373,24 +352,17 @@ Rules:
                 input=prompt,
                 text_format=VideoCategorization,
                 max_output_tokens=settings.openai_max_tokens,
-                reasoning={"effort": "none"},
             )
 
             result = response.output_parsed
             return result
 
         except Exception as e:
-            import traceback
-
-            api_logger.error(f"Error categorizing video {video.id}: {str(e)}")
-            api_logger.debug(f"Full traceback: {traceback.format_exc()}")
-            # Return default categorization on error
-            return VideoCategorization(
-                primary_categories=["Entertainment"],
-                secondary_categories=[],
-                tags=["video"],
-                confidence=0.0,
+            api_logger.error(
+                f"Error categorizing video {video.id}: {e}",
+                exc_info=True,
             )
+            raise
 
     def batch_categorize_videos(
         self, db: Session, videos: List[Video], max_concurrent: int = 5
