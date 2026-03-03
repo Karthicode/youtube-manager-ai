@@ -8,6 +8,7 @@ from typing import Dict, Any
 from jose import jwt
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -150,11 +151,17 @@ class AuthService:
         """
         # Extract user data
         youtube_id = youtube_user_info.get("id")
-        email = youtube_user_info.get("email")
-        name = youtube_user_info.get("title") or youtube_user_info.get("name")
-        picture_url = (
-            youtube_user_info.get("thumbnails", {}).get("default", {}).get("url")
+        google_user_info = AuthService.get_google_user_info(credentials)
+        email = google_user_info.get("email") or youtube_user_info.get("email")
+        name = (
+            youtube_user_info.get("title")
+            or google_user_info.get("name")
+            or youtube_user_info.get("name")
         )
+        picture_url = youtube_user_info.get("thumbnails", {}).get("default", {}).get(
+            "url"
+        ) or google_user_info.get("picture")
+        fallback_email = f"{youtube_id}@youtube.user"
 
         # Check if user exists
         user = db.query(User).filter_by(youtube_id=youtube_id).first()
@@ -163,7 +170,7 @@ class AuthService:
             # Create new user
             user = User(
                 youtube_id=youtube_id,
-                email=email or f"{youtube_id}@youtube.user",
+                email=email or fallback_email,
                 name=name,
                 picture_url=picture_url,
                 access_token=credentials.token,
@@ -178,8 +185,32 @@ class AuthService:
             user.token_expires_at = credentials.expiry if credentials.expiry else None
             user.name = name or user.name
             user.picture_url = picture_url or user.picture_url
+            if email:
+                user.email = email
+            elif not user.email:
+                user.email = fallback_email
 
         db.commit()
         db.refresh(user)
 
         return user
+
+    @staticmethod
+    def get_google_user_info(credentials: Credentials) -> Dict[str, Any]:
+        """
+        Fetch authenticated Google account profile info (email/name/picture).
+
+        Returns:
+            Dict with Google user profile fields, or empty dict if unavailable.
+        """
+        try:
+            oauth2 = build(
+                "oauth2",
+                "v2",
+                credentials=credentials,
+                cache_discovery=False,
+            )
+            profile = oauth2.userinfo().get().execute()
+            return profile if isinstance(profile, dict) else {}
+        except Exception:
+            return {}
