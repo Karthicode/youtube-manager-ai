@@ -412,28 +412,8 @@ export default function GlobalMiniPlayer() {
 					</div>
 
 					{isMobileExpanded && (
-						<div className="flex items-center justify-center gap-2">
-							<button
-								type="button"
-								className="rounded-md p-1.5 hover:bg-default-100 disabled:opacity-40"
-								onClick={playPrev}
-								disabled={!canGoPrevious}
-								aria-label="Previous video"
-							>
-								<SkipPreviousIcon />
-							</button>
-							<button
-								type="button"
-								className="rounded-md p-1.5 hover:bg-default-100 disabled:opacity-40"
-								onClick={playNext}
-								disabled={!canGoNext}
-								aria-label="Next video"
-							>
-								<SkipNextIcon />
-							</button>
-							<span className="text-xs text-default-500 ml-2">
-								{queue.length > 0 ? `${queueIndex + 1} / ${queue.length}` : ""}
-							</span>
+						<div className="text-xs text-default-500 text-center">
+							{queue.length > 0 ? `${queueIndex + 1} / ${queue.length}` : ""}
 						</div>
 					)}
 				</div>
@@ -443,7 +423,7 @@ export default function GlobalMiniPlayer() {
 
 	return (
 		<div
-			className="fixed z-[1000] rounded-xl border border-default-200 bg-content1/95 shadow-2xl backdrop-blur flex flex-col"
+			className="group fixed z-[1000] rounded-xl border border-default-200 bg-content1/95 shadow-2xl backdrop-blur flex flex-col"
 			style={{
 				width: activeDesktopDimensions.width,
 				height: activeDesktopDimensions.height,
@@ -496,17 +476,17 @@ export default function GlobalMiniPlayer() {
 				{playerFrame}
 			</div>
 
-			<div className="flex items-center justify-center gap-2 px-3 pb-3">
-				<button
-					type="button"
-					className="rounded-md p-1.5 hover:bg-default-100 disabled:opacity-40"
-					onClick={playPrev}
-					disabled={!canGoPrevious}
-					aria-label="Previous video"
-				>
-					<SkipPreviousIcon />
-				</button>
-				{isMinimized && (
+			{isMinimized && (
+				<div className="flex items-center justify-center gap-2 px-3 pb-3">
+					<button
+						type="button"
+						className="rounded-md p-1.5 hover:bg-default-100 disabled:opacity-40"
+						onClick={playPrev}
+						disabled={!canGoPrevious}
+						aria-label="Previous video"
+					>
+						<SkipPreviousIcon />
+					</button>
 					<button
 						type="button"
 						className="rounded-md p-1.5 hover:bg-default-100"
@@ -515,37 +495,37 @@ export default function GlobalMiniPlayer() {
 					>
 						{isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
 					</button>
-				)}
-				<button
-					type="button"
-					className="rounded-md p-1.5 hover:bg-default-100 disabled:opacity-40"
-					onClick={playNext}
-					disabled={!canGoNext}
-					aria-label="Next video"
-				>
-					<SkipNextIcon />
-				</button>
-			</div>
+					<button
+						type="button"
+						className="rounded-md p-1.5 hover:bg-default-100 disabled:opacity-40"
+						onClick={playNext}
+						disabled={!canGoNext}
+						aria-label="Next video"
+					>
+						<SkipNextIcon />
+					</button>
+				</div>
+			)}
 			{!isMinimized && (
 				<>
 					<div
 						data-no-drag="true"
-						className="absolute -top-1 -left-1 w-3 h-3 rounded-full bg-default-300 cursor-nwse-resize"
+						className="absolute -top-1 -left-1 w-3 h-3 rounded-full bg-default-300/80 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity"
 						onPointerDown={(event) => handleResizeStart("nw", event)}
 					/>
 					<div
 						data-no-drag="true"
-						className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-default-300 cursor-nesw-resize"
+						className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-default-300/80 cursor-nesw-resize opacity-0 group-hover:opacity-100 transition-opacity"
 						onPointerDown={(event) => handleResizeStart("ne", event)}
 					/>
 					<div
 						data-no-drag="true"
-						className="absolute -bottom-1 -left-1 w-3 h-3 rounded-full bg-default-300 cursor-nesw-resize"
+						className="absolute -bottom-1 -left-1 w-3 h-3 rounded-full bg-default-300/80 cursor-nesw-resize opacity-0 group-hover:opacity-100 transition-opacity"
 						onPointerDown={(event) => handleResizeStart("sw", event)}
 					/>
 					<div
 						data-no-drag="true"
-						className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-default-300 cursor-nwse-resize"
+						className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-default-300/80 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity"
 						onPointerDown={(event) => handleResizeStart("se", event)}
 					/>
 				</>
