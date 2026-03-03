@@ -28,9 +28,11 @@ export default function GlobalMiniPlayer() {
 		currentVideo,
 		queue,
 		queueIndex,
+		currentTime,
 		position,
 		playNext,
 		playPrev,
+		setCurrentTime,
 		setMinimized,
 		setMobileExpanded,
 		setPosition,
@@ -55,6 +57,8 @@ export default function GlobalMiniPlayer() {
 		top: 0,
 	});
 	const dragOffsetRef = useRef({ x: 0, y: 0 });
+	const lastPersistedSecondRef = useRef(-1);
+	const lastTrackedVideoIdRef = useRef<string | null>(null);
 
 	const canGoPrevious = queueIndex > 0;
 	const canGoNext = queueIndex < queue.length - 1;
@@ -337,6 +341,18 @@ export default function GlobalMiniPlayer() {
 		surfaceRef.current?.pause();
 	};
 
+	const handleTimeChange = (nextTime: number) => {
+		if (!Number.isFinite(nextTime) || nextTime < 0) return;
+		if (lastTrackedVideoIdRef.current !== currentVideo.youtubeId) {
+			lastTrackedVideoIdRef.current = currentVideo.youtubeId;
+			lastPersistedSecondRef.current = -1;
+		}
+		const roundedSecond = Math.floor(nextTime);
+		if (roundedSecond === lastPersistedSecondRef.current) return;
+		lastPersistedSecondRef.current = roundedSecond;
+		setCurrentTime(roundedSecond);
+	};
+
 	const playerFrame = (
 		<div
 			className={
@@ -356,7 +372,9 @@ export default function GlobalMiniPlayer() {
 					ref={surfaceRef}
 					youtubeId={currentVideo.youtubeId}
 					className={`rounded-md overflow-hidden bg-black ${isMobile ? "w-full aspect-video" : "w-full h-full"}`}
+					resumeTime={currentTime}
 					onPlayingChange={setIsPlaying}
+					onTimeChange={handleTimeChange}
 					onEnded={playNext}
 					onError={() => {
 						setPlayerError(true);
@@ -373,14 +391,16 @@ export default function GlobalMiniPlayer() {
 				<div className="p-3 space-y-3">
 					{playerFrame}
 					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							className="rounded-md p-1.5 hover:bg-default-100"
-							onClick={togglePlayback}
-							aria-label={isPlaying ? "Pause" : "Play"}
-						>
-							{isPlaying ? <PauseIcon fontSize="small" /> : <PlayArrowIcon />}
-						</button>
+						{!isMobileExpanded && (
+							<button
+								type="button"
+								className="rounded-md p-1.5 hover:bg-default-100"
+								onClick={togglePlayback}
+								aria-label={isPlaying ? "Pause" : "Play"}
+							>
+								{isPlaying ? <PauseIcon fontSize="small" /> : <PlayArrowIcon />}
+							</button>
+						)}
 						<div className="min-w-0 flex-1">
 							<p className="text-xs font-semibold line-clamp-1">
 								{currentVideo.title}
@@ -504,14 +524,16 @@ export default function GlobalMiniPlayer() {
 				>
 					<SkipPreviousIcon />
 				</button>
-				<button
-					type="button"
-					className="rounded-md p-1.5 hover:bg-default-100"
-					onClick={togglePlayback}
-					aria-label={isPlaying ? "Pause" : "Play"}
-				>
-					{isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
-				</button>
+				{isMinimized && (
+					<button
+						type="button"
+						className="rounded-md p-1.5 hover:bg-default-100"
+						onClick={togglePlayback}
+						aria-label={isPlaying ? "Pause" : "Play"}
+					>
+						{isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
+					</button>
+				)}
 				<button
 					type="button"
 					className="rounded-md p-1.5 hover:bg-default-100 disabled:opacity-40"
