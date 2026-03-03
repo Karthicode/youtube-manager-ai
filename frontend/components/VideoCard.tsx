@@ -197,6 +197,16 @@ export default function VideoCard({
 							className="w-full object-cover h-[160px] sm:h-[200px]"
 							src={video.thumbnail_url || "/placeholder-thumbnail.jpg"}
 						/>
+						<button
+							type="button"
+							className="absolute top-2 left-2 z-10 bg-black/80 text-white text-xs px-2 py-1 rounded-md hover:bg-black"
+							onClick={(e) => {
+								e.stopPropagation();
+								handlePrimaryAction();
+							}}
+						>
+							Play in Mini Player
+						</button>
 						<div className="absolute inset-0 flex items-center justify-center bg-black/25">
 							<div className="w-14 h-14 rounded-full bg-black/70 text-white flex items-center justify-center">
 								<PlayArrowIcon sx={{ fontSize: 36 }} />
