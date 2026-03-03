@@ -74,6 +74,10 @@ export const authApi = {
 	getCurrentUser: () => api.get("/auth/me"),
 	refreshToken: (refreshToken: string) =>
 		api.post("/auth/refresh", { refresh_token: refreshToken }),
+	getApiKey: () =>
+		api.get<{ api_key: string | null; mcp_endpoint: string }>("/auth/api-key"),
+	generateApiKey: () =>
+		api.post<{ api_key: string; mcp_endpoint: string }>("/auth/api-key"),
 };
 
 export const videosApi = {

@@ -19,6 +19,7 @@ from app.routers import (
     insights,
     chat,
 )
+from app.routers.mcp import create_mcp_app
 
 
 @asynccontextmanager
@@ -128,6 +129,10 @@ app.include_router(progress.router, prefix=settings.api_prefix, tags=["Progress"
 app.include_router(worker.router, prefix=settings.api_prefix, tags=["Worker"])
 app.include_router(insights.router, prefix=settings.api_prefix, tags=["Insights"])
 app.include_router(chat.router, prefix=settings.api_prefix, tags=["Chat"])
+
+
+# Mount MCP server with API key auth at /mcp
+app.mount("/mcp", create_mcp_app())
 
 
 @app.get("/")

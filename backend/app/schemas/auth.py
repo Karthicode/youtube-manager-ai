@@ -32,3 +32,10 @@ class RefreshTokenRequest(BaseModel):
     """Request body for token refresh."""
 
     refresh_token: str
+
+
+class ApiKeyResponse(BaseModel):
+    """API key response for MCP integration."""
+
+    api_key: str | None
+    mcp_endpoint: str
