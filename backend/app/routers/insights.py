@@ -27,8 +27,10 @@ from app.schemas.insights import (
     DurationResponse,
     DurationBucket,
     RecommendationsResponse,
+    TasteProfileResponse,
 )
 from app.services.recommendation_service import ChannelRecommendationService
+from app.services.profile_service import ProfileService
 from app.services.youtube_service import YouTubeService
 from app.logger import api_logger
 from app.redis_client import get_redis
@@ -575,3 +577,74 @@ async def get_channel_recommendations(
     set_cache(current_user.id, cache_key, result)
 
     return RecommendationsResponse(**result)
+
+
+@router.get("/taste-profile", response_model=TasteProfileResponse)
+async def get_taste_profile(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    force_refresh: bool = Query(False, description="Force regeneration"),
+):
+    """
+    Get the user's content taste profile.
+
+    Returns a cached profile if available, otherwise returns status indicating
+    generation is needed.
+    """
+    profile_service = ProfileService(user_id=current_user.id, db=db)
+
+    if not force_refresh:
+        cached = profile_service.get_cached_profile()
+        if cached:
+            return TasteProfileResponse(**cached)
+
+    # Check video count
+    video_count = profile_service.get_video_count()
+    if video_count < 20:
+        return TasteProfileResponse(
+            status="not_available",
+            video_count=video_count,
+            min_videos_required=20,
+        )
+
+    return TasteProfileResponse(
+        status="not_available",
+        video_count=video_count,
+        min_videos_required=20,
+    )
+
+
+@router.post("/taste-profile/generate", response_model=TasteProfileResponse)
+async def generate_taste_profile(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Trigger generation of the user's content taste profile.
+
+    This performs k-means clustering on video embeddings, detects interest drift,
+    and generates an AI narrative about the user's viewing identity.
+    """
+    from fastapi import HTTPException, status
+
+    profile_service = ProfileService(user_id=current_user.id, db=db)
+
+    video_count = profile_service.get_video_count()
+    if video_count < 20:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Need at least 20 videos with embeddings. Currently have {video_count}.",
+        )
+
+    try:
+        result = await profile_service.generate_profile()
+        return TasteProfileResponse(**result)
+    except Exception as e:
+        api_logger.error(
+            f"Taste profile generation failed for user {current_user.id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate taste profile. Please try again.",
+        )

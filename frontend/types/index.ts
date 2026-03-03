@@ -306,3 +306,43 @@ export interface ChatSession {
 	last_message_at: string;
 	message_count: number;
 }
+
+// Taste Profile types
+export interface InterestCluster {
+	label: string;
+	percentage: number;
+	representative_video_ids: number[];
+	description: string;
+}
+
+export interface DriftEvent {
+	period: string;
+	from_interest: string;
+	to_interest: string;
+	magnitude: number;
+	evidence_video_ids: number[];
+}
+
+export interface ConsumptionStyle {
+	avg_duration_preference: string;
+	channel_diversity: string;
+	content_depth: string;
+	viewing_pattern: string;
+}
+
+export interface TasteProfile {
+	identity_summary: string;
+	primary_interests: InterestCluster[];
+	emerging_interests: InterestCluster[];
+	declining_interests: InterestCluster[];
+	consumption_style: ConsumptionStyle;
+	drift_events: DriftEvent[];
+	personality_tags: string[];
+}
+
+export interface TasteProfileResponse {
+	profile: TasteProfile | null;
+	status: "ready" | "generating" | "not_available";
+	video_count: number;
+	min_videos_required: number;
+}

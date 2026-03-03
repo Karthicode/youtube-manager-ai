@@ -11,6 +11,7 @@ import {
 	InsightsSummaryCards,
 	LikesTrendChart,
 	TagCloud,
+	TasteProfile,
 } from "@/components/insights";
 import Navbar from "@/components/Navbar";
 import { useAuthGuard } from "@/hooks";
@@ -247,6 +248,9 @@ export default function InsightsPage() {
 						loading={loading.recommendations}
 						error={errors.recommendations}
 					/>
+
+					{/* AI Taste Profile */}
+					<TasteProfile />
 				</div>
 			</div>
 		</div>

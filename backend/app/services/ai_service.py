@@ -116,6 +116,7 @@ Rules:
                 input=prompt,
                 text_format=VideoCategorization,
                 max_output_tokens=settings.openai_max_tokens,
+                reasoning={"effort": "none"},
             )
 
             result = response.output_parsed
@@ -304,6 +305,7 @@ Return results in the SAME ORDER as input.""",
                 input=batch_prompt,
                 text_format=BatchCategorization,
                 max_output_tokens=settings.openai_max_tokens,
+                reasoning={"effort": "none"},
             )
 
             result = response.output_parsed
@@ -371,6 +373,7 @@ Rules:
                 input=prompt,
                 text_format=VideoCategorization,
                 max_output_tokens=settings.openai_max_tokens,
+                reasoning={"effort": "none"},
             )
 
             result = response.output_parsed
@@ -683,6 +686,7 @@ Rules:
                 input=prompt,
                 text_format=SmartPlaylistOutput,
                 max_output_tokens=settings.openai_max_tokens,
+                reasoning={"effort": "low"},
             )
 
             result = response.output_parsed
