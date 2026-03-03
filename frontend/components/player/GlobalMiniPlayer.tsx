@@ -8,54 +8,17 @@ import PauseIcon from "@mui/icons-material/Pause";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import SkipPreviousIcon from "@mui/icons-material/SkipPrevious";
-import Script from "next/script";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMiniPlayerStore } from "@/store/miniPlayer";
-
-declare global {
-	interface Window {
-		YT?: {
-			Player: new (
-				element: HTMLElement,
-				config: {
-					videoId: string;
-					width: string;
-					height: string;
-					playerVars: Record<string, number | string>;
-					events: {
-						onReady?: () => void;
-						onStateChange?: (event: { data: number }) => void;
-						onError?: () => void;
-					};
-				},
-			) => {
-				destroy: () => void;
-				loadVideoById: (videoId: string) => void;
-				playVideo: () => void;
-				pauseVideo: () => void;
-				getPlayerState: () => number;
-			};
-			PlayerState: {
-				ENDED: number;
-				PLAYING: number;
-				PAUSED: number;
-			};
-		};
-		onYouTubeIframeAPIReady?: () => void;
-	}
-}
+import VidstackYouTubeSurface, {
+	type VidstackYouTubeSurfaceHandle,
+} from "./VidstackYouTubeSurface";
 
 const DESKTOP_MARGIN = 16;
-const YOUTUBE_PLAYING_STATE = 1;
-const YOUTUBE_PAUSED_STATE = 2;
-const YOUTUBE_ENDED_STATE = 0;
-
-const getDesktopDimensions = (isMinimized: boolean) => {
-	if (isMinimized) {
-		return { width: 320, height: 118 };
-	}
-	return { width: 380, height: 330 };
-};
+const DESKTOP_MIN_WIDTH = 320;
+const DESKTOP_MIN_HEIGHT = 260;
+const DEFAULT_DESKTOP_SIZE = { width: 380, height: 330 };
+const MINIMIZED_DESKTOP_SIZE = { width: 320, height: 118 };
 
 export default function GlobalMiniPlayer() {
 	const {
@@ -75,48 +38,29 @@ export default function GlobalMiniPlayer() {
 	} = useMiniPlayerStore();
 
 	const [isMobile, setIsMobile] = useState(false);
-	const [playerState, setPlayerState] = useState(-1);
-	const [isYoutubeApiReady, setIsYoutubeApiReady] = useState(false);
-	const [youtubeApiLoadError, setYoutubeApiLoadError] = useState(false);
-	const playerContainerRef = useRef<HTMLDivElement | null>(null);
-	const playerRef = useRef<{
-		destroy: () => void;
-		loadVideoById: (videoId: string) => void;
-		playVideo: () => void;
-		pauseVideo: () => void;
-		getPlayerState: () => number;
-	} | null>(null);
+	const [isPlaying, setIsPlaying] = useState(false);
+	const [playerError, setPlayerError] = useState(false);
+	const [desktopSize, setDesktopSize] = useState(DEFAULT_DESKTOP_SIZE);
+	const surfaceRef = useRef<VidstackYouTubeSurfaceHandle | null>(null);
+
 	const isDraggingRef = useRef(false);
+	const isResizingRef = useRef(false);
+	const resizeCornerRef = useRef<"nw" | "ne" | "sw" | "se" | null>(null);
+	const resizeStartRef = useRef({
+		x: 0,
+		y: 0,
+		width: DEFAULT_DESKTOP_SIZE.width,
+		height: DEFAULT_DESKTOP_SIZE.height,
+		left: 0,
+		top: 0,
+	});
 	const dragOffsetRef = useRef({ x: 0, y: 0 });
 
 	const canGoPrevious = queueIndex > 0;
 	const canGoNext = queueIndex < queue.length - 1;
-	const isPlaying = playerState === YOUTUBE_PLAYING_STATE;
-	const desktopDimensions = useMemo(
-		() => getDesktopDimensions(isMinimized),
-		[isMinimized],
-	);
-
-	useEffect(() => {
-		if (typeof window === "undefined") return;
-		if (window.YT?.Player) {
-			setIsYoutubeApiReady(true);
-			return;
-		}
-
-		const previousReadyHandler = window.onYouTubeIframeAPIReady;
-		const handleApiReady = () => {
-			previousReadyHandler?.();
-			setIsYoutubeApiReady(true);
-		};
-		window.onYouTubeIframeAPIReady = handleApiReady;
-
-		return () => {
-			if (window.onYouTubeIframeAPIReady === handleApiReady) {
-				window.onYouTubeIframeAPIReady = previousReadyHandler;
-			}
-		};
-	}, []);
+	const activeDesktopDimensions = isMinimized
+		? MINIMIZED_DESKTOP_SIZE
+		: desktopSize;
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -145,13 +89,40 @@ export default function GlobalMiniPlayer() {
 		if (!isOpen || isMobile || typeof window === "undefined") return;
 
 		const applyBounds = () => {
+			const viewportMaxWidth = Math.max(
+				DESKTOP_MIN_WIDTH,
+				window.innerWidth - DESKTOP_MARGIN * 2,
+			);
+			const viewportMaxHeight = Math.max(
+				DESKTOP_MIN_HEIGHT,
+				window.innerHeight - DESKTOP_MARGIN * 2,
+			);
+
+			const nextWidth = Math.min(
+				Math.max(desktopSize.width, DESKTOP_MIN_WIDTH),
+				viewportMaxWidth,
+			);
+			const nextHeight = Math.min(
+				Math.max(desktopSize.height, DESKTOP_MIN_HEIGHT),
+				viewportMaxHeight,
+			);
+
+			if (!isMinimized) {
+				if (
+					nextWidth !== desktopSize.width ||
+					nextHeight !== desktopSize.height
+				) {
+					setDesktopSize({ width: nextWidth, height: nextHeight });
+				}
+			}
+
 			const maxX = Math.max(
 				DESKTOP_MARGIN,
-				window.innerWidth - desktopDimensions.width - DESKTOP_MARGIN,
+				window.innerWidth - activeDesktopDimensions.width - DESKTOP_MARGIN,
 			);
 			const maxY = Math.max(
 				DESKTOP_MARGIN,
-				window.innerHeight - desktopDimensions.height - DESKTOP_MARGIN,
+				window.innerHeight - activeDesktopDimensions.height - DESKTOP_MARGIN,
 			);
 
 			const nextX =
@@ -173,21 +144,105 @@ export default function GlobalMiniPlayer() {
 		const onResize = () => applyBounds();
 		window.addEventListener("resize", onResize);
 		return () => window.removeEventListener("resize", onResize);
-	}, [desktopDimensions, isMobile, isOpen, position, setPosition]);
+	}, [
+		activeDesktopDimensions.height,
+		activeDesktopDimensions.width,
+		desktopSize.height,
+		desktopSize.width,
+		isMinimized,
+		isMobile,
+		isOpen,
+		position,
+		setPosition,
+	]);
 
 	useEffect(() => {
 		if (!isOpen || isMobile || typeof window === "undefined") return;
 
 		const handlePointerMove = (event: PointerEvent) => {
+			if (isResizingRef.current && !isMinimized) {
+				const corner = resizeCornerRef.current;
+				if (!corner) return;
+
+				const start = resizeStartRef.current;
+				const rightEdge = start.left + start.width;
+				const bottomEdge = start.top + start.height;
+				const dx = event.clientX - start.x;
+				const dy = event.clientY - start.y;
+
+				let nextWidth = start.width;
+				let nextHeight = start.height;
+
+				if (corner === "se" || corner === "ne") {
+					nextWidth = start.width + dx;
+				}
+				if (corner === "sw" || corner === "nw") {
+					nextWidth = start.width - dx;
+				}
+				if (corner === "se" || corner === "sw") {
+					nextHeight = start.height + dy;
+				}
+				if (corner === "ne" || corner === "nw") {
+					nextHeight = start.height - dy;
+				}
+
+				const viewportMaxWidth = Math.max(
+					DESKTOP_MIN_WIDTH,
+					window.innerWidth - DESKTOP_MARGIN * 2,
+				);
+				const viewportMaxHeight = Math.max(
+					DESKTOP_MIN_HEIGHT,
+					window.innerHeight - DESKTOP_MARGIN * 2,
+				);
+
+				nextWidth = Math.min(
+					Math.max(nextWidth, DESKTOP_MIN_WIDTH),
+					viewportMaxWidth,
+				);
+				nextHeight = Math.min(
+					Math.max(nextHeight, DESKTOP_MIN_HEIGHT),
+					viewportMaxHeight,
+				);
+
+				let nextX =
+					corner === "sw" || corner === "nw"
+						? rightEdge - nextWidth
+						: start.left;
+				let nextY =
+					corner === "ne" || corner === "nw"
+						? bottomEdge - nextHeight
+						: start.top;
+
+				nextX = Math.min(
+					Math.max(nextX, DESKTOP_MARGIN),
+					window.innerWidth - DESKTOP_MARGIN - nextWidth,
+				);
+				nextY = Math.min(
+					Math.max(nextY, DESKTOP_MARGIN),
+					window.innerHeight - DESKTOP_MARGIN - nextHeight,
+				);
+
+				if (corner === "sw" || corner === "nw") {
+					nextWidth = rightEdge - nextX;
+				}
+				if (corner === "ne" || corner === "nw") {
+					nextHeight = bottomEdge - nextY;
+				}
+
+				setDesktopSize({ width: nextWidth, height: nextHeight });
+				setPosition({ x: nextX, y: nextY });
+				return;
+			}
+
 			if (!isDraggingRef.current) return;
 
 			const maxX = Math.max(
 				DESKTOP_MARGIN,
-				window.innerWidth - desktopDimensions.width - DESKTOP_MARGIN,
+				window.innerWidth - activeDesktopDimensions.width - DESKTOP_MARGIN,
 			);
 			const maxY = Math.max(
 				DESKTOP_MARGIN,
-				window.innerHeight - desktopDimensions.height - DESKTOP_MARGIN,
+				window.innerHeight - activeDesktopDimensions.height - DESKTOP_MARGIN,
 			);
 
 			const x = Math.min(
@@ -204,6 +259,8 @@ export default function GlobalMiniPlayer() {
 
 		const handlePointerUp = () => {
 			isDraggingRef.current = false;
+			isResizingRef.current = false;
+			resizeCornerRef.current = null;
 		};
 
 		window.addEventListener("pointermove", handlePointerMove);
@@ -213,68 +270,26 @@ export default function GlobalMiniPlayer() {
 			window.removeEventListener("pointermove", handlePointerMove);
 			window.removeEventListener("pointerup", handlePointerUp);
 		};
-	}, [desktopDimensions, isMobile, isOpen, setPosition]);
-
-	useEffect(() => {
-		if (!isOpen || !currentVideo?.youtubeId || !playerContainerRef.current)
-			return;
-		if (!isYoutubeApiReady || youtubeApiLoadError) return;
-
-		if (playerRef.current) {
-			playerRef.current.loadVideoById(currentVideo.youtubeId);
-			playerRef.current.playVideo();
-			return;
-		}
-
-		if (!window.YT?.Player) return;
-
-		playerRef.current = new window.YT.Player(playerContainerRef.current, {
-			videoId: currentVideo.youtubeId,
-			width: "100%",
-			height: "100%",
-			playerVars: {
-				autoplay: 1,
-				controls: 1,
-				playsinline: 1,
-				rel: 0,
-				modestbranding: 1,
-			},
-			events: {
-				onReady: () => {
-					setPlayerState(YOUTUBE_PLAYING_STATE);
-				},
-				onStateChange: (event) => {
-					setPlayerState(event.data);
-					if (event.data === YOUTUBE_ENDED_STATE) {
-						playNext();
-					}
-				},
-				onError: () => {
-					playNext();
-				},
-			},
-		});
 	}, [
-		currentVideo?.youtubeId,
+		activeDesktopDimensions.height,
+		activeDesktopDimensions.width,
+		isMinimized,
+		isMobile,
 		isOpen,
-		isYoutubeApiReady,
-		playNext,
-		youtubeApiLoadError,
+		setPosition,
 	]);
 
 	useEffect(() => {
-		if (isOpen) return;
-		playerRef.current?.destroy();
-		playerRef.current = null;
-		setPlayerState(-1);
+		if (!isOpen) {
+			setIsPlaying(false);
+			setPlayerError(false);
+		}
 	}, [isOpen]);
 
 	useEffect(() => {
-		return () => {
-			playerRef.current?.destroy();
-			playerRef.current = null;
-		};
-	}, []);
+		if (!isOpen || !currentVideo?.youtubeId) return;
+		setPlayerError(false);
+	}, [currentVideo?.youtubeId, isOpen]);
 
 	if (!isOpen || !currentVideo) {
 		return null;
@@ -292,17 +307,34 @@ export default function GlobalMiniPlayer() {
 		};
 	};
 
+	const handleResizeStart = (
+		corner: "nw" | "ne" | "sw" | "se",
+		event: React.PointerEvent<HTMLDivElement>,
+	) => {
+		if (isMobile || isMinimized || !position) return;
+
+		event.preventDefault();
+		event.stopPropagation();
+
+		isResizingRef.current = true;
+		resizeCornerRef.current = corner;
+		resizeStartRef.current = {
+			x: event.clientX,
+			y: event.clientY,
+			width: desktopSize.width,
+			height: desktopSize.height,
+			left: position.x,
+			top: position.y,
+		};
+	};
+
 	const togglePlayback = () => {
-		if (!playerRef.current) return;
-		const state = playerRef.current.getPlayerState();
-		if (state === YOUTUBE_PLAYING_STATE) {
-			playerRef.current.pauseVideo();
-			setPlayerState(YOUTUBE_PAUSED_STATE);
+		const isPaused = surfaceRef.current?.getPaused() ?? true;
+		if (isPaused) {
+			surfaceRef.current?.play();
 			return;
 		}
-
-		playerRef.current.playVideo();
-		setPlayerState(YOUTUBE_PLAYING_STATE);
+		surfaceRef.current?.pause();
 	};
 
 	const playerFrame = (
@@ -312,19 +344,25 @@ export default function GlobalMiniPlayer() {
 					? isMobileExpanded
 						? "w-full"
 						: "absolute w-px h-px opacity-0 pointer-events-none overflow-hidden"
-					: isMinimized
-						? "absolute w-px h-px opacity-0 pointer-events-none overflow-hidden"
-						: "w-full"
+					: "w-full h-full"
 			}
 		>
-			{youtubeApiLoadError ? (
-				<div className="aspect-video w-full rounded-md border border-danger-200 bg-danger-50 text-danger-700 text-xs flex items-center justify-center p-3 text-center">
+			{playerError ? (
+				<div className="w-full h-full rounded-md border border-danger-200 bg-danger-50 text-danger-700 text-xs flex items-center justify-center p-3 text-center">
 					Unable to load YouTube player right now.
 				</div>
 			) : (
-				<div className="aspect-video w-full bg-black rounded-md overflow-hidden">
-					<div ref={playerContainerRef} className="w-full h-full" />
-				</div>
+				<VidstackYouTubeSurface
+					ref={surfaceRef}
+					youtubeId={currentVideo.youtubeId}
+					className={`rounded-md overflow-hidden bg-black ${isMobile ? "w-full aspect-video" : "w-full h-full"}`}
+					onPlayingChange={setIsPlaying}
+					onEnded={playNext}
+					onError={() => {
+						setPlayerError(true);
+						playNext();
+					}}
+				/>
 			)}
 		</div>
 	);
@@ -332,14 +370,6 @@ export default function GlobalMiniPlayer() {
 	if (isMobile) {
 		return (
 			<div className="fixed bottom-4 left-4 right-4 z-[1000] rounded-xl border border-default-200 bg-content1/95 shadow-2xl backdrop-blur">
-				{isOpen && !isYoutubeApiReady && (
-					<Script
-						id="youtube-iframe-api"
-						src="https://www.youtube.com/iframe_api"
-						strategy="afterInteractive"
-						onError={() => setYoutubeApiLoadError(true)}
-					/>
-				)}
 				<div className="p-3 space-y-3">
 					{playerFrame}
 					<div className="flex items-center gap-2">
@@ -411,22 +441,14 @@ export default function GlobalMiniPlayer() {
 
 	return (
 		<div
-			className="fixed z-[1000] rounded-xl border border-default-200 bg-content1/95 shadow-2xl backdrop-blur"
+			className="fixed z-[1000] rounded-xl border border-default-200 bg-content1/95 shadow-2xl backdrop-blur flex flex-col"
 			style={{
-				width: desktopDimensions.width,
-				height: desktopDimensions.height,
+				width: activeDesktopDimensions.width,
+				height: activeDesktopDimensions.height,
 				left: position?.x ?? DESKTOP_MARGIN,
 				top: position?.y ?? DESKTOP_MARGIN,
 			}}
 		>
-			{isOpen && !isYoutubeApiReady && (
-				<Script
-					id="youtube-iframe-api"
-					src="https://www.youtube.com/iframe_api"
-					strategy="afterInteractive"
-					onError={() => setYoutubeApiLoadError(true)}
-				/>
-			)}
 			<div
 				className="flex items-center gap-2 px-3 py-2 border-b border-default-100 cursor-move select-none"
 				onPointerDown={handleDragStart}
@@ -462,7 +484,15 @@ export default function GlobalMiniPlayer() {
 				</button>
 			</div>
 
-			{!isMinimized && <div className="px-3 pt-3 pb-2">{playerFrame}</div>}
+			<div
+				className={
+					isMinimized
+						? "h-0 overflow-hidden px-0 py-0"
+						: "px-3 pt-3 pb-2 flex-1 min-h-0"
+				}
+			>
+				{playerFrame}
+			</div>
 
 			<div className="flex items-center justify-center gap-2 px-3 pb-3">
 				<button
@@ -492,6 +522,30 @@ export default function GlobalMiniPlayer() {
 					<SkipNextIcon />
 				</button>
 			</div>
+			{!isMinimized && (
+				<>
+					<div
+						data-no-drag="true"
+						className="absolute -top-1 -left-1 w-3 h-3 rounded-full bg-default-300 cursor-nwse-resize"
+						onPointerDown={(event) => handleResizeStart("nw", event)}
+					/>
+					<div
+						data-no-drag="true"
+						className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-default-300 cursor-nesw-resize"
+						onPointerDown={(event) => handleResizeStart("ne", event)}
+					/>
+					<div
+						data-no-drag="true"
+						className="absolute -bottom-1 -left-1 w-3 h-3 rounded-full bg-default-300 cursor-nesw-resize"
+						onPointerDown={(event) => handleResizeStart("sw", event)}
+					/>
+					<div
+						data-no-drag="true"
+						className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-default-300 cursor-nwse-resize"
+						onPointerDown={(event) => handleResizeStart("se", event)}
+					/>
+				</>
+			)}
 		</div>
 	);
 }
