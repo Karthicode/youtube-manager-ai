@@ -7,8 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.logger import auth_logger
-from app.schemas.auth import Token, YouTubeAuthURL, RefreshTokenRequest
+from app.models.user import User
+from app.schemas.auth import Token, YouTubeAuthURL, RefreshTokenRequest, ApiKeyResponse
 from app.services.auth_service import AuthService
 from app.services.youtube_service import YouTubeService
 
@@ -161,3 +163,35 @@ async def refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
         )
+
+
+@router.get("/api-key", response_model=ApiKeyResponse)
+async def get_api_key(
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Get the current user's MCP API key."""
+    from app.config import settings
+
+    mcp_endpoint = f"{settings.backend_url}/mcp"
+    return ApiKeyResponse(api_key=current_user.api_key, mcp_endpoint=mcp_endpoint)
+
+
+@router.post("/api-key", response_model=ApiKeyResponse)
+async def generate_api_key(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Generate or regenerate an MCP API key for the current user."""
+    import secrets
+
+    from app.config import settings
+
+    new_key = f"ytm_{secrets.token_hex(28)}"
+    current_user.api_key = new_key
+    db.commit()
+    db.refresh(current_user)
+
+    auth_logger.info(f"API key generated for user {current_user.id}")
+
+    mcp_endpoint = f"{settings.backend_url}/mcp"
+    return ApiKeyResponse(api_key=current_user.api_key, mcp_endpoint=mcp_endpoint)

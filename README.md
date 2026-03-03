@@ -73,6 +73,9 @@ cd backend
 black . && ruff check . && mypy .
 ```
 
+Remote Supabase migration workflow (Alembic + Supabase CLI):
+- See `docs/supabase-alembic-migration-workflow.md`
+
 ### Frontend
 
 ```bash
