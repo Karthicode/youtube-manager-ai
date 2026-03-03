@@ -5,14 +5,10 @@ import {
 	type MediaPlayerInstance,
 	MediaProvider,
 } from "@vidstack/react";
-import {
-	DefaultVideoLayout,
-	defaultLayoutIcons,
-} from "@vidstack/react/player/layouts/default";
 import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 
 const toYouTubeUrl = (youtubeId: string) =>
-	`https://www.youtube.com/watch?v=${youtubeId}`;
+	`https://www.youtube.com/watch?v=${youtubeId}&controls=1&fs=1&playsinline=1&rel=0&modestbranding=1`;
 
 export interface VidstackYouTubeSurfaceHandle {
 	play: () => void;
@@ -54,6 +50,7 @@ const VidstackYouTubeSurface = forwardRef<
 			src={src}
 			autoPlay
 			playsInline
+			controls
 			className={className}
 			onPlay={() => onPlayingChange?.(true)}
 			onPause={() => onPlayingChange?.(false)}
@@ -67,7 +64,6 @@ const VidstackYouTubeSurface = forwardRef<
 					loading: "eager",
 				}}
 			/>
-			<DefaultVideoLayout icons={defaultLayoutIcons} noModal />
 		</MediaPlayer>
 	);
 });

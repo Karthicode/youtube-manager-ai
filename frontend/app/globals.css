@@ -1,7 +1,5 @@
 @import "tailwindcss";
 @config "../tailwind.config.ts";
-@import "@vidstack/react/player/styles/base.css";
-@import "@vidstack/react/player/styles/default/theme.css";
 
 /* Light mode colors - WCAG AA compliant contrast ratios */
 :root {
