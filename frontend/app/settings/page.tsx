@@ -18,6 +18,10 @@ import { useAuthGuard } from "@/hooks";
 export default function Settings() {
 	const { isReady, isAuthenticated, user } = useAuthGuard();
 	const [isClearingData, setIsClearingData] = useState(false);
+	const displayEmail =
+		user?.email && !user.email.endsWith("@youtube.user")
+			? user.email
+			: "Email not available from YouTube";
 
 	const handleClearData = async () => {
 		const confirmed = confirm(
@@ -87,7 +91,7 @@ export default function Settings() {
 								<span className="text-sm font-medium text-gray-700 dark:text-gray-300 block">
 									Email
 								</span>
-								<p className="text-base mt-1">{user?.email}</p>
+								<p className="text-base mt-1">{displayEmail}</p>
 							</div>
 							<div>
 								<span className="text-sm font-medium text-gray-700 dark:text-gray-300 block">

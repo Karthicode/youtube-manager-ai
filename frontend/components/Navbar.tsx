@@ -31,6 +31,10 @@ export default function Navbar() {
 	const router = useRouter();
 	const pathname = usePathname();
 	const { user, clearAuth } = useAuthStore();
+	const displayEmail =
+		user?.email && !user.email.endsWith("@youtube.user")
+			? user.email
+			: "Email unavailable";
 	const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
 	const handleLogout = () => {
@@ -172,7 +176,7 @@ export default function Navbar() {
 					>
 						<DropdownItem key="profile" className="h-14 gap-2" isReadOnly>
 							<p className="font-semibold">Signed in as</p>
-							<p className="font-semibold">{user?.email}</p>
+							<p className="font-semibold">{displayEmail}</p>
 						</DropdownItem>
 						<DropdownItem key="settings" as={Link} href="/settings">
 							Settings
