@@ -58,10 +58,13 @@ const VidstackYouTubeSurface = forwardRef<
 			onError={() => onError?.()}
 		>
 			<MediaProvider
+				className="w-full h-full"
 				iframeProps={{
 					title: "YouTube mini player",
 					allow: "autoplay; fullscreen; picture-in-picture",
 					loading: "eager",
+					className: "w-full h-full",
+					style: { width: "100%", height: "100%" },
 				}}
 			/>
 		</MediaPlayer>
