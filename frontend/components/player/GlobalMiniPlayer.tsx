@@ -8,6 +8,7 @@ import PauseIcon from "@mui/icons-material/Pause";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import SkipPreviousIcon from "@mui/icons-material/SkipPrevious";
+import Script from "next/script";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMiniPlayerStore } from "@/store/miniPlayer";
 
@@ -44,52 +45,16 @@ declare global {
 	}
 }
 
-let youtubeApiPromise: Promise<void> | null = null;
-
 const DESKTOP_MARGIN = 16;
+const YOUTUBE_PLAYING_STATE = 1;
+const YOUTUBE_PAUSED_STATE = 2;
+const YOUTUBE_ENDED_STATE = 0;
 
 const getDesktopDimensions = (isMinimized: boolean) => {
 	if (isMinimized) {
 		return { width: 320, height: 118 };
 	}
 	return { width: 380, height: 330 };
-};
-
-const loadYouTubeIframeApi = () => {
-	if (typeof window === "undefined") {
-		return Promise.resolve();
-	}
-
-	if (window.YT?.Player) {
-		return Promise.resolve();
-	}
-
-	if (youtubeApiPromise) {
-		return youtubeApiPromise;
-	}
-
-	youtubeApiPromise = new Promise((resolve) => {
-		const previousReadyHandler = window.onYouTubeIframeAPIReady;
-
-		window.onYouTubeIframeAPIReady = () => {
-			previousReadyHandler?.();
-			resolve();
-		};
-
-		const existingScript = document.querySelector<HTMLScriptElement>(
-			'script[src="https://www.youtube.com/iframe_api"]',
-		);
-
-		if (existingScript) {
-			return;
-		}
-
-		const script = document.createElement("script");
-		script.src = "https://www.youtube.com/iframe_api";
-		document.body.appendChild(script);
-	});
-
-	return youtubeApiPromise;
 };
 
 export default function GlobalMiniPlayer() {
@@ -111,6 +76,8 @@ export default function GlobalMiniPlayer() {
 
 	const [isMobile, setIsMobile] = useState(false);
 	const [playerState, setPlayerState] = useState(-1);
+	const [isYoutubeApiReady, setIsYoutubeApiReady] = useState(false);
+	const [youtubeApiLoadError, setYoutubeApiLoadError] = useState(false);
 	const playerContainerRef = useRef<HTMLDivElement | null>(null);
 	const playerRef = useRef<{
 		destroy: () => void;
@@ -124,15 +91,32 @@ export default function GlobalMiniPlayer() {
 
 	const canGoPrevious = queueIndex > 0;
 	const canGoNext = queueIndex < queue.length - 1;
-	const playingStateValue =
-		typeof window !== "undefined" ? window.YT?.PlayerState?.PLAYING : undefined;
-	const isPlaying = playingStateValue
-		? playerState === playingStateValue
-		: playerState === 1;
+	const isPlaying = playerState === YOUTUBE_PLAYING_STATE;
 	const desktopDimensions = useMemo(
 		() => getDesktopDimensions(isMinimized),
 		[isMinimized],
 	);
+
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		if (window.YT?.Player) {
+			setIsYoutubeApiReady(true);
+			return;
+		}
+
+		const previousReadyHandler = window.onYouTubeIframeAPIReady;
+		const handleApiReady = () => {
+			previousReadyHandler?.();
+			setIsYoutubeApiReady(true);
+		};
+		window.onYouTubeIframeAPIReady = handleApiReady;
+
+		return () => {
+			if (window.onYouTubeIframeAPIReady === handleApiReady) {
+				window.onYouTubeIframeAPIReady = previousReadyHandler;
+			}
+		};
+	}, []);
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -234,54 +218,49 @@ export default function GlobalMiniPlayer() {
 	useEffect(() => {
 		if (!isOpen || !currentVideo?.youtubeId || !playerContainerRef.current)
 			return;
+		if (!isYoutubeApiReady || youtubeApiLoadError) return;
 
-		let cancelled = false;
+		if (playerRef.current) {
+			playerRef.current.loadVideoById(currentVideo.youtubeId);
+			playerRef.current.playVideo();
+			return;
+		}
 
-		const initializePlayer = async () => {
-			await loadYouTubeIframeApi();
-			if (cancelled || !window.YT?.Player || !playerContainerRef.current)
-				return;
+		if (!window.YT?.Player) return;
 
-			if (playerRef.current) {
-				playerRef.current.loadVideoById(currentVideo.youtubeId);
-				playerRef.current.playVideo();
-				return;
-			}
-
-			playerRef.current = new window.YT.Player(playerContainerRef.current, {
-				videoId: currentVideo.youtubeId,
-				width: "100%",
-				height: "100%",
-				playerVars: {
-					autoplay: 1,
-					controls: 1,
-					playsinline: 1,
-					rel: 0,
-					modestbranding: 1,
+		playerRef.current = new window.YT.Player(playerContainerRef.current, {
+			videoId: currentVideo.youtubeId,
+			width: "100%",
+			height: "100%",
+			playerVars: {
+				autoplay: 1,
+				controls: 1,
+				playsinline: 1,
+				rel: 0,
+				modestbranding: 1,
+			},
+			events: {
+				onReady: () => {
+					setPlayerState(YOUTUBE_PLAYING_STATE);
 				},
-				events: {
-					onReady: () => {
-						setPlayerState(window.YT?.PlayerState?.PLAYING ?? 1);
-					},
-					onStateChange: (event) => {
-						setPlayerState(event.data);
-						if (event.data === window.YT?.PlayerState?.ENDED) {
-							playNext();
-						}
-					},
-					onError: () => {
+				onStateChange: (event) => {
+					setPlayerState(event.data);
+					if (event.data === YOUTUBE_ENDED_STATE) {
 						playNext();
-					},
+					}
 				},
-			});
-		};
-
-		initializePlayer();
-
-		return () => {
-			cancelled = true;
-		};
-	}, [currentVideo?.youtubeId, isOpen, playNext]);
+				onError: () => {
+					playNext();
+				},
+			},
+		});
+	}, [
+		currentVideo?.youtubeId,
+		isOpen,
+		isYoutubeApiReady,
+		playNext,
+		youtubeApiLoadError,
+	]);
 
 	useEffect(() => {
 		if (isOpen) return;
@@ -316,14 +295,14 @@ export default function GlobalMiniPlayer() {
 	const togglePlayback = () => {
 		if (!playerRef.current) return;
 		const state = playerRef.current.getPlayerState();
-		if (state === window.YT?.PlayerState?.PLAYING) {
+		if (state === YOUTUBE_PLAYING_STATE) {
 			playerRef.current.pauseVideo();
-			setPlayerState(window.YT?.PlayerState?.PAUSED ?? 2);
+			setPlayerState(YOUTUBE_PAUSED_STATE);
 			return;
 		}
 
 		playerRef.current.playVideo();
-		setPlayerState(window.YT?.PlayerState?.PLAYING ?? 1);
+		setPlayerState(YOUTUBE_PLAYING_STATE);
 	};
 
 	const playerFrame = (
@@ -338,15 +317,29 @@ export default function GlobalMiniPlayer() {
 						: "w-full"
 			}
 		>
-			<div className="aspect-video w-full bg-black rounded-md overflow-hidden">
-				<div ref={playerContainerRef} className="w-full h-full" />
-			</div>
+			{youtubeApiLoadError ? (
+				<div className="aspect-video w-full rounded-md border border-danger-200 bg-danger-50 text-danger-700 text-xs flex items-center justify-center p-3 text-center">
+					Unable to load YouTube player right now.
+				</div>
+			) : (
+				<div className="aspect-video w-full bg-black rounded-md overflow-hidden">
+					<div ref={playerContainerRef} className="w-full h-full" />
+				</div>
+			)}
 		</div>
 	);
 
 	if (isMobile) {
 		return (
 			<div className="fixed bottom-4 left-4 right-4 z-[1000] rounded-xl border border-default-200 bg-content1/95 shadow-2xl backdrop-blur">
+				{isOpen && !isYoutubeApiReady && (
+					<Script
+						id="youtube-iframe-api"
+						src="https://www.youtube.com/iframe_api"
+						strategy="afterInteractive"
+						onError={() => setYoutubeApiLoadError(true)}
+					/>
+				)}
 				<div className="p-3 space-y-3">
 					{playerFrame}
 					<div className="flex items-center gap-2">
@@ -426,6 +419,14 @@ export default function GlobalMiniPlayer() {
 				top: position?.y ?? DESKTOP_MARGIN,
 			}}
 		>
+			{isOpen && !isYoutubeApiReady && (
+				<Script
+					id="youtube-iframe-api"
+					src="https://www.youtube.com/iframe_api"
+					strategy="afterInteractive"
+					onError={() => setYoutubeApiLoadError(true)}
+				/>
+			)}
 			<div
 				className="flex items-center gap-2 px-3 py-2 border-b border-default-100 cursor-move select-none"
 				onPointerDown={handleDragStart}
