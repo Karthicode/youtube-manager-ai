@@ -14,13 +14,12 @@ import {
 } from "@heroui/react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { playlistsApi, videosApi } from "@/api/api";
 import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
 import VideoCard from "@/components/VideoCard";
 import { useAuthGuard } from "@/hooks";
-import { useMiniPlayerStore } from "@/store/miniPlayer";
 import type { CursorPaginatedVideosResponse, Playlist, Video } from "@/types";
 
 export default function PlaylistDetailPage() {
@@ -48,25 +47,6 @@ export default function PlaylistDetailPage() {
 	const [showOnlyCategorized, setShowOnlyCategorized] = useState<
 		boolean | null
 	>(null);
-	const {
-		openFromPlaylist,
-		currentVideo: currentMiniVideo,
-		isOpen: isMiniOpen,
-	} = useMiniPlayerStore();
-
-	const playableQueue = useMemo(
-		() =>
-			videos
-				.filter((video) => Boolean(video.youtube_id))
-				.map((video) => ({
-					id: video.id,
-					youtubeId: video.youtube_id,
-					title: video.title,
-					channelTitle: video.channel_title,
-					thumbnailUrl: video.thumbnail_url,
-				})),
-		[videos],
-	);
 
 	const fetchPlaylistDetails = useCallback(
 		async (cursor?: string | null, append = false) => {
@@ -167,22 +147,6 @@ export default function PlaylistDetailPage() {
 		setSearchQuery("");
 		setShowOnlyCategorized(null);
 	};
-
-	const handlePlayInMiniPlayer = useCallback(
-		(video: Video) => {
-			const queueIndex = playableQueue.findIndex(
-				(item) => item.id === video.id,
-			);
-			if (queueIndex < 0) return;
-
-			openFromPlaylist(playableQueue[queueIndex], playableQueue, queueIndex, {
-				type: "playlist",
-				playlistId,
-				playlistTitle: playlist?.title || null,
-			});
-		},
-		[openFromPlaylist, playableQueue, playlist?.title, playlistId],
-	);
 
 	// Don't render anything until hydrated and authenticated
 	if (!isReady || !isAuthenticated) {
@@ -308,11 +272,7 @@ export default function PlaylistDetailPage() {
 												key={video.id}
 												video={video}
 												onCategorize={handleCategorize}
-												onPlay={handlePlayInMiniPlayer}
 												isCategorizing={categorizingId === video.id}
-												isPlaying={
-													isMiniOpen && currentMiniVideo?.id === video.id
-												}
 											/>
 										))}
 									</div>

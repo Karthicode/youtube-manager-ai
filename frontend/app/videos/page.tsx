@@ -24,7 +24,7 @@ import SyncIcon from "@mui/icons-material/Sync";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import WatchLaterIcon from "@mui/icons-material/WatchLater";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { categoriesApi, playlistsApi, videosApi } from "@/api/api";
 import CreatePlaylistDialog from "@/components/CreatePlaylistDialog";
 import DeleteProgressSSE from "@/components/DeleteProgressSSE";
@@ -33,6 +33,7 @@ import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
 import VideoCard from "@/components/VideoCard";
 import { useAuthGuard } from "@/hooks";
+import { useMiniPlayerStore } from "@/store/miniPlayer";
 import type {
 	CursorPaginatedVideosResponse,
 	EmbeddingStats,
@@ -52,6 +53,11 @@ function VideosPageContent() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const { isReady, isAuthenticated } = useAuthGuard();
+	const {
+		openPlayer,
+		currentVideo: currentMiniVideo,
+		isOpen: isMiniOpen,
+	} = useMiniPlayerStore();
 
 	const [videos, setVideos] = useState<Video[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -168,6 +174,20 @@ function VideosPageContent() {
 		currentVideo: string | null;
 		lastError: string | null;
 	} | null>(null);
+
+	const activePlaybackQueue = useMemo(() => {
+		const sourceVideos = semanticSearchEnabled ? semanticResults : videos;
+
+		return sourceVideos
+			.filter((video) => Boolean(video.youtube_id))
+			.map((video) => ({
+				id: video.id,
+				youtubeId: video.youtube_id,
+				title: video.title,
+				channelTitle: video.channel_title,
+				thumbnailUrl: video.thumbnail_url,
+			}));
+	}, [semanticSearchEnabled, semanticResults, videos]);
 
 	// Generate embeddings with SSE progress (inline streaming)
 	const handleGenerateEmbeddings = async (forceRegenerate = false) => {
@@ -481,6 +501,37 @@ function VideosPageContent() {
 		alert(`Deletion failed: ${error}`);
 		setDeleteJobId(null);
 	};
+
+	const handlePlayInMiniPlayer = useCallback(
+		(video: Video) => {
+			const queueIndex = activePlaybackQueue.findIndex(
+				(item) => item.id === video.id,
+			);
+			if (queueIndex < 0) return;
+
+			openPlayer(
+				activePlaybackQueue[queueIndex],
+				activePlaybackQueue,
+				queueIndex,
+				{
+					type: "videos",
+					sourceTab: activeTab,
+					semanticSearch: semanticSearchEnabled,
+					query:
+						semanticSearchEnabled && semanticQuery.trim()
+							? semanticQuery.trim()
+							: null,
+				},
+			);
+		},
+		[
+			activePlaybackQueue,
+			activeTab,
+			openPlayer,
+			semanticQuery,
+			semanticSearchEnabled,
+		],
+	);
 
 	// Check if any filters are active
 	const hasActiveFilters =
@@ -896,7 +947,11 @@ function VideosPageContent() {
 													<VideoCard
 														video={result as unknown as Video}
 														onCategorize={handleCategorize}
+														onPlay={handlePlayInMiniPlayer}
 														isCategorizing={categorizingId === result.id}
+														isPlaying={
+															isMiniOpen && currentMiniVideo?.id === result.id
+														}
 														viewMode={viewMode}
 													/>
 													{/* Similarity Score Badge */}
@@ -961,7 +1016,11 @@ function VideosPageContent() {
 												key={video.id}
 												video={video}
 												onCategorize={handleCategorize}
+												onPlay={handlePlayInMiniPlayer}
 												isCategorizing={categorizingId === video.id}
+												isPlaying={
+													isMiniOpen && currentMiniVideo?.id === video.id
+												}
 												viewMode={viewMode}
 											/>
 										))}
