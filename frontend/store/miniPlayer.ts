@@ -18,9 +18,12 @@ export interface MiniPlayerQueueItem {
 }
 
 export interface MiniPlayerContext {
-	type: "playlist";
-	playlistId: number;
-	playlistTitle: string | null;
+	type: "playlist" | "videos";
+	playlistId?: number;
+	playlistTitle?: string | null;
+	sourceTab?: "liked" | "watch_later";
+	semanticSearch?: boolean;
+	query?: string | null;
 }
 
 export interface MiniPlayerPosition {
@@ -37,7 +40,7 @@ interface MiniPlayerState {
 	queueIndex: number;
 	position: MiniPlayerPosition | null;
 	originContext: MiniPlayerContext | null;
-	openFromPlaylist: (
+	openPlayer: (
 		video: MiniPlayerVideo,
 		queue: MiniPlayerQueueItem[],
 		index: number,
@@ -71,7 +74,7 @@ export const useMiniPlayerStore = create<MiniPlayerState>()(
 			position: null,
 			originContext: null,
 
-			openFromPlaylist: (video, queue, index, context) => {
+			openPlayer: (video, queue, index, context) => {
 				const safeQueue = queue.length > 0 ? queue : [video];
 				const safeIndex = clampQueueIndex(index, safeQueue.length);
 				const queuedVideo = safeQueue[safeIndex];
