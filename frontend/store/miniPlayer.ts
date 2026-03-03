@@ -38,7 +38,6 @@ interface MiniPlayerState {
 	currentVideo: MiniPlayerVideo | null;
 	queue: MiniPlayerQueueItem[];
 	queueIndex: number;
-	currentTime: number;
 	position: MiniPlayerPosition | null;
 	originContext: MiniPlayerContext | null;
 	openPlayer: (
@@ -50,7 +49,6 @@ interface MiniPlayerState {
 	playAtIndex: (index: number) => void;
 	playNext: () => void;
 	playPrev: () => void;
-	setCurrentTime: (time: number) => void;
 	setMinimized: (isMinimized: boolean) => void;
 	setMobileExpanded: (expanded: boolean) => void;
 	setPosition: (position: MiniPlayerPosition) => void;
@@ -73,7 +71,6 @@ export const useMiniPlayerStore = create<MiniPlayerState>()(
 			currentVideo: null,
 			queue: [],
 			queueIndex: 0,
-			currentTime: 0,
 			position: null,
 			originContext: null,
 
@@ -88,7 +85,6 @@ export const useMiniPlayerStore = create<MiniPlayerState>()(
 					currentVideo: queuedVideo,
 					queue: safeQueue,
 					queueIndex: safeIndex,
-					currentTime: 0,
 					originContext: context,
 					isMobileExpanded: false,
 				});
@@ -101,7 +97,6 @@ export const useMiniPlayerStore = create<MiniPlayerState>()(
 				set({
 					queueIndex: safeIndex,
 					currentVideo: queue[safeIndex],
-					currentTime: 0,
 				});
 			},
 
@@ -113,7 +108,6 @@ export const useMiniPlayerStore = create<MiniPlayerState>()(
 				set({
 					queueIndex: nextIndex,
 					currentVideo: queue[nextIndex],
-					currentTime: 0,
 				});
 			},
 
@@ -125,18 +119,8 @@ export const useMiniPlayerStore = create<MiniPlayerState>()(
 				set({
 					queueIndex: prevIndex,
 					currentVideo: queue[prevIndex],
-					currentTime: 0,
 				});
 			},
-
-			setCurrentTime: (time) =>
-				set((state) =>
-					state.currentTime === time
-						? state
-						: {
-								currentTime: time,
-							},
-				),
 
 			setMinimized: (isMinimized) => set({ isMinimized }),
 
@@ -152,19 +136,12 @@ export const useMiniPlayerStore = create<MiniPlayerState>()(
 					currentVideo: null,
 					queue: [],
 					queueIndex: 0,
-					currentTime: 0,
 					originContext: null,
 				}),
 		}),
 		{
 			name: "mini-player-storage",
 			partialize: (state) => ({
-				isOpen: state.isOpen,
-				currentVideo: state.currentVideo,
-				queue: state.queue,
-				queueIndex: state.queueIndex,
-				currentTime: state.currentTime,
-				originContext: state.originContext,
 				isMinimized: state.isMinimized,
 				position: state.position,
 			}),
