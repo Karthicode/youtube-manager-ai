@@ -9,6 +9,7 @@ import {
 	Image,
 	Tooltip,
 } from "@heroui/react";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import { YouTubeEmbed } from "@next/third-parties/google";
 import { formatDistanceToNow } from "date-fns";
 import type { Video } from "@/types";
@@ -16,14 +17,18 @@ import type { Video } from "@/types";
 interface VideoCardProps {
 	video: Video;
 	onCategorize?: (videoId: number) => void;
+	onPlay?: (video: Video) => void;
 	isCategorizing?: boolean;
+	isPlaying?: boolean;
 	viewMode?: "grid" | "list";
 }
 
 export default function VideoCard({
 	video,
 	onCategorize,
+	onPlay,
 	isCategorizing,
+	isPlaying = false,
 	viewMode = "grid",
 }: VideoCardProps) {
 	const formatDuration = (seconds: number | null) => {
@@ -55,6 +60,14 @@ export default function VideoCard({
 			"_blank",
 		);
 	};
+	const hasMiniPlayerAction = Boolean(onPlay && video.youtube_id);
+	const handlePrimaryAction = () => {
+		if (hasMiniPlayerAction && onPlay) {
+			onPlay(video);
+			return;
+		}
+		openYouTube();
+	};
 
 	// List view - minimal without image
 	if (viewMode === "list") {
@@ -67,11 +80,11 @@ export default function VideoCard({
 							role="button"
 							tabIndex={0}
 							className="flex-1 min-w-0 cursor-pointer w-full"
-							onClick={openYouTube}
+							onClick={handlePrimaryAction}
 							onKeyDown={(e) => {
 								if (e.key === "Enter" || e.key === " ") {
 									e.preventDefault();
-									openYouTube();
+									handlePrimaryAction();
 								}
 							}}
 						>
@@ -158,9 +171,44 @@ export default function VideoCard({
 
 	// Grid view - original with image (now supports embedded YouTube)
 	return (
-		<Card className="w-full hover:scale-102 sm:hover:scale-105 transition-transform">
+		<Card
+			className={`w-full hover:scale-102 sm:hover:scale-105 transition-transform ${isPlaying ? "ring-2 ring-primary" : ""}`}
+		>
 			<CardBody className="p-0">
-				{video.youtube_id ? (
+				{hasMiniPlayerAction ? (
+					/* biome-ignore lint/a11y/useSemanticElements: Using div with role="button" for layout flexibility */
+					<div
+						role="button"
+						tabIndex={0}
+						className="relative cursor-pointer"
+						onClick={handlePrimaryAction}
+						onKeyDown={(e) => {
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault();
+								handlePrimaryAction();
+							}
+						}}
+					>
+						<Image
+							shadow="sm"
+							radius="none"
+							width="100%"
+							alt={video.title}
+							className="w-full object-cover h-[160px] sm:h-[200px]"
+							src={video.thumbnail_url || "/placeholder-thumbnail.jpg"}
+						/>
+						<div className="absolute inset-0 flex items-center justify-center bg-black/25">
+							<div className="w-14 h-14 rounded-full bg-black/70 text-white flex items-center justify-center">
+								<PlayArrowIcon sx={{ fontSize: 36 }} />
+							</div>
+						</div>
+						{video.duration_seconds && (
+							<div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+								{formatDuration(video.duration_seconds)}
+							</div>
+						)}
+					</div>
+				) : video.youtube_id ? (
 					// Embedded player — keep interactions inside the player (no outer click)
 					<div className="relative">
 						<div className="w-full object-cover h-[160px] sm:h-[200px]">
@@ -206,11 +254,11 @@ export default function VideoCard({
 					role="button"
 					tabIndex={0}
 					className="p-2 sm:p-3 space-y-1 sm:space-y-2 cursor-pointer"
-					onClick={openYouTube}
+					onClick={handlePrimaryAction}
 					onKeyDown={(e) => {
 						if (e.key === "Enter" || e.key === " ") {
 							e.preventDefault();
-							openYouTube();
+							handlePrimaryAction();
 						}
 					}}
 				>
@@ -277,6 +325,18 @@ export default function VideoCard({
 							</Button>
 						)}
 					</div>
+				)}
+				{hasMiniPlayerAction && (
+					<Button
+						size="sm"
+						color="primary"
+						variant="flat"
+						className="w-full"
+						startContent={<PlayArrowIcon fontSize="small" />}
+						onPress={handlePrimaryAction}
+					>
+						{isPlaying ? "Playing in Mini Player" : "Play in Mini Player"}
+					</Button>
 				)}
 			</CardFooter>
 		</Card>
