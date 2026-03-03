@@ -9,12 +9,44 @@ import {
 	Spinner,
 	Switch,
 } from "@heroui/react";
+import { useState } from "react";
+import { videosApi } from "@/api/api";
 import Navbar from "@/components/Navbar";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useAuthGuard } from "@/hooks";
 
 export default function Settings() {
 	const { isReady, isAuthenticated, user } = useAuthGuard();
+	const [isClearingData, setIsClearingData] = useState(false);
+
+	const handleClearData = async () => {
+		const confirmed = confirm(
+			"Clear all AI-generated categories and tags from your videos? Videos will remain in your library.",
+		);
+		if (!confirmed) return;
+
+		setIsClearingData(true);
+		try {
+			const response = await videosApi.clearCategorizations();
+			const {
+				message,
+				cleared_videos,
+				removed_category_links,
+				removed_tag_links,
+			} = response.data;
+			alert(
+				`${message}\n\nVideos updated: ${cleared_videos}\nCategory links removed: ${removed_category_links}\nTag links removed: ${removed_tag_links}`,
+			);
+		} catch (error) {
+			const axiosErr = error as { response?: { data?: { detail?: string } } };
+			alert(
+				axiosErr.response?.data?.detail ||
+					"Failed to clear categorizations. Please try again.",
+			);
+		} finally {
+			setIsClearingData(false);
+		}
+	};
 
 	// Don't render anything until hydrated and authenticated
 	if (!isReady || !isAuthenticated) {
@@ -166,7 +198,13 @@ export default function Settings() {
 										Remove all AI-generated categories and tags (videos remain)
 									</p>
 								</div>
-								<Button color="danger" variant="flat" size="sm">
+								<Button
+									color="danger"
+									variant="flat"
+									size="sm"
+									onPress={handleClearData}
+									isLoading={isClearingData}
+								>
 									Clear Data
 								</Button>
 							</div>

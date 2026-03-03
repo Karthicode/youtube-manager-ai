@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, select
 from datetime import datetime, timezone
 import json
 import asyncio
@@ -24,6 +24,7 @@ from app.schemas.video import (
     CursorPaginatedVideosResponse,
     VideoCountResponse,
     BulkDeleteJobResponse,
+    ClearCategorizationsResponse,
     BulkDeleteResult,
     BulkDeleteFailure,
     SemanticSearchResponse,
@@ -1258,6 +1259,117 @@ async def get_video_stats(
     set_cached_stats(current_user.id, stats, expire=300)
 
     return stats
+
+
+@router.post("/clear-categorizations", response_model=ClearCategorizationsResponse)
+async def clear_all_categorizations(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Clear all category/tag associations for the current user's videos.
+
+    Videos remain in the library. Only AI-generated categorization metadata is removed.
+    """
+    from app.models.category import video_categories
+    from app.models.video import video_tags
+
+    try:
+        # Count impacted records before deletion for response payload.
+        cleared_videos = (
+            db.query(func.count(func.distinct(Video.id)))
+            .outerjoin(video_categories, video_categories.c.video_id == Video.id)
+            .outerjoin(video_tags, video_tags.c.video_id == Video.id)
+            .filter(Video.user_id == current_user.id)
+            .filter(
+                or_(
+                    Video.is_categorized.is_(True),
+                    Video.categorized_at.isnot(None),
+                    video_categories.c.video_id.isnot(None),
+                    video_tags.c.video_id.isnot(None),
+                )
+            )
+            .scalar()
+            or 0
+        )
+
+        removed_category_links = (
+            db.query(func.count(video_categories.c.video_id))
+            .join(Video, Video.id == video_categories.c.video_id)
+            .filter(Video.user_id == current_user.id)
+            .scalar()
+            or 0
+        )
+
+        tag_usage_rows = (
+            db.query(
+                video_tags.c.tag_id,
+                func.count(video_tags.c.video_id).label("link_count"),
+            )
+            .join(Video, Video.id == video_tags.c.video_id)
+            .filter(Video.user_id == current_user.id)
+            .group_by(video_tags.c.tag_id)
+            .all()
+        )
+        removed_tag_links = sum(int(link_count) for _, link_count in tag_usage_rows)
+
+        if (
+            cleared_videos == 0
+            and removed_category_links == 0
+            and removed_tag_links == 0
+        ):
+            return ClearCategorizationsResponse(
+                cleared_videos=0,
+                removed_category_links=0,
+                removed_tag_links=0,
+                message="No categorizations found to clear",
+            )
+
+        # Keep global tag usage counts in sync with removed user associations.
+        if tag_usage_rows:
+            tag_ids = [tag_id for tag_id, _ in tag_usage_rows]
+            decrement_by_tag = {
+                tag_id: int(link_count) for tag_id, link_count in tag_usage_rows
+            }
+            tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
+            for tag in tags:
+                tag.usage_count = max(
+                    0, tag.usage_count - decrement_by_tag.get(tag.id, 0)
+                )
+
+        user_video_ids = select(Video.id).where(Video.user_id == current_user.id)
+
+        db.execute(video_tags.delete().where(video_tags.c.video_id.in_(user_video_ids)))
+        db.execute(
+            video_categories.delete().where(
+                video_categories.c.video_id.in_(user_video_ids)
+            )
+        )
+        db.query(Video).filter(Video.user_id == current_user.id).update(
+            {"is_categorized": False, "categorized_at": None},
+            synchronize_session=False,
+        )
+
+        db.commit()
+        invalidate_user_stats_cache(current_user.id)
+
+        return ClearCategorizationsResponse(
+            cleared_videos=int(cleared_videos),
+            removed_category_links=int(removed_category_links),
+            removed_tag_links=removed_tag_links,
+            message="Cleared all categorizations and tags from your videos",
+        )
+
+    except Exception as e:
+        db.rollback()
+        api_logger.error(
+            f"Failed to clear categorizations for user {current_user.id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to clear categorizations. Please try again later.",
+        )
 
 
 @router.get("/count-by-tags", response_model=VideoCountResponse)
