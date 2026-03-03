@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
 
     # Database
-    database_url: str = "postgresql://postgres.dgpqjaxvofgczrmdvect:<REDACTED>@aws-1-us-east-2.pooler.supabase.com:6543/postgres"
+    database_url: str = "postgresql://postgres:postgres@localhost:5432/youtube_manager"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
