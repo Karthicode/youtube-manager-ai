@@ -97,6 +97,15 @@ class BulkDeleteJobResponse(BaseModel):
     message: str
 
 
+class ClearCategorizationsResponse(BaseModel):
+    """Response for clearing all categorizations for a user."""
+
+    cleared_videos: int
+    removed_category_links: int
+    removed_tag_links: int
+    message: str
+
+
 class BulkDeleteFailure(BaseModel):
     """Details of a failed video deletion."""
 

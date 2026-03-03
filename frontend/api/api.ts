@@ -138,6 +138,8 @@ export const videosApi = {
 
 	getVideo: (videoId: number) => api.get(`/videos/${videoId}`),
 
+	clearCategorizations: () => api.post("/videos/clear-categorizations"),
+
 	// Delete by tags
 	getVideoCountByTags: (tagIds: number[]) =>
 		api.get("/videos/count-by-tags", { params: { tag_ids: tagIds.join(",") } }),
