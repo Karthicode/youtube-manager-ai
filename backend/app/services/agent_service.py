@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, AsyncGenerator
 
 from openai import AsyncOpenAI
+from openai.types.shared_params import Reasoning
 from sqlalchemy.orm import Session
 from sqlalchemy import func, distinct, extract
 
@@ -571,6 +572,7 @@ Guidelines:
                 tools=AGENT_TOOLS,
                 previous_response_id=previous_response_id,
                 stream=False,
+                reasoning=Reasoning(effort="low"),
             )
 
             iterations = 0
@@ -616,6 +618,7 @@ Guidelines:
                     input=tool_outputs,
                     tools=AGENT_TOOLS,
                     stream=False,
+                    reasoning=Reasoning(effort="low"),
                 )
 
             # Extract final text from response

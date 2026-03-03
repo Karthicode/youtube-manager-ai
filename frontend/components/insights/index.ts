@@ -6,3 +6,4 @@ export { default as DurationDistribution } from "./DurationDistribution";
 export { default as InsightsSummaryCards } from "./InsightsSummaryCards";
 export { default as LikesTrendChart } from "./LikesTrendChart";
 export { default as TagCloud } from "./TagCloud";
+export { default as TasteProfile } from "./TasteProfile";

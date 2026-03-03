@@ -30,6 +30,7 @@ email-validator = "^2.3.0"
 isodate = "^0.7.2"
 qstash = "^3.2.0"
 pgvector = "^0.4.2"
+scikit-learn = "^1.8.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"
@@ -51,6 +52,11 @@ ignore_missing_imports = true
 module = "app.services.agent_service"
 disallow_untyped_defs = false
 disable_error_code = ["union-attr", "arg-type", "assignment"]
+
+[[tool.mypy.overrides]]
+module = "app.services.profile_service"
+disallow_untyped_defs = false
+disable_error_code = ["union-attr", "arg-type", "assignment", "index"]
 
 [build-system]
 requires = ["poetry-core>=2.0.0"]

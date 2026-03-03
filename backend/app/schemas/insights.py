@@ -116,3 +116,55 @@ class RecommendationsResponse(BaseModel):
     total_analyzed_channels: int
     top_categories: list[str]
     top_tags: list[str]
+
+
+# Taste Profile schemas
+
+
+class InterestCluster(BaseModel):
+    """A cluster of related video interests."""
+
+    label: str
+    percentage: float
+    representative_video_ids: list[int]
+    description: str
+
+
+class DriftEvent(BaseModel):
+    """A detected shift in viewing interests."""
+
+    period: str  # e.g., "Q1 2024 → Q2 2024"
+    from_interest: str
+    to_interest: str
+    magnitude: float  # cosine distance
+    evidence_video_ids: list[int]
+
+
+class ConsumptionStyle(BaseModel):
+    """Analysis of how the user consumes content."""
+
+    avg_duration_preference: str  # "short-form", "medium", "long-form"
+    channel_diversity: str  # "focused", "moderate", "diverse"
+    content_depth: str  # "surface", "moderate", "deep-dive"
+    viewing_pattern: str  # description of temporal patterns
+
+
+class TasteProfile(BaseModel):
+    """Full AI-generated taste profile."""
+
+    identity_summary: str  # 2-3 sentence narrative
+    primary_interests: list[InterestCluster]
+    emerging_interests: list[InterestCluster]
+    declining_interests: list[InterestCluster]
+    consumption_style: ConsumptionStyle
+    drift_events: list[DriftEvent]
+    personality_tags: list[str]  # "lifelong learner", "creative explorer"
+
+
+class TasteProfileResponse(BaseModel):
+    """Response wrapper for taste profile."""
+
+    profile: TasteProfile | None = None
+    status: str  # "ready", "generating", "not_available"
+    video_count: int = 0
+    min_videos_required: int = 20

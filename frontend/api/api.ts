@@ -276,4 +276,9 @@ export const insightsApi = {
 
 	getRecommendations: (params?: { limit?: number; force_refresh?: boolean }) =>
 		api.get("/insights/recommendations", { params }),
+
+	getTasteProfile: (params?: { force_refresh?: boolean }) =>
+		api.get("/insights/taste-profile", { params }),
+
+	generateTasteProfile: () => api.post("/insights/taste-profile/generate"),
 };
