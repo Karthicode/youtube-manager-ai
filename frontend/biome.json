@@ -1,5 +1,4 @@
 {
-	"root": false,
 	"$schema": "https://biomejs.dev/schemas/2.3.0/schema.json",
 	"vcs": {
 		"enabled": false,
@@ -7,15 +6,7 @@
 		"useIgnoreFile": false
 	},
 	"files": {
-		"ignoreUnknown": false,
-		"includes": [
-			"frontend/**/*",
-			"!frontend/node_modules/**",
-			"!frontend/.next/**",
-			"!frontend/dist/**",
-			"!frontend/build/**",
-			"!frontend/coverage/**"
-		]
+		"ignoreUnknown": false
 	},
 	"formatter": {
 		"enabled": true,
