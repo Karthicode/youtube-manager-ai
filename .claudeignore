@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+.next/
+frontend/.next/
+frontend/out/
+backend/__pycache__/
+**/__pycache__/
+*.pyc
+
+# Environment files
+.env
+.env.local
+.env.production
+backend/.env
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Debug / logs
+*.log
+debug/
+
+# Vercel
+.vercel/
+
+# Python
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Git
+.git/

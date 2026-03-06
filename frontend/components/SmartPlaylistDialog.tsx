@@ -19,6 +19,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PlaylistAddIcon from "@mui/icons-material/PlaylistAdd";
 import TuneIcon from "@mui/icons-material/Tune";
 import { useCallback, useState } from "react";
+import Image from "next/image";
 import { playlistsApi } from "@/api/api";
 import type { PlaylistSuggestion, Video } from "@/types";
 
@@ -204,9 +205,11 @@ export default function SmartPlaylistDialog({
 															</p>
 														</div>
 														{video?.thumbnail_url && (
-															<img
+															<Image
 																src={video.thumbnail_url}
-																alt=""
+																alt={video.title ?? `Video #${item.video_id}`}
+																width={80}
+																height={48}
 																className="w-20 h-12 object-cover rounded flex-shrink-0"
 															/>
 														)}
