@@ -1,6 +1,6 @@
 """User preferences router for auto-categorization settings."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -27,8 +27,8 @@ def get_preferences(
             user_id=current_user.id,
             auto_categorize_enabled=False,
             auto_categorize_max_videos=50,
-            created_at=datetime.now(datetime.timezone.utc),
-            updated_at=datetime.now(datetime.timezone.utc),
+            created_at = datetime.now(timezone.utc),
+            updated_at= datetime.now(timezone.utc),
         )
         db.add(preference)
         db.commit()
@@ -53,8 +53,8 @@ def update_preferences(
             user_id=current_user.id,
             auto_categorize_enabled=False,
             auto_categorize_max_videos=50,
-            created_at=datetime.now(datetime.timezone.utc),
-            updated_at=datetime.now(datetime.timezone.utc),
+            created_at= datetime.now(timezone.utc),
+            updated_at= datetime.now(timezone.utc),
         )
         db.add(preference)
         db.commit()
@@ -67,7 +67,7 @@ def update_preferences(
     for field, value in update_data.items():
         setattr(preference, field, value)
 
-    preference.updated_at = datetime.now(datetime.timezone.utc)
+    preference.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(preference)
 
