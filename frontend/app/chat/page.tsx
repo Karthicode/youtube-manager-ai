@@ -225,16 +225,16 @@ export default function ChatPage() {
 						buffer = lines.pop() || "";
 
 						for (const line of lines) {
-							if (!line.startsWith("data: ")) continue;
-							const data = line.slice(6).trim();
-
-							if (data === "[DONE]") {
-								done = true;
-								break;
-							}
+							const data = line.trim();
+							if (!data) continue;
 
 							try {
 								const parsed = JSON.parse(data);
+
+								if (parsed.type === "done") {
+									done = true;
+									break;
+								}
 
 								if (parsed.type === "tool_call") {
 									setActiveTool(parsed.tool);
@@ -283,7 +283,7 @@ export default function ChatPage() {
 									return updated;
 								});
 							} catch {
-								// Skip non-JSON lines
+								// Skip malformed JSON lines
 							}
 						}
 					}

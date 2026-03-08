@@ -18,6 +18,7 @@ from app.models.category import Category
 from app.models.tag import Tag
 from app.models.chat import ChatSession
 from app.services.embedding_service import EmbeddingService
+from app.schemas.chat import ChatStreamEvent
 
 # Maximum tool call iterations per turn to prevent runaway loops
 MAX_TOOL_ITERATIONS = 10
@@ -538,11 +539,13 @@ Guidelines:
             )
             return {"trends": [{"period": p, "count": c} for p, c in rows]}
 
-    async def chat(self, session_id: str, message: str) -> AsyncGenerator[str, None]:
+    async def chat(
+        self, session_id: str, message: str
+    ) -> AsyncGenerator[ChatStreamEvent, None]:
         """
         Process a chat message through the agentic loop.
 
-        Yields SSE-formatted strings for streaming to the client.
+        Yields structured events for StreamingResponse JSON Lines output.
         """
         previous_response_id = self._get_previous_response_id(session_id)
         system_prompt = self._get_system_prompt()
@@ -583,7 +586,11 @@ Guidelines:
                     arguments = json.loads(fc.arguments)
 
                     # Yield progress event
-                    yield f"data: {json.dumps({'type': 'tool_call', 'tool': tool_name, 'arguments': arguments})}\n\n"
+                    yield ChatStreamEvent(
+                        type="tool_call",
+                        tool=tool_name,
+                        arguments=arguments,
+                    )
 
                     result = await self._execute_tool(tool_name, arguments)
 
@@ -596,7 +603,11 @@ Guidelines:
                     )
 
                     # Yield tool result
-                    yield f"data: {json.dumps({'type': 'tool_result', 'tool': tool_name, 'result': result})}\n\n"
+                    yield ChatStreamEvent(
+                        type="tool_result",
+                        tool=tool_name,
+                        result=result,
+                    )
 
                 # Continue the conversation with tool outputs
                 response = await self.client.responses.create(
@@ -622,10 +633,13 @@ Guidelines:
             self._save_session(session_id, response.id, 1)
 
             # Yield final message
-            yield f"data: {json.dumps({'type': 'message', 'content': final_text})}\n\n"
-            yield "data: [DONE]\n\n"
+            yield ChatStreamEvent(type="message", content=final_text)
+            yield ChatStreamEvent(type="done")
 
         except Exception as e:
             api_logger.error(f"Agent chat error: {e}", exc_info=True)
-            yield f"data: {json.dumps({'type': 'error', 'content': f'An error occurred: {str(e)}'})}\n\n"
-            yield "data: [DONE]\n\n"
+            yield ChatStreamEvent(
+                type="error",
+                content=f"An error occurred: {str(e)}",
+            )
+            yield ChatStreamEvent(type="done")

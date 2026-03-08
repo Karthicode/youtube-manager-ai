@@ -58,7 +58,7 @@ async def send_message(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     """
-    Send a message to the chat agent and stream the response via SSE.
+    Send a message to the chat agent and stream the response as JSON Lines.
 
     The agent may execute tool calls (search, filter, stats, create playlist)
     before returning a final text response.
@@ -101,36 +101,29 @@ async def send_message(
         tool_results: list[dict] = []
 
         async for event in agent.chat(request.session_id, request.message):
-            if event.startswith("data: "):
-                payload = event[6:].strip()
-                if payload and payload != "[DONE]":
-                    try:
-                        parsed = json.loads(payload)
-                        event_type = parsed.get("type")
-                        if event_type == "message":
-                            assistant_content = parsed.get("content", "") or ""
-                        elif event_type == "error" and not assistant_content:
-                            assistant_content = (
-                                parsed.get("content")
-                                or "Sorry, something went wrong. Please try again."
-                            )
-                        elif event_type == "tool_call":
-                            tool_calls.append(
-                                {
-                                    "tool": parsed.get("tool"),
-                                    "arguments": parsed.get("arguments", {}),
-                                }
-                            )
-                        elif event_type == "tool_result":
-                            tool_results.append(
-                                {
-                                    "tool": parsed.get("tool"),
-                                    "result": parsed.get("result"),
-                                }
-                            )
-                    except Exception:
-                        pass
-            yield event
+            event_type = event.type
+            if event_type == "message":
+                assistant_content = event.content or ""
+            elif event_type == "error" and not assistant_content:
+                assistant_content = (
+                    event.content or "Sorry, something went wrong. Please try again."
+                )
+            elif event_type == "tool_call":
+                tool_calls.append(
+                    {
+                        "tool": event.tool,
+                        "arguments": event.arguments or {},
+                    }
+                )
+            elif event_type == "tool_result":
+                tool_results.append(
+                    {
+                        "tool": event.tool,
+                        "result": event.result,
+                    }
+                )
+
+            yield event.model_dump_json(exclude_none=True) + "\n"
 
         if assistant_content or tool_calls or tool_results:
             persisted_content = assistant_content or "No response content"
@@ -152,10 +145,9 @@ async def send_message(
 
     return StreamingResponse(
         event_stream(),
-        media_type="text/event-stream",
+        media_type="application/x-ndjson",
         headers={
             "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },
     )

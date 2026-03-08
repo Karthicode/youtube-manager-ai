@@ -39,3 +39,13 @@ class ChatMessageResponse(BaseModel):
     tool_calls: list[dict] = []
     tool_results: list[dict] = []
     created_at: datetime
+
+
+class ChatStreamEvent(BaseModel):
+    """Single streamed chat event encoded as JSON Lines."""
+
+    type: str
+    content: str | None = None
+    tool: str | None = None
+    arguments: dict | None = None
+    result: dict | list | str | int | float | bool | None = None
