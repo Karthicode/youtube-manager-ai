@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from app.models.video import Video
     from app.models.playlist import Playlist
     from app.models.chat import ChatSession
+    from app.models.user_preference import UserPreference
 
 
 class User(Base):
@@ -39,6 +40,7 @@ class User(Base):
         default=datetime.utcnow, onupdate=datetime.utcnow
     )
     last_sync_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    last_auto_categorize_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
 
     # Relationships
     videos: Mapped[List["Video"]] = relationship(
@@ -49,4 +51,7 @@ class User(Base):
     )
     chat_sessions: Mapped[List["ChatSession"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
+    )
+    preference: Mapped[Optional["UserPreference"]] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
     )

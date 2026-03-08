@@ -67,6 +67,14 @@ class Settings(BaseSettings):
     qstash_next_signing_key: str = ""  # For webhook verification
     qstash_queue_name: str = "categorize-videos"  # Queue name in QStash
 
+    # Auto-categorization settings
+    auto_categorize_enabled: bool = True  # Global kill switch
+    auto_categorize_user_delay_seconds: int = 3  # Delay between users
+    auto_categorize_cooldown_hours: int = 20  # Minimum hours between runs
+
+    # Cron authentication
+    cron_secret_token: str = ""  # Secret for protecting cron endpoint
+
     @property
     def is_production(self) -> bool:
         """Check if running in production environment."""

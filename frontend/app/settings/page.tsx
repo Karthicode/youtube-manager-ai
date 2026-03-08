@@ -8,12 +8,13 @@ import {
 	Chip,
 	Code,
 	Divider,
+	Slider,
 	Snippet,
 	Spinner,
 	Switch,
 } from "@heroui/react";
 import { useCallback, useEffect, useState } from "react";
-import { authApi, videosApi } from "@/api/api";
+import { authApi, preferencesApi, videosApi } from "@/api/api";
 import Navbar from "@/components/Navbar";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useAuthGuard } from "@/hooks";
@@ -26,6 +27,12 @@ export default function Settings() {
 	const [isLoadingKey, setIsLoadingKey] = useState(false);
 	const [isGeneratingKey, setIsGeneratingKey] = useState(false);
 	const [copiedField, setCopiedField] = useState<string | null>(null);
+	const [preferences, setPreferences] = useState<{
+		auto_categorize_enabled: boolean;
+		auto_categorize_max_videos: number;
+	} | null>(null);
+	const [isLoadingPreferences, setIsLoadingPreferences] = useState(false);
+	const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 	const displayEmail =
 		user?.email && !user.email.endsWith("@youtube.user")
 			? user.email
@@ -49,6 +56,59 @@ export default function Settings() {
 			fetchApiKey();
 		}
 	}, [isAuthenticated, fetchApiKey]);
+
+	const fetchPreferences = useCallback(async () => {
+		setIsLoadingPreferences(true);
+		try {
+			const response = await preferencesApi.getPreferences();
+			setPreferences(response.data);
+		} catch (error) {
+			console.error("Failed to fetch preferences:", error);
+		} finally {
+			setIsLoadingPreferences(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		if (isAuthenticated) {
+			fetchPreferences();
+		}
+	}, [isAuthenticated, fetchPreferences]);
+
+	const handleToggleAutoCategorize = async (enabled: boolean) => {
+		if (!preferences) return;
+
+		setIsSavingPreferences(true);
+		try {
+			const response = await preferencesApi.updatePreferences({
+				auto_categorize_enabled: enabled,
+			});
+			setPreferences(response.data);
+		} catch (error) {
+			console.error("Failed to update preferences:", error);
+			alert("Failed to update preferences. Please try again.");
+		} finally {
+			setIsSavingPreferences(false);
+		}
+	};
+
+	const handleUpdateMaxVideos = async (value: number | number[]) => {
+		if (!preferences) return;
+		const maxVideos = Array.isArray(value) ? value[0] : value;
+
+		setIsSavingPreferences(true);
+		try {
+			const response = await preferencesApi.updatePreferences({
+				auto_categorize_max_videos: maxVideos,
+			});
+			setPreferences(response.data);
+		} catch (error) {
+			console.error("Failed to update preferences:", error);
+			alert("Failed to update preferences. Please try again.");
+		} finally {
+			setIsSavingPreferences(false);
+		}
+	};
 
 	const handleGenerateApiKey = async () => {
 		const msg = apiKey
@@ -211,34 +271,75 @@ export default function Settings() {
 					{/* AI Categorization */}
 					<Card>
 						<CardHeader>
-							<h2 className="text-xl font-semibold">AI Categorization</h2>
+							<h2 className="text-xl font-semibold">
+								Automatic Categorization
+							</h2>
 						</CardHeader>
 						<Divider />
-						<CardBody className="space-y-4">
-							<div className="flex items-center justify-between">
-								<div>
-									<p className="font-medium">Auto-categorize new videos</p>
-									<p className="text-sm text-gray-600 dark:text-gray-400">
-										Automatically categorize videos when syncing from YouTube
-									</p>
+						<CardBody className="space-y-6">
+							{isLoadingPreferences ? (
+								<div className="flex justify-center py-8">
+									<Spinner />
 								</div>
-								<Switch defaultSelected aria-label="Auto-categorize videos" />
-							</div>
-							<div className="flex items-center justify-between">
-								<div>
-									<p className="font-medium">
-										Use background categorization for large batches
-									</p>
-									<p className="text-sm text-gray-600 dark:text-gray-400">
-										Process large batches in the background for better
-										performance
-									</p>
-								</div>
-								<Switch
-									defaultSelected
-									aria-label="Background categorization"
-								/>
-							</div>
+							) : preferences ? (
+								<>
+									<div className="flex items-center justify-between">
+										<div>
+											<p className="font-medium">Enable auto-categorization</p>
+											<p className="text-sm text-gray-600 dark:text-gray-400">
+												Automatically categorize uncategorized videos daily at
+												midnight UTC
+											</p>
+										</div>
+										<Switch
+											isSelected={preferences.auto_categorize_enabled}
+											onValueChange={handleToggleAutoCategorize}
+											isDisabled={isSavingPreferences}
+											aria-label="Enable auto-categorization"
+										/>
+									</div>
+
+									{preferences.auto_categorize_enabled && (
+										<div className="space-y-3">
+											<div>
+												<p className="font-medium mb-2">
+													Maximum videos per day
+												</p>
+												<p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+													Limit the number of videos to categorize each day
+												</p>
+												<Slider
+													size="sm"
+													step={10}
+													minValue={10}
+													maxValue={200}
+													value={preferences.auto_categorize_max_videos}
+													onChange={handleUpdateMaxVideos}
+													isDisabled={isSavingPreferences}
+													className="max-w-md"
+													aria-label="Maximum videos per day"
+												/>
+												<p className="text-sm text-gray-500 mt-2">
+													{preferences.auto_categorize_max_videos} videos
+												</p>
+											</div>
+
+											<div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+												<p className="text-sm text-blue-900 dark:text-blue-100">
+													<span className="font-medium">Note:</span>{" "}
+													Auto-categorization runs daily at midnight UTC
+													(00:00). Videos will be categorized automatically
+													based on your preferences.
+												</p>
+											</div>
+										</div>
+									)}
+								</>
+							) : (
+								<p className="text-sm text-gray-600 dark:text-gray-400">
+									Failed to load preferences
+								</p>
+							)}
 						</CardBody>
 					</Card>
 

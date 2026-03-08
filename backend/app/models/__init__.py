@@ -1,4 +1,5 @@
 from app.models.user import User
+from app.models.user_preference import UserPreference
 from app.models.video import Video
 from app.models.playlist import Playlist, PlaylistVideo
 from app.models.category import Category, video_categories
@@ -7,6 +8,7 @@ from app.models.chat import ChatSession, ChatMessage
 
 __all__ = [
     "User",
+    "UserPreference",
     "Video",
     "Playlist",
     "PlaylistVideo",

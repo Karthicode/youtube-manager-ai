@@ -291,3 +291,12 @@ export const insightsApi = {
 
 	generateTasteProfile: () => api.post("/insights/taste-profile/generate"),
 };
+
+export const preferencesApi = {
+	getPreferences: () => api.get("/preferences"),
+
+	updatePreferences: (data: {
+		auto_categorize_enabled?: boolean;
+		auto_categorize_max_videos?: number;
+	}) => api.put("/preferences", data),
+};
