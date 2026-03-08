@@ -9,7 +9,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.user_preference import UserPreference
 from app.schemas.preferences import UserPreferenceResponse, UserPreferenceUpdate
-from app.utils.logger import api_logger
+from app.logger import logging
 
 router = APIRouter(prefix="/preferences", tags=["preferences"])
 
@@ -22,13 +22,13 @@ def get_preferences(
     # Check if user has preferences
     if not current_user.preference:
         # Create default preferences
-        api_logger.info(f"Creating default preferences for user {current_user.id}")
+        logging.info(f"Creating default preferences for user {current_user.id}")
         preference = UserPreference(
             user_id=current_user.id,
             auto_categorize_enabled=False,
             auto_categorize_max_videos=50,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(datetime.timezone.utc),
+            updated_at=datetime.now(datetime.timezone.utc),
         )
         db.add(preference)
         db.commit()
@@ -48,13 +48,13 @@ def update_preferences(
     # Ensure user has preferences
     if not current_user.preference:
         # Create preferences first
-        api_logger.info(f"Creating preferences for user {current_user.id}")
+        logging.info(f"Creating preferences for user {current_user.id}")
         preference = UserPreference(
             user_id=current_user.id,
             auto_categorize_enabled=False,
             auto_categorize_max_videos=50,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(datetime.timezone.utc),
+            updated_at=datetime.now(datetime.timezone.utc),
         )
         db.add(preference)
         db.commit()
@@ -67,9 +67,9 @@ def update_preferences(
     for field, value in update_data.items():
         setattr(preference, field, value)
 
-    preference.updated_at = datetime.utcnow()
+    preference.updated_at = datetime.now(datetime.timezone.utc)
     db.commit()
     db.refresh(preference)
 
-    api_logger.info(f"Updated preferences for user {current_user.id}: {update_data}")
+    logging.info(f"Updated preferences for user {current_user.id}: {update_data}")
     return UserPreferenceResponse.model_validate(preference)
