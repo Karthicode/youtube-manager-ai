@@ -27,8 +27,8 @@ def get_preferences(
             user_id=current_user.id,
             auto_categorize_enabled=False,
             auto_categorize_max_videos=50,
-            created_at = datetime.now(timezone.utc),
-            updated_at= datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
         db.add(preference)
         db.commit()
@@ -53,8 +53,8 @@ def update_preferences(
             user_id=current_user.id,
             auto_categorize_enabled=False,
             auto_categorize_max_videos=50,
-            created_at= datetime.now(timezone.utc),
-            updated_at= datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
         db.add(preference)
         db.commit()
