@@ -7,12 +7,15 @@ import {
 	Chip,
 	Input,
 	ScrollShadow,
+	Skeleton,
 	Spinner,
 } from "@heroui/react";
 import AddIcon from "@mui/icons-material/Add";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import BuildIcon from "@mui/icons-material/Build";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ScheduleIcon from "@mui/icons-material/Schedule";
 import SendIcon from "@mui/icons-material/Send";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chatApi } from "@/api/api";
@@ -424,29 +427,98 @@ export default function ChatPage() {
 									className={`max-w-[80%] ${
 										msg.role === "user"
 											? "bg-primary text-white rounded-2xl rounded-br-md px-4 py-2"
-											: "space-y-2"
+											: "space-y-3"
 									}`}
 								>
+									{/* Tool Calls Section */}
 									{msg.role === "assistant" &&
 										msg.toolCalls &&
 										msg.toolCalls.length > 0 && (
-											<div className="flex flex-wrap gap-1 mb-2">
-												{msg.toolCalls.map((tc, i) => (
-													<Chip
-														key={`tool-${
-															// biome-ignore lint/suspicious/noArrayIndexKey: Tool calls don't have stable IDs
-															i
-														}`}
-														size="sm"
-														variant="flat"
-														color="secondary"
-														startContent={<BuildIcon sx={{ fontSize: 14 }} />}
-													>
-														{tc.tool}
-													</Chip>
-												))}
+											<div className="space-y-2">
+												{msg.toolCalls.map((tc, i) => {
+													const result = msg.toolResults?.[i];
+
+													return (
+														<Card
+															key={`tool-${
+																// biome-ignore lint/suspicious/noArrayIndexKey: Tool calls don't have stable IDs
+																i
+															}`}
+															className="bg-secondary-50 dark:bg-secondary-900/20 border border-secondary-200 dark:border-secondary-800"
+														>
+															<CardBody className="p-3">
+																{/* Tool Header */}
+																<div className="flex items-center gap-2 mb-2">
+																	<Chip
+																		size="sm"
+																		variant="flat"
+																		color="secondary"
+																		startContent={
+																			<BuildIcon sx={{ fontSize: 14 }} />
+																		}
+																	>
+																		{tc.tool}
+																	</Chip>
+																	{result && (
+																		<Chip
+																			size="sm"
+																			variant="dot"
+																			color="success"
+																			startContent={
+																				<CheckCircleIcon
+																					sx={{ fontSize: 12 }}
+																				/>
+																			}
+																		>
+																			Completed
+																		</Chip>
+																	)}
+																</div>
+
+																{/* Tool Arguments */}
+																{tc.arguments &&
+																	Object.keys(tc.arguments).length > 0 && (
+																		<div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+																			<div className="font-medium mb-1">
+																				Parameters:
+																			</div>
+																			<code className="block bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs overflow-x-auto">
+																				{JSON.stringify(tc.arguments)}
+																			</code>
+																		</div>
+																	)}
+
+																{/* Tool Result */}
+																{result ? (
+																	<div className="mt-2">
+																		<div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+																			Result:
+																		</div>
+																		<div className="text-xs p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto">
+																			<pre className="whitespace-pre-wrap">
+																				{typeof result.result === "string"
+																					? result.result
+																					: JSON.stringify(
+																							result.result,
+																							null,
+																							2,
+																						)}
+																			</pre>
+																		</div>
+																	</div>
+																) : (
+																	<Skeleton className="rounded-lg mt-2">
+																		<div className="h-16 rounded-lg bg-default-300" />
+																	</Skeleton>
+																)}
+															</CardBody>
+														</Card>
+													);
+												})}
 											</div>
 										)}
+
+									{/* Assistant Message */}
 									{msg.role === "assistant" ? (
 										<Card className="shadow-sm">
 											<CardBody className="p-4">
@@ -464,14 +536,46 @@ export default function ChatPage() {
 
 						{loading && (
 							<div className="flex justify-start">
-								<Card className="shadow-sm">
-									<CardBody className="p-4 flex items-center gap-2">
-										<Spinner size="sm" />
-										<span className="text-sm text-gray-500">
-											{activeTool ? `Using ${activeTool}...` : "Thinking..."}
-										</span>
-									</CardBody>
-								</Card>
+								<div className="max-w-[80%] space-y-2">
+									{activeTool ? (
+										<Card className="bg-secondary-50 dark:bg-secondary-900/20 border border-secondary-200 dark:border-secondary-800">
+											<CardBody className="p-3">
+												<div className="flex items-center gap-2 mb-2">
+													<Chip
+														size="sm"
+														variant="flat"
+														color="secondary"
+														startContent={<BuildIcon sx={{ fontSize: 14 }} />}
+													>
+														{activeTool}
+													</Chip>
+													<Chip
+														size="sm"
+														variant="dot"
+														color="warning"
+														startContent={
+															<ScheduleIcon sx={{ fontSize: 12 }} />
+														}
+													>
+														Running...
+													</Chip>
+												</div>
+												<Skeleton className="rounded-lg">
+													<div className="h-16 rounded-lg bg-default-300" />
+												</Skeleton>
+											</CardBody>
+										</Card>
+									) : (
+										<Card className="shadow-sm">
+											<CardBody className="p-4 flex items-center gap-2">
+												<Spinner size="sm" />
+												<span className="text-sm text-gray-500">
+													Thinking...
+												</span>
+											</CardBody>
+										</Card>
+									)}
+								</div>
 							</div>
 						)}
 

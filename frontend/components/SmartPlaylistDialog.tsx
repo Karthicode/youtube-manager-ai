@@ -18,8 +18,8 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PlaylistAddIcon from "@mui/icons-material/PlaylistAdd";
 import TuneIcon from "@mui/icons-material/Tune";
-import { useCallback, useState } from "react";
 import Image from "next/image";
+import { useCallback, useState } from "react";
 import { playlistsApi } from "@/api/api";
 import type { PlaylistSuggestion, Video } from "@/types";
 
