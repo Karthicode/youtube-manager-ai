@@ -31,6 +31,125 @@ const SUGGESTED_PROMPTS = [
 	"Show me short tech tutorials",
 ];
 
+// Helper function to format tool arguments in a user-friendly way
+function formatToolArguments(
+	tool: string,
+	args: Record<string, unknown>,
+): string {
+	if (tool === "search_videos") {
+		const parts = [];
+		if (args.query) parts.push(`"${args.query}"`);
+		if (args.limit) parts.push(`limit: ${args.limit}`);
+		return parts.join(", ") || "No parameters";
+	}
+
+	if (tool === "filter_videos") {
+		const filters = [];
+		if (
+			args.categories &&
+			Array.isArray(args.categories) &&
+			args.categories.length > 0
+		) {
+			filters.push(`Categories: ${args.categories.join(", ")}`);
+		}
+		if (args.tags && Array.isArray(args.tags) && args.tags.length > 0) {
+			filters.push(`Tags: ${args.tags.join(", ")}`);
+		}
+		if (args.date_from || args.date_to) {
+			filters.push(`Date: ${args.date_from || "?"} to ${args.date_to || "?"}`);
+		}
+		if (args.min_duration_minutes || args.max_duration_minutes) {
+			filters.push(
+				`Duration: ${args.min_duration_minutes || 0}-${args.max_duration_minutes || "∞"} min`,
+			);
+		}
+		if (args.limit) filters.push(`Limit: ${args.limit}`);
+		return filters.join(" • ") || "No filters";
+	}
+
+	if (tool === "get_video_stats") {
+		return `Metric: ${args.metric || "unknown"}`;
+	}
+
+	if (tool === "create_playlist") {
+		const parts = [];
+		if (args.title) parts.push(`"${args.title}"`);
+		if (args.video_ids && Array.isArray(args.video_ids)) {
+			parts.push(`${args.video_ids.length} videos`);
+		}
+		return parts.join(", ") || "No parameters";
+	}
+
+	if (tool === "get_temporal_trends") {
+		return `Period: ${args.period || "monthly"}`;
+	}
+
+	return JSON.stringify(args);
+}
+
+// Helper function to format tool results in a user-friendly way
+function formatToolResult(tool: string, result: unknown): string {
+	if (!result || typeof result !== "object") {
+		return String(result);
+	}
+
+	const res = result as Record<string, unknown>;
+
+	if (tool === "search_videos" || tool === "filter_videos") {
+		if (Array.isArray(res)) {
+			return `Found ${res.length} video${res.length !== 1 ? "s" : ""}`;
+		}
+	}
+
+	if (tool === "get_video_stats") {
+		if (res.total_videos !== undefined) {
+			return `Total: ${res.total_videos} videos, ${res.categorized} categorized, ${res.unique_channels} channels`;
+		}
+		if (res.top_categories && Array.isArray(res.top_categories)) {
+			const top3 = res.top_categories
+				.slice(0, 3)
+				.map((c: { name: string; count: number }) => `${c.name} (${c.count})`)
+				.join(", ");
+			return `Top categories: ${top3}${res.top_categories.length > 3 ? "..." : ""}`;
+		}
+		if (res.top_tags && Array.isArray(res.top_tags)) {
+			const top3 = res.top_tags
+				.slice(0, 3)
+				.map((t: { name: string; count: number }) => `${t.name} (${t.count})`)
+				.join(", ");
+			return `Top tags: ${top3}${res.top_tags.length > 3 ? "..." : ""}`;
+		}
+		if (res.top_channels && Array.isArray(res.top_channels)) {
+			const top3 = res.top_channels
+				.slice(0, 3)
+				.map((c: { name: string; count: number }) => `${c.name} (${c.count})`)
+				.join(", ");
+			return `Top channels: ${top3}${res.top_channels.length > 3 ? "..." : ""}`;
+		}
+		if (res.duration_distribution && Array.isArray(res.duration_distribution)) {
+			return `Duration: ${res.duration_distribution.map((d: { bucket: string; count: number }) => `${d.bucket}: ${d.count}`).join(", ")}`;
+		}
+	}
+
+	if (tool === "create_playlist") {
+		if (res.success) {
+			return `✓ Created "${res.title}" with ${res.video_count} videos`;
+		}
+		if (res.error) {
+			return `✗ Error: ${res.error}`;
+		}
+	}
+
+	if (tool === "get_temporal_trends") {
+		if (res.trends && Array.isArray(res.trends)) {
+			return `${res.trends.length} time periods analyzed`;
+		}
+	}
+
+	// Fallback: show compact JSON
+	return JSON.stringify(result, null, 2);
+}
+
 export default function ChatPage() {
 	const { isReady, isAuthenticated } = useAuthGuard();
 
@@ -483,7 +602,10 @@ export default function ChatPage() {
 																				Parameters:
 																			</div>
 																			<code className="block bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-xs overflow-x-auto">
-																				{JSON.stringify(tc.arguments)}
+																				{formatToolArguments(
+																					tc.tool,
+																					tc.arguments,
+																				)}
 																			</code>
 																		</div>
 																	)}
@@ -495,15 +617,12 @@ export default function ChatPage() {
 																			Result:
 																		</div>
 																		<div className="text-xs p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto">
-																			<pre className="whitespace-pre-wrap">
-																				{typeof result.result === "string"
-																					? result.result
-																					: JSON.stringify(
-																							result.result,
-																							null,
-																							2,
-																						)}
-																			</pre>
+																			<div className="whitespace-pre-wrap">
+																				{formatToolResult(
+																					tc.tool,
+																					result.result,
+																				)}
+																			</div>
 																		</div>
 																	</div>
 																) : (
