@@ -16,7 +16,7 @@ from app.models.user import User
 from app.models.user_preference import UserPreference
 from app.redis_client import redis_client
 from app.services.auto_categorize_service import AutoCategorizeService
-from app.utils.logger import api_logger
+from app.logger import logging
 from app.utils.qstash_client import trigger_categorization_job
 
 router = APIRouter(prefix="/cron", tags=["cron"])
@@ -45,7 +45,7 @@ async def get_auto_categorize_status() -> dict[str, Any]:
         return json.loads(last_run_data)
 
     except Exception as e:
-        api_logger.error(f"Failed to retrieve auto-categorization status: {e}")
+        logging.error(f"Failed to retrieve auto-categorization status: {e}")
         raise HTTPException(
             status_code=500,
             detail="Failed to retrieve auto-categorization status",
@@ -70,21 +70,21 @@ async def auto_categorize_all_users(
         )
 
     if x_cron_secret != settings.cron_secret_token:
-        api_logger.warning(
+        logging.warning(
             f"Unauthorized cron attempt with secret: {x_cron_secret[:10] if x_cron_secret else 'None'}..."
         )
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     # Check if auto-categorization is globally enabled
     if not settings.auto_categorize_enabled:
-        api_logger.info("Auto-categorization is globally disabled")
+        logging.info("Auto-categorization is globally disabled")
         return {
             "status": "skipped",
             "reason": "Auto-categorization globally disabled",
             "timestamp": datetime.utcnow().isoformat(),
         }
 
-    api_logger.info("Starting auto-categorization cron job")
+    logging.info("Starting auto-categorization cron job")
 
     # Query all users with auto_categorize_enabled=True
     result = db.execute(
@@ -94,7 +94,7 @@ async def auto_categorize_all_users(
     )
     users = result.scalars().all()
 
-    api_logger.info(f"Found {len(users)} users with auto-categorization enabled")
+    logging.info(f"Found {len(users)} users with auto-categorization enabled")
 
     # Stats tracking
     stats: dict[str, Any] = {
@@ -116,7 +116,7 @@ async def auto_categorize_all_users(
             if not should_run:
                 stats["skipped"] += 1
                 stats["skip_reasons"][reason] = stats["skip_reasons"].get(reason, 0) + 1
-                api_logger.info(f"Skipping user {user.id}: {reason}")
+                logging.info(f"Skipping user {user.id}: {reason}")
                 continue
 
             # Get uncategorized videos
@@ -127,7 +127,7 @@ async def auto_categorize_all_users(
                 stats["skip_reasons"]["No uncategorized videos"] = (
                     stats["skip_reasons"].get("No uncategorized videos", 0) + 1
                 )
-                api_logger.info(f"Skipping user {user.id}: No uncategorized videos")
+                logging.info(f"Skipping user {user.id}: No uncategorized videos")
                 continue
 
             # Generate unique job ID
@@ -142,9 +142,7 @@ async def auto_categorize_all_users(
             # Check if QStash trigger failed
             if job_result.get("mode") == "error":
                 stats["failed"] += 1
-                api_logger.error(
-                    f"Failed to trigger job for user {user.id}: {job_result}"
-                )
+                logging.error(f"Failed to trigger job for user {user.id}: {job_result}")
                 continue
 
             # Update last_auto_categorize_at timestamp
@@ -155,7 +153,7 @@ async def auto_categorize_all_users(
             stats["total_videos"] += len(videos)
             stats["jobs_triggered"] += 1
 
-            api_logger.info(
+            logging.info(
                 f"Triggered categorization job for user {user.id}: "
                 f"{len(videos)} videos, job_id={job_id}"
             )
@@ -166,11 +164,11 @@ async def auto_categorize_all_users(
 
         except Exception as e:
             stats["failed"] += 1
-            api_logger.error(f"Error processing user {user.id}: {e}", exc_info=True)
+            logging.error(f"Error processing user {user.id}: {e}", exc_info=True)
             # Continue to next user even if one fails
             continue
 
-    api_logger.info(f"Auto-categorization cron job completed: {stats}")
+    logging.info(f"Auto-categorization cron job completed: {stats}")
 
     # Store stats in Redis for monitoring
     run_data = {
@@ -187,8 +185,8 @@ async def auto_categorize_all_users(
         date_key = RUN_HISTORY_KEY.format(date=datetime.utcnow().strftime("%Y-%m-%d"))
         redis_client.set(date_key, json.dumps(run_data), expire=7 * 24 * 60 * 60)
 
-        api_logger.info("Auto-categorization stats saved to Redis")
+        logging.info("Auto-categorization stats saved to Redis")
     except Exception as e:
-        api_logger.warning(f"Failed to save stats to Redis: {e}")
+        logging.warning(f"Failed to save stats to Redis: {e}")
 
     return run_data
