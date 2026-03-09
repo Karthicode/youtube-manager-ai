@@ -26,6 +26,11 @@ LAST_RUN_KEY = "auto_categorize:last_run"
 RUN_HISTORY_KEY = "auto_categorize:run_history:{date}"
 
 
+def set_job_data(job_id: str, data: dict, expire: int = 3600) -> None:
+    """Set job data in Redis with expiration (default 1 hour)."""
+    redis_client.set(f"categorization_job:{job_id}", json.dumps(data), expire=expire)
+
+
 @router.get("/auto-categorize/status")
 async def get_auto_categorize_status() -> dict[str, Any]:
     """
@@ -133,8 +138,23 @@ async def auto_categorize_all_users(
             # Generate unique job ID
             job_id = str(uuid.uuid4())
 
-            # Trigger QStash categorization job
+            # Initialize job data in Redis (required for worker)
             video_ids = [v.id for v in videos]
+            set_job_data(
+                job_id,
+                {
+                    "user_id": user.id,
+                    "total": len(video_ids),
+                    "completed": 0,
+                    "failed": 0,
+                    "current_video": None,
+                    "status": "queued",
+                    "paused": False,
+                    "results": [],
+                },
+            )
+
+            # Trigger QStash categorization job
             job_result = await trigger_categorization_job(
                 job_id=job_id, user_id=user.id, video_ids=video_ids
             )
