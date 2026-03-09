@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     auto_categorize_enabled: bool = True  # Global kill switch
     auto_categorize_user_delay_seconds: int = 3  # Delay between users
     auto_categorize_cooldown_hours: int = 20  # Minimum hours between runs
+    auto_categorize_sync_videos: int = (
+        50  # Number of latest videos to sync before categorizing
+    )
 
     @property
     def is_production(self) -> bool:

@@ -17,6 +17,7 @@ from app.models.user import User
 from app.models.user_preference import UserPreference
 from app.redis_client import get_redis
 from app.services.auto_categorize_service import AutoCategorizeService
+from app.services.youtube_service import YouTubeService
 from app.logger import api_logger
 from app.utils.qstash_client import trigger_categorization_job
 
@@ -138,7 +139,8 @@ async def auto_categorize_all_users(
         "processed": 0,
         "skipped": 0,
         "failed": 0,
-        "total_videos": 0,
+        "total_videos_synced": 0,
+        "total_videos_categorized": 0,
         "jobs_triggered": 0,
         "skip_reasons": {},
     }
@@ -154,6 +156,29 @@ async def auto_categorize_all_users(
                 stats["skip_reasons"][reason] = stats["skip_reasons"].get(reason, 0) + 1
                 api_logger.info(f"Skipping user {user.id}: {reason}")
                 continue
+
+            # Sync latest videos from YouTube before categorizing
+            try:
+                api_logger.info(
+                    f"Syncing latest {settings.auto_categorize_sync_videos} videos for user {user.id}"
+                )
+                youtube_service = YouTubeService(user)
+                synced_videos, sync_count = youtube_service.fetch_liked_videos(
+                    db, max_results=settings.auto_categorize_sync_videos
+                )
+                if sync_count > 0:
+                    api_logger.info(
+                        f"Synced {sync_count} new videos for user {user.id}"
+                    )
+                    stats["total_videos_synced"] += sync_count
+                    # Update last sync time
+                    user.last_sync_at = datetime.utcnow()
+                    db.commit()
+            except Exception as e:
+                api_logger.warning(
+                    f"Failed to sync videos for user {user.id}: {e}. Continuing with categorization."
+                )
+                # Continue with categorization even if sync fails
 
             # Get uncategorized videos
             videos = AutoCategorizeService.get_uncategorized_videos(db, user)
@@ -203,7 +228,7 @@ async def auto_categorize_all_users(
             db.commit()
 
             stats["processed"] += 1
-            stats["total_videos"] += len(videos)
+            stats["total_videos_categorized"] += len(videos)
             stats["jobs_triggered"] += 1
 
             api_logger.info(
