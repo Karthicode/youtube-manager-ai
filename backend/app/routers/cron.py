@@ -6,7 +6,8 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from qstash import Receiver
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -59,26 +60,54 @@ async def get_auto_categorize_status() -> dict[str, Any]:
 
 @router.post("/auto-categorize")
 async def auto_categorize_all_users(
+    request: Request,
     db: Session = Depends(get_db),
-    secret: str | None = None,
+    upstash_signature: str | None = Header(None, alias="Upstash-Signature"),
 ) -> dict[str, Any]:
     """
     Triggered daily at midnight UTC via QStash scheduled message.
 
-    Protected by cron_secret token passed as query parameter.
+    Protected by QStash signature verification.
     Processes all users with auto_categorize_enabled=True sequentially.
     """
-    # Verify cron secret
-    if not settings.cron_secret_token:
-        raise HTTPException(
-            status_code=500, detail="Cron secret token not configured on server"
-        )
+    # Read raw body for signature verification
+    body = await request.body()
 
-    if secret != settings.cron_secret_token:
+    # Verify QStash signature
+    if settings.qstash_token and settings.qstash_current_signing_key:
+        try:
+            if not upstash_signature:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Missing signature",
+                )
+
+            receiver = Receiver(
+                current_signing_key=settings.qstash_current_signing_key,
+                next_signing_key=settings.qstash_next_signing_key,
+            )
+
+            # Construct the full URL for verification
+            base_url = settings.backend_url.rstrip("/")
+            full_url = f"{base_url}/api/v1/cron/auto-categorize"
+
+            # Verify the signature
+            receiver.verify(
+                signature=upstash_signature,
+                body=body.decode("utf-8"),
+                url=full_url,
+            )
+            api_logger.info("QStash signature verified successfully for cron job")
+        except Exception as e:
+            api_logger.error(f"QStash signature verification failed for cron: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid signature",
+            )
+    else:
         api_logger.warning(
-            f"Unauthorized cron attempt with secret: {secret[:10] if secret else 'None'}..."
+            "QStash signature verification skipped (keys not configured)"
         )
-        raise HTTPException(status_code=401, detail="Unauthorized")
 
     # Check if auto-categorization is globally enabled
     if not settings.auto_categorize_enabled:

@@ -72,9 +72,6 @@ class Settings(BaseSettings):
     auto_categorize_user_delay_seconds: int = 3  # Delay between users
     auto_categorize_cooldown_hours: int = 20  # Minimum hours between runs
 
-    # Cron authentication
-    cron_secret_token: str = ""  # Secret for protecting cron endpoint
-
     @property
     def is_production(self) -> bool:
         """Check if running in production environment."""
