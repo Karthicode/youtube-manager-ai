@@ -9,7 +9,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.user_preference import UserPreference
 from app.schemas.preferences import UserPreferenceResponse, UserPreferenceUpdate
-from app.logger import logging
+from app.logger import api_logger
 
 router = APIRouter(prefix="/preferences", tags=["preferences"])
 
@@ -22,7 +22,7 @@ def get_preferences(
     # Check if user has preferences
     if not current_user.preference:
         # Create default preferences
-        logging.info(f"Creating default preferences for user {current_user.id}")
+        api_logger.info(f"Creating default preferences for user {current_user.id}")
         preference = UserPreference(
             user_id=current_user.id,
             auto_categorize_enabled=False,
@@ -48,7 +48,7 @@ def update_preferences(
     # Ensure user has preferences
     if not current_user.preference:
         # Create preferences first
-        logging.info(f"Creating preferences for user {current_user.id}")
+        api_logger.info(f"Creating preferences for user {current_user.id}")
         preference = UserPreference(
             user_id=current_user.id,
             auto_categorize_enabled=False,
@@ -71,5 +71,5 @@ def update_preferences(
     db.commit()
     db.refresh(preference)
 
-    logging.info(f"Updated preferences for user {current_user.id}: {update_data}")
+    api_logger.info(f"Updated preferences for user {current_user.id}: {update_data}")
     return UserPreferenceResponse.model_validate(preference)
