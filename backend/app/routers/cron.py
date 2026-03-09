@@ -15,7 +15,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.models.user_preference import UserPreference
-from app.redis_client import redis_client
+from app.redis_client import get_redis
 from app.services.auto_categorize_service import AutoCategorizeService
 from app.logger import api_logger
 from app.utils.qstash_client import trigger_categorization_job
@@ -29,6 +29,7 @@ RUN_HISTORY_KEY = "auto_categorize:run_history:{date}"
 
 def set_job_data(job_id: str, data: dict, expire: int = 3600) -> None:
     """Set job data in Redis with expiration (default 1 hour)."""
+    redis_client = get_redis()
     redis_client.set(f"categorization_job:{job_id}", json.dumps(data), expire=expire)
 
 
@@ -40,6 +41,7 @@ async def get_auto_categorize_status() -> dict[str, Any]:
     Returns stats from the most recent run if available.
     """
     try:
+        redis_client = get_redis()
         last_run_data = redis_client.get(LAST_RUN_KEY)
 
         if not last_run_data:
@@ -229,6 +231,7 @@ async def auto_categorize_all_users(
     }
 
     try:
+        redis_client = get_redis()
         # Store as latest run (no expiry)
         redis_client.set(LAST_RUN_KEY, json.dumps(run_data))
 
