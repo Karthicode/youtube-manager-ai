@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -60,12 +60,12 @@ async def get_auto_categorize_status() -> dict[str, Any]:
 @router.post("/auto-categorize")
 async def auto_categorize_all_users(
     db: Session = Depends(get_db),
-    x_cron_secret: str | None = Header(None, alias="x-cron-secret"),
+    secret: str | None = None,
 ) -> dict[str, Any]:
     """
     Triggered daily at midnight UTC via QStash scheduled message.
 
-    Protected by cron_secret token (set in env variables).
+    Protected by cron_secret token passed as query parameter.
     Processes all users with auto_categorize_enabled=True sequentially.
     """
     # Verify cron secret
@@ -74,9 +74,9 @@ async def auto_categorize_all_users(
             status_code=500, detail="Cron secret token not configured on server"
         )
 
-    if x_cron_secret != settings.cron_secret_token:
+    if secret != settings.cron_secret_token:
         api_logger.warning(
-            f"Unauthorized cron attempt with secret: {x_cron_secret[:10] if x_cron_secret else 'None'}..."
+            f"Unauthorized cron attempt with secret: {secret[:10] if secret else 'None'}..."
         )
         raise HTTPException(status_code=401, detail="Unauthorized")
 
