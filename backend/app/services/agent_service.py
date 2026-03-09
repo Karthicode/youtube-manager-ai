@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
+import re
 from datetime import datetime, timezone
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Literal
 
 from openai import AsyncOpenAI
 from openai.types.shared_params import Reasoning
@@ -17,11 +20,32 @@ from app.models.video import Video
 from app.models.category import Category
 from app.models.tag import Tag
 from app.models.chat import ChatSession
+from app.redis_client import get_redis
 from app.services.embedding_service import EmbeddingService
 from app.schemas.chat import ChatStreamEvent
 
 # Maximum tool call iterations per turn to prevent runaway loops
 MAX_TOOL_ITERATIONS = 10
+
+# System prompt cache TTL in seconds (5 minutes)
+SYSTEM_PROMPT_CACHE_TTL = 300
+
+# Tool result cache TTL in seconds (5 minutes)
+TOOL_RESULT_CACHE_TTL = 300
+
+# Optimization C: patterns that indicate a simple, low-reasoning query
+_SIMPLE_QUERY_PATTERNS = [
+    re.compile(r"\b(how many|count|total|number of)\b", re.IGNORECASE),
+    re.compile(
+        r"\b(what are my|list|show me all)\b.{0,30}\b(categories|tags|channels)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\b(stats|statistics|overview)\b", re.IGNORECASE),
+]
+
+# Optimization D: token budgets per turn type
+_INTERMEDIATE_MAX_TOKENS = 1024  # tool-selection turns (short JSON output)
+_FINAL_MAX_TOKENS = settings.openai_max_tokens  # synthesis turn (full response)
 
 # Tool definitions for the OpenAI Responses API
 AGENT_TOOLS = [
@@ -151,6 +175,19 @@ AGENT_TOOLS = [
 ]
 
 
+def _is_simple_query(message: str) -> bool:
+    """Return True if the message matches known low-complexity patterns (Optimization C)."""
+    return any(p.search(message) for p in _SIMPLE_QUERY_PATTERNS)
+
+
+def _tool_cache_key(user_id: int, tool_name: str, arguments: dict) -> str:
+    """Build a stable Redis cache key for a tool call (Optimization B)."""
+    params_hash = hashlib.sha256(
+        json.dumps(arguments, sort_keys=True).encode()
+    ).hexdigest()[:16]
+    return f"tool_result:{user_id}:{tool_name}:{params_hash}"
+
+
 class AgentService:
     """Conversational agent that can search, analyze, and act on the video library."""
 
@@ -159,9 +196,20 @@ class AgentService:
         self.db = db
         self.client = AsyncOpenAI(api_key=settings.openai_api_key)
         self.embedding_service = EmbeddingService()
+        self._redis = get_redis()
 
-    def _get_system_prompt(self) -> str:
-        """Build system prompt with user's library summary for grounding."""
+    async def _get_system_prompt(self) -> str:
+        """Build system prompt with user's library summary for grounding.
+
+        Result is cached in Redis for SYSTEM_PROMPT_CACHE_TTL seconds to avoid
+        4 DB round-trips on every message (Optimization A).
+        """
+        cache_key = f"chat_context:{self.user_id}"
+        cached = self._redis.get(cache_key)
+        if cached:
+            api_logger.debug(f"System prompt cache hit for user {self.user_id}")
+            return cached
+
         total_videos = (
             self.db.query(func.count(Video.id))
             .filter(Video.user_id == self.user_id)
@@ -191,7 +239,7 @@ class AgentService:
         if date_range and date_range[0] and date_range[1]:
             date_info = f"Date range: {date_range[0].strftime('%b %Y')} to {date_range[1].strftime('%b %Y')}"
 
-        return f"""You are a helpful assistant for the user's YouTube video library. You can search, filter, analyze, and create playlists from their liked videos.
+        prompt = f"""You are a helpful assistant for the user's YouTube video library. You can search, filter, analyze, and create playlists from their liked videos.
 
 Library summary: {total_videos} videos across {total_categories} categories from {total_channels} channels. {date_info}
 
@@ -202,6 +250,9 @@ Guidelines:
 - Be concise but informative
 - If a query is ambiguous, ask for clarification
 - Reference specific videos by their titles when possible"""
+
+        self._redis.set(cache_key, prompt, expire=SYSTEM_PROMPT_CACHE_TTL)
+        return prompt
 
     def _get_previous_response_id(self, session_id: str) -> str | None:
         """Get the previous response ID for conversation continuity."""
@@ -229,23 +280,47 @@ Guidelines:
         self.db.commit()
 
     async def _execute_tool(self, tool_name: str, arguments: dict) -> Any:
-        """Execute a tool call and return the result."""
+        """Execute a tool call and return the result.
+
+        Read-only tools are cached in Redis by (user_id, tool_name, params_hash)
+        with a 5-minute TTL (Optimization B). The create_playlist tool is never
+        cached because it performs writes.
+        """
+        # Skip caching for write tools
+        cacheable = tool_name != "create_playlist"
+
+        if cacheable:
+            cache_key = _tool_cache_key(self.user_id, tool_name, arguments)
+            cached_raw = self._redis.get(cache_key)
+            if cached_raw:
+                api_logger.debug(f"Tool cache hit: {tool_name}")
+                return json.loads(cached_raw)
+
         try:
             if tool_name == "search_videos":
-                return await self._tool_search_videos(**arguments)
+                result = await self._tool_search_videos(**arguments)
             elif tool_name == "filter_videos":
-                return await self._tool_filter_videos(**arguments)
+                result = await self._tool_filter_videos(**arguments)
             elif tool_name == "get_video_stats":
-                return self._tool_get_video_stats(**arguments)
+                result = self._tool_get_video_stats(**arguments)
             elif tool_name == "create_playlist":
-                return await self._tool_create_playlist(**arguments)
+                result = await self._tool_create_playlist(**arguments)
             elif tool_name == "get_temporal_trends":
-                return self._tool_get_temporal_trends(**arguments)
+                result = self._tool_get_temporal_trends(**arguments)
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
         except Exception as e:
             api_logger.error(f"Tool execution error ({tool_name}): {e}", exc_info=True)
             return {"error": str(e)}
+
+        if cacheable:
+            self._redis.set(
+                cache_key,
+                json.dumps(result, default=str),
+                expire=TOOL_RESULT_CACHE_TTL,
+            )
+
+        return result
 
     async def _tool_search_videos(self, query: str, limit: int = 10) -> list[dict]:
         """Search videos using semantic similarity."""
@@ -547,14 +622,30 @@ Guidelines:
 
         Yields structured events for StreamingResponse JSON Lines output.
         """
-        previous_response_id = self._get_previous_response_id(session_id)
-        system_prompt = self._get_system_prompt()
+        # Optimization E: fetch system prompt and previous_response_id concurrently.
+        # _get_system_prompt is async (and cached); _get_previous_response_id is sync
+        # so we run it in a thread to allow true parallelism.
+        system_prompt, previous_response_id = await asyncio.gather(
+            self._get_system_prompt(),
+            asyncio.get_event_loop().run_in_executor(
+                None, self._get_previous_response_id, session_id
+            ),
+        )
+
+        # Optimization C: choose reasoning effort based on query complexity.
+        # "minimal" is the lowest valid effort (reduces TTFT for simple lookups).
+        simple = _is_simple_query(message)
+        reasoning_effort: Literal["minimal", "low"] = "minimal" if simple else "low"
+        api_logger.debug(
+            f"Query reasoning effort: {reasoning_effort!r} (simple={simple})"
+        )
 
         # Build input
         input_messages = [{"role": "user", "content": message}]
 
         try:
-            # Initial call
+            # Initial call — use full token budget since we don't know yet whether
+            # the model will call a tool or answer directly (Optimization D).
             response = await self.client.responses.create(
                 model=settings.openai_model,
                 instructions=system_prompt,
@@ -562,7 +653,8 @@ Guidelines:
                 tools=AGENT_TOOLS,
                 previous_response_id=previous_response_id,
                 stream=False,
-                reasoning=Reasoning(effort="low"),
+                reasoning=Reasoning(effort=reasoning_effort),
+                max_output_tokens=_FINAL_MAX_TOKENS,
             )
 
             iterations = 0
@@ -576,7 +668,7 @@ Guidelines:
                 ]
 
                 if not function_calls:
-                    # No tool calls — extract text output
+                    # No tool calls — final synthesis text is already in the response
                     break
 
                 # Execute tool calls and build function call outputs
@@ -609,6 +701,12 @@ Guidelines:
                         result=result,
                     )
 
+                # Check if this is the last iteration (synthesis turn next)
+                is_final_turn = iterations >= MAX_TOOL_ITERATIONS - 1
+                next_max_tokens = (
+                    _FINAL_MAX_TOKENS if is_final_turn else _INTERMEDIATE_MAX_TOKENS
+                )
+
                 # Continue the conversation with tool outputs
                 response = await self.client.responses.create(
                     model=settings.openai_model,
@@ -616,7 +714,8 @@ Guidelines:
                     input=tool_outputs,
                     tools=AGENT_TOOLS,
                     stream=False,
-                    reasoning=Reasoning(effort="low"),
+                    reasoning=Reasoning(effort=reasoning_effort),
+                    max_output_tokens=next_max_tokens,
                 )
 
             # Extract final text from response

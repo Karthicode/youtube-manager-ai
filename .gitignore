@@ -79,3 +79,6 @@ next-env.d.ts
 tmp/
 temp/
 supabase/.temp/
+
+# Playwright MCP output
+playwright-output/
