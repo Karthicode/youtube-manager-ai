@@ -7,15 +7,12 @@ import {
 	Chip,
 	Input,
 	ScrollShadow,
-	Skeleton,
 	Spinner,
 } from "@heroui/react";
 import AddIcon from "@mui/icons-material/Add";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import BuildIcon from "@mui/icons-material/Build";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import DeleteIcon from "@mui/icons-material/Delete";
-import ScheduleIcon from "@mui/icons-material/Schedule";
 import SendIcon from "@mui/icons-material/Send";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chatApi } from "@/api/api";
@@ -434,50 +431,23 @@ export default function ChatPage() {
 									{msg.role === "assistant" &&
 										msg.toolCalls &&
 										msg.toolCalls.length > 0 && (
-											<div className="space-y-2">
-												{msg.toolCalls.map((tc, i) => {
-													const result = msg.toolResults?.[i];
-
-													return (
-														<Card
-															key={`tool-${
-																// biome-ignore lint/suspicious/noArrayIndexKey: Tool calls don't have stable IDs
-																i
-															}`}
-															className="bg-secondary-50 dark:bg-secondary-900/20 border border-secondary-200 dark:border-secondary-800"
-														>
-															<CardBody className="p-3">
-																{/* Tool Header */}
-																<div className="flex items-center gap-2 mb-2">
-																	<Chip
-																		size="sm"
-																		variant="flat"
-																		color="secondary"
-																		startContent={
-																			<BuildIcon sx={{ fontSize: 14 }} />
-																		}
-																	>
-																		{tc.tool}
-																	</Chip>
-																	{result && (
-																		<Chip
-																			size="sm"
-																			variant="dot"
-																			color="success"
-																			startContent={
-																				<CheckCircleIcon
-																					sx={{ fontSize: 12 }}
-																				/>
-																			}
-																		>
-																			Completed
-																		</Chip>
-																	)}
-																</div>
-															</CardBody>
-														</Card>
-													);
-												})}
+											<div className="flex items-center gap-1.5 flex-wrap px-1">
+												<BuildIcon
+													sx={{ fontSize: 13 }}
+													className="text-secondary-400"
+												/>
+												{msg.toolCalls.map((tc, i) => (
+													<Chip
+														// biome-ignore lint/suspicious/noArrayIndexKey: Tool calls don't have stable IDs
+														key={i}
+														size="sm"
+														variant="flat"
+														color="secondary"
+														className="text-xs"
+													>
+														{tc.tool.replace(/_/g, " ")}
+													</Chip>
+												))}
 											</div>
 										)}
 
@@ -499,44 +469,25 @@ export default function ChatPage() {
 
 						{loading && (
 							<div className="flex justify-start">
-								<div className="max-w-[80%] space-y-2">
+								<div className="flex items-center gap-1.5 px-1 py-1 text-secondary-400">
 									{activeTool ? (
-										<Card className="bg-secondary-50 dark:bg-secondary-900/20 border border-secondary-200 dark:border-secondary-800">
-											<CardBody className="p-3">
-												<div className="flex items-center gap-2 mb-2">
-													<Chip
-														size="sm"
-														variant="flat"
-														color="secondary"
-														startContent={<BuildIcon sx={{ fontSize: 14 }} />}
-													>
-														{activeTool}
-													</Chip>
-													<Chip
-														size="sm"
-														variant="dot"
-														color="warning"
-														startContent={
-															<ScheduleIcon sx={{ fontSize: 12 }} />
-														}
-													>
-														Running...
-													</Chip>
-												</div>
-												<Skeleton className="rounded-lg">
-													<div className="h-16 rounded-lg bg-default-300" />
-												</Skeleton>
-											</CardBody>
-										</Card>
+										<>
+											<BuildIcon sx={{ fontSize: 13 }} />
+											<Chip
+												size="sm"
+												variant="flat"
+												color="secondary"
+												className="text-xs"
+											>
+												{activeTool.replace(/_/g, " ")}
+											</Chip>
+											<Spinner size="sm" color="secondary" />
+										</>
 									) : (
-										<Card className="shadow-sm">
-											<CardBody className="p-4 flex items-center gap-2">
-												<Spinner size="sm" />
-												<span className="text-sm text-gray-500">
-													Thinking...
-												</span>
-											</CardBody>
-										</Card>
+										<>
+											<Spinner size="sm" color="secondary" />
+											<span className="text-sm text-gray-400">Thinking...</span>
+										</>
 									)}
 								</div>
 							</div>
