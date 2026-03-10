@@ -28,7 +28,7 @@ router = APIRouter(prefix="/chat")
 
 
 @router.post("/new", response_model=ChatNewSessionResponse)
-async def create_session(
+def create_session(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
@@ -154,7 +154,7 @@ async def send_message(
 
 
 @router.get("/sessions", response_model=list[ChatSessionSchema])
-async def list_sessions(
+def list_sessions(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
@@ -178,7 +178,7 @@ async def list_sessions(
 
 
 @router.get("/sessions/{session_id}/messages", response_model=list[ChatMessageResponse])
-async def get_session_messages(
+def get_session_messages(
     session_id: str,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -233,7 +233,7 @@ async def get_session_messages(
 
 
 @router.delete("/sessions/{session_id}")
-async def delete_session(
+def delete_session(
     session_id: str,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],

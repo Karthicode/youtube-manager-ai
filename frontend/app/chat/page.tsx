@@ -40,6 +40,8 @@ export default function ChatPage() {
 	const [loadingSessionMessages, setLoadingSessionMessages] = useState(false);
 	const [activeTool, setActiveTool] = useState<string | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
+	// Ref tracks active session ID without causing fetchSessions to be recreated
+	const activeSessionIdRef = useRef<string | null>(null);
 
 	const scrollToBottom = useCallback(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -89,14 +91,19 @@ export default function ChatPage() {
 			setSessions(fetchedSessions);
 
 			if (fetchedSessions.length === 0) {
+				activeSessionIdRef.current = null;
 				setActiveSessionId(null);
 				setMessages([]);
 				return;
 			}
 
+			// Use ref to read current activeSessionId without it being a dependency,
+			// avoiding the re-fetch loop caused by setActiveSessionId triggering a
+			// new fetchSessions function reference.
+			const currentId = activeSessionIdRef.current;
 			const storedSessionId = localStorage.getItem("active_chat_session_id");
 			const preferredSessionId =
-				activeSessionId ||
+				currentId ||
 				(storedSessionId &&
 				fetchedSessions.some((s) => s.session_id === storedSessionId)
 					? storedSessionId
@@ -104,14 +111,15 @@ export default function ChatPage() {
 
 			if (!preferredSessionId) return;
 
-			if (activeSessionId !== preferredSessionId) {
+			if (currentId !== preferredSessionId) {
+				activeSessionIdRef.current = preferredSessionId;
 				setActiveSessionId(preferredSessionId);
 				await loadSessionMessages(preferredSessionId);
 			}
-		} catch {
-			// Failed to fetch sessions
+		} catch (err) {
+			console.error("Failed to fetch sessions:", err);
 		}
-	}, [activeSessionId, loadSessionMessages]);
+	}, [loadSessionMessages]);
 
 	useEffect(() => {
 		if (!isReady || !isAuthenticated) return;
@@ -128,6 +136,7 @@ export default function ChatPage() {
 		try {
 			const response = await chatApi.newSession();
 			const newId = response.data.session_id;
+			activeSessionIdRef.current = newId;
 			setActiveSessionId(newId);
 			setMessages([]);
 			localStorage.setItem("active_chat_session_id", newId);
@@ -139,19 +148,21 @@ export default function ChatPage() {
 
 	const openSession = useCallback(
 		async (sessionId: string) => {
-			if (sessionId === activeSessionId) return;
+			if (sessionId === activeSessionIdRef.current) return;
+			activeSessionIdRef.current = sessionId;
 			setActiveSessionId(sessionId);
 			setActiveTool(null);
 			await loadSessionMessages(sessionId);
 		},
-		[activeSessionId, loadSessionMessages],
+		[loadSessionMessages],
 	);
 
 	const deleteSession = useCallback(
 		async (sessionId: string) => {
 			try {
 				await chatApi.deleteSession(sessionId);
-				if (activeSessionId === sessionId) {
+				if (activeSessionIdRef.current === sessionId) {
+					activeSessionIdRef.current = null;
 					setActiveSessionId(null);
 					setMessages([]);
 					localStorage.removeItem("active_chat_session_id");
@@ -161,18 +172,19 @@ export default function ChatPage() {
 				// Failed to delete session
 			}
 		},
-		[activeSessionId, fetchSessions],
+		[fetchSessions],
 	);
 
 	const sendMessage = useCallback(
 		async (text: string) => {
 			if (!text.trim() || loading) return;
 
-			let sessionId = activeSessionId;
+			let sessionId = activeSessionIdRef.current;
 			if (!sessionId) {
 				try {
 					const response = await chatApi.newSession();
 					sessionId = response.data.session_id;
+					activeSessionIdRef.current = sessionId;
 					setActiveSessionId(sessionId);
 					localStorage.setItem("active_chat_session_id", sessionId);
 				} catch {
@@ -303,7 +315,7 @@ export default function ChatPage() {
 				fetchSessions();
 			}
 		},
-		[activeSessionId, loading, fetchSessions],
+		[loading, fetchSessions],
 	);
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
