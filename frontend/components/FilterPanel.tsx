@@ -77,7 +77,25 @@ export default function FilterPanel({
 	return (
 		<Card className="w-full shadow-md">
 			<CardHeader className="flex justify-between items-center pb-2 sm:pb-3">
-				<h3 className="text-base sm:text-lg font-semibold">Filters</h3>
+				<button
+					type="button"
+					className="flex items-center gap-1 lg:cursor-default lg:pointer-events-none"
+					onClick={() => setMobileOpen((prev) => !prev)}
+					aria-expanded={mobileOpen}
+					aria-label="Toggle filters"
+				>
+					<h3 className="text-base sm:text-lg font-semibold">Filters</h3>
+					{hasActiveFilters && (
+						<span className="lg:hidden ml-1 w-2 h-2 rounded-full bg-primary inline-block" />
+					)}
+					<span className="lg:hidden ml-1 text-default-400">
+						{mobileOpen ? (
+							<ExpandLessIcon fontSize="small" />
+						) : (
+							<ExpandMoreIcon fontSize="small" />
+						)}
+					</span>
+				</button>
 				{hasActiveFilters && (
 					<Button
 						size="sm"
@@ -85,163 +103,170 @@ export default function FilterPanel({
 						variant="light"
 						onPress={onClearFilters}
 						radius="md"
+						className={!mobileOpen ? "lg:flex hidden" : ""}
 					>
 						Clear All
 					</Button>
 				)}
 			</CardHeader>
-			<Divider />
-			<CardBody className="gap-4 sm:gap-6 pt-3 sm:pt-4">
-				{/* Search */}
-				<div>
-					<Input
-						type="text"
-						placeholder="Search videos..."
-						value={searchQuery}
-						onValueChange={onSearchChange}
-						startContent={
-							<SearchIcon fontSize="small" className="text-default-400" />
-						}
-						isClearable
-						onClear={() => onSearchChange("")}
-						variant="bordered"
-						size="md"
-						radius="lg"
-					/>
-				</div>
-
+			<div className={mobileOpen ? "block" : "hidden lg:block"}>
 				<Divider />
-
-				{/* Categorization Status */}
-				<div className="space-y-3">
-					<p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-						Status
-					</p>
-					<div className="flex flex-wrap gap-2">
-						<Chip
-							color={showOnlyCategorized === null ? "primary" : "default"}
-							variant={showOnlyCategorized === null ? "solid" : "bordered"}
-							className="cursor-pointer hover:scale-105 transition-transform"
-							onClick={() => onCategorizationFilterChange(null)}
+				<CardBody className="gap-4 sm:gap-6 pt-3 sm:pt-4">
+					{/* Search */}
+					<div>
+						<Input
+							type="text"
+							placeholder="Search videos..."
+							value={searchQuery}
+							onValueChange={onSearchChange}
+							startContent={
+								<SearchIcon fontSize="small" className="text-default-400" />
+							}
+							isClearable
+							onClear={() => onSearchChange("")}
+							variant="bordered"
 							size="md"
-							radius="md"
-						>
-							All
-						</Chip>
-						<Chip
-							color={showOnlyCategorized === true ? "success" : "default"}
-							variant={showOnlyCategorized === true ? "solid" : "bordered"}
-							className="cursor-pointer hover:scale-105 transition-transform"
-							onClick={() => onCategorizationFilterChange(true)}
-							size="md"
-							radius="md"
-						>
-							Categorized
-						</Chip>
-						<Chip
-							color={showOnlyCategorized === false ? "warning" : "default"}
-							variant={showOnlyCategorized === false ? "solid" : "bordered"}
-							className="cursor-pointer hover:scale-105 transition-transform"
-							onClick={() => onCategorizationFilterChange(false)}
-							size="md"
-							radius="md"
-						>
-							Not Categorized
-						</Chip>
+							radius="lg"
+						/>
 					</div>
-				</div>
 
-				<Divider />
+					<Divider />
 
-				{/* Categories */}
-				{!loading && categories.length > 0 && (
-					<>
-						<div className="space-y-3">
-							<p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-								Categories
-							</p>
-							<CheckboxGroup
-								value={selectedCategories.map(String)}
-								onValueChange={(values) =>
-									onCategoriesChange(values.map(Number))
-								}
-								color="primary"
-								size="md"
-							>
-								{categories.map((category) => (
-									<Checkbox
-										key={category.id}
-										value={String(category.id)}
-										classNames={{
-											label: "text-sm",
-										}}
-									>
-										{category.name}
-									</Checkbox>
-								))}
-							</CheckboxGroup>
-						</div>
-						<Divider />
-					</>
-				)}
-
-				{/* Tags */}
-				{!loading && tags.length > 0 && (
+					{/* Categorization Status */}
 					<div className="space-y-3">
 						<p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-							Tags
+							Status
 						</p>
 						<div className="flex flex-wrap gap-2">
-							{tags.map((tag) => (
-								<Chip
-									key={tag.id}
-									color={selectedTags.includes(tag.id) ? "primary" : "default"}
-									variant={selectedTags.includes(tag.id) ? "solid" : "bordered"}
-									className="cursor-pointer hover:scale-105 transition-transform"
-									onClick={() => {
-										if (selectedTags.includes(tag.id)) {
-											onTagsChange(selectedTags.filter((t) => t !== tag.id));
-										} else {
-											onTagsChange([...selectedTags, tag.id]);
-										}
-									}}
-									size="sm"
-									radius="md"
-								>
-									{tag.name} ({tag.usage_count})
-								</Chip>
-							))}
+							<Chip
+								color={showOnlyCategorized === null ? "primary" : "default"}
+								variant={showOnlyCategorized === null ? "solid" : "bordered"}
+								className="cursor-pointer hover:scale-105 transition-transform"
+								onClick={() => onCategorizationFilterChange(null)}
+								size="md"
+								radius="md"
+							>
+								All
+							</Chip>
+							<Chip
+								color={showOnlyCategorized === true ? "success" : "default"}
+								variant={showOnlyCategorized === true ? "solid" : "bordered"}
+								className="cursor-pointer hover:scale-105 transition-transform"
+								onClick={() => onCategorizationFilterChange(true)}
+								size="md"
+								radius="md"
+							>
+								Categorized
+							</Chip>
+							<Chip
+								color={showOnlyCategorized === false ? "warning" : "default"}
+								variant={showOnlyCategorized === false ? "solid" : "bordered"}
+								className="cursor-pointer hover:scale-105 transition-transform"
+								onClick={() => onCategorizationFilterChange(false)}
+								size="md"
+								radius="md"
+							>
+								Not Categorized
+							</Chip>
 						</div>
 					</div>
-				)}
 
-				{/* Bulk Actions - Delete by Tags */}
-				{selectedTags.length > 0 && onDeleteByTags && (
-					<>
-						<Divider />
+					<Divider />
+
+					{/* Categories */}
+					{!loading && categories.length > 0 && (
+						<>
+							<div className="space-y-3">
+								<p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+									Categories
+								</p>
+								<CheckboxGroup
+									value={selectedCategories.map(String)}
+									onValueChange={(values) =>
+										onCategoriesChange(values.map(Number))
+									}
+									color="primary"
+									size="md"
+								>
+									{categories.map((category) => (
+										<Checkbox
+											key={category.id}
+											value={String(category.id)}
+											classNames={{
+												label: "text-sm",
+											}}
+										>
+											{category.name}
+										</Checkbox>
+									))}
+								</CheckboxGroup>
+							</div>
+							<Divider />
+						</>
+					)}
+
+					{/* Tags */}
+					{!loading && tags.length > 0 && (
 						<div className="space-y-3">
 							<p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-								Bulk Actions
+								Tags
 							</p>
-							<Button
-								color="danger"
-								variant="flat"
-								size="sm"
-								startContent={<DeleteIcon fontSize="small" />}
-								onPress={() => {
-									const selectedTagNames = tags
-										.filter((t) => selectedTags.includes(t.id))
-										.map((t) => t.name);
-									onDeleteByTags(selectedTags, selectedTagNames);
-								}}
-								className="w-full"
-							>
-								Delete Videos with Selected Tags
-							</Button>
+							<div className="flex flex-wrap gap-2">
+								{tags.map((tag) => (
+									<Chip
+										key={tag.id}
+										color={
+											selectedTags.includes(tag.id) ? "primary" : "default"
+										}
+										variant={
+											selectedTags.includes(tag.id) ? "solid" : "bordered"
+										}
+										className="cursor-pointer hover:scale-105 transition-transform"
+										onClick={() => {
+											if (selectedTags.includes(tag.id)) {
+												onTagsChange(selectedTags.filter((t) => t !== tag.id));
+											} else {
+												onTagsChange([...selectedTags, tag.id]);
+											}
+										}}
+										size="sm"
+										radius="md"
+									>
+										{tag.name} ({tag.usage_count})
+									</Chip>
+								))}
+							</div>
 						</div>
-					</>
-				)}
-			</CardBody>
+					)}
+
+					{/* Bulk Actions - Delete by Tags */}
+					{selectedTags.length > 0 && onDeleteByTags && (
+						<>
+							<Divider />
+							<div className="space-y-3">
+								<p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+									Bulk Actions
+								</p>
+								<Button
+									color="danger"
+									variant="flat"
+									size="sm"
+									startContent={<DeleteIcon fontSize="small" />}
+									onPress={() => {
+										const selectedTagNames = tags
+											.filter((t) => selectedTags.includes(t.id))
+											.map((t) => t.name);
+										onDeleteByTags(selectedTags, selectedTagNames);
+									}}
+									className="w-full"
+								>
+									Delete Videos with Selected Tags
+								</Button>
+							</div>
+						</>
+					)}
+				</CardBody>
+			</div>
 		</Card>
 	);
 }
