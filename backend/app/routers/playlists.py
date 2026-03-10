@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from datetime import datetime
+import json
 import uuid
 
 from app.database import get_db
@@ -31,8 +32,11 @@ from app.services.ai_service import AIService
 from app.logger import api_logger
 from app.utils.qstash_client import trigger_playlist_video_addition_job
 from app.redis_client import get_redis
+from app.utils.cache_invalidation import invalidate_playlists
 
 router = APIRouter(prefix="/playlists")
+
+CACHE_TTL = 600  # 10 minutes
 
 
 @router.get("/", response_model=List[PlaylistResponse])
@@ -51,6 +55,16 @@ async def get_playlists(
         page_size: Number of results per page (1-100)
         search: Optional search query for playlist titles
     """
+    redis = get_redis()
+
+    # Only cache non-search requests to avoid key explosion
+    cache_key = None
+    if not search:
+        cache_key = f"playlists:{current_user.id}:{page}:{page_size}"
+        cached = redis.get(cache_key)
+        if cached:
+            return json.loads(cached)
+
     query = db.query(Playlist).filter(
         Playlist.user_id == current_user.id,
         Playlist.deleted_at.is_(None),  # Exclude deleted playlists
@@ -67,6 +81,24 @@ async def get_playlists(
     # Apply pagination
     offset = (page - 1) * page_size
     playlists = query.offset(offset).limit(page_size).all()
+
+    if cache_key:
+        result = [
+            {
+                "id": p.id,
+                "youtube_id": p.youtube_id,
+                "title": p.title,
+                "description": p.description,
+                "thumbnail_url": p.thumbnail_url,
+                "video_count": p.video_count,
+                "published_at": p.published_at.isoformat() if p.published_at else None,
+                "last_synced_at": (
+                    p.last_synced_at.isoformat() if p.last_synced_at else None
+                ),
+            }
+            for p in playlists
+        ]
+        redis.set(cache_key, json.dumps(result), expire=CACHE_TTL)
 
     return playlists
 
@@ -206,6 +238,8 @@ async def sync_playlists(
         playlists, count = youtube_service.fetch_user_playlists(
             db, max_results=max_results
         )
+        if count > 0:
+            invalidate_playlists(current_user.id)
 
         return {
             "status": "success",
@@ -394,6 +428,7 @@ async def create_playlist_from_filters(
         db.add(db_playlist)
         db.commit()
         db.refresh(db_playlist)
+        invalidate_playlists(current_user.id)
 
         # Queue remaining videos for background processing
         job_id = None
@@ -600,6 +635,7 @@ async def confirm_smart_playlist(
         db.add(db_playlist)
         db.commit()
         db.refresh(db_playlist)
+        invalidate_playlists(current_user.id)
 
         # Queue remaining if needed
         job_id = None

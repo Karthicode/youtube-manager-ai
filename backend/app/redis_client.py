@@ -101,6 +101,21 @@ class RedisClient:
             redis_logger.debug(f"Redis EXISTS error: {e}")
             return False
 
+    def delete_pattern(self, pattern: str) -> int:
+        """Delete all keys matching a glob pattern using SCAN."""
+        if not self._client:
+            return 0
+
+        try:
+            count = 0
+            for key in self._client.scan_iter(pattern):
+                self._client.delete(key)
+                count += 1
+            return count
+        except RedisError as e:
+            redis_logger.debug(f"Redis SCAN/DELETE pattern error: {e}")
+            return 0
+
     def flush_all(self) -> bool:
         """Flush all keys (use with caution!)."""
         if not self._client:

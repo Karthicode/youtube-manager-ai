@@ -15,9 +15,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
-import { useEffect, useState } from "react";
-import { categoriesApi, tagsApi } from "@/api/api";
-import type { Category, Tag } from "@/types";
+import { useState } from "react";
+import { useCategories, useTags } from "@/hooks";
 
 interface FilterPanelProps {
 	selectedCategories: number[];
@@ -44,29 +43,10 @@ export default function FilterPanel({
 	onClearFilters,
 	onDeleteByTags,
 }: FilterPanelProps) {
-	const [categories, setCategories] = useState<Category[]>([]);
-	const [tags, setTags] = useState<Tag[]>([]);
-	const [loading, setLoading] = useState(true);
+	const { categories, isLoading: categoriesLoading } = useCategories();
+	const { tags, isLoading: tagsLoading } = useTags(50);
+	const loading = categoriesLoading || tagsLoading;
 	const [mobileOpen, setMobileOpen] = useState(false);
-
-	useEffect(() => {
-		const fetchFilters = async () => {
-			try {
-				const [categoriesRes, tagsRes] = await Promise.all([
-					categoriesApi.getCategories(),
-					tagsApi.getTags({ limit: 50 }),
-				]);
-				setCategories(categoriesRes.data);
-				setTags(tagsRes.data);
-			} catch {
-				// Silently fail - filters will remain empty
-			} finally {
-				setLoading(false);
-			}
-		};
-
-		fetchFilters();
-	}, []);
 
 	const hasActiveFilters =
 		selectedCategories.length > 0 ||

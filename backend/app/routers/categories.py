@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Annotated, List
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -13,8 +14,11 @@ from app.models.user import User
 from app.models.category import Category
 from app.models.video import Video
 from app.schemas.category import CategoryResponse
+from app.redis_client import get_redis
 
 router = APIRouter(prefix="/categories")
+
+CACHE_TTL = 1800  # 30 minutes
 
 
 @router.get("/", response_model=List[CategoryResponse])
@@ -28,6 +32,13 @@ async def get_categories(
     Returns list of categories ordered by usage (most used first).
     Only returns categories that have at least one video for this user.
     """
+    cache_key = f"categories:{current_user.id}"
+    redis = get_redis()
+
+    cached = redis.get(cache_key)
+    if cached:
+        return json.loads(cached)
+
     # Query categories that have videos for this user
     categories_with_counts = (
         db.query(
@@ -54,6 +65,7 @@ async def get_categories(
             }
         )
 
+    redis.set(cache_key, json.dumps(result), expire=CACHE_TTL)
     return result
 
 

@@ -23,8 +23,12 @@ from app.schemas.chat import (
 )
 from app.services.agent_service import AgentService
 from app.redis_client import get_redis
+from app.utils.cache_invalidation import invalidate_chat_sessions
 
 router = APIRouter(prefix="/chat")
+
+
+SESSIONS_CACHE_TTL = 300  # 5 minutes
 
 
 @router.post("/new", response_model=ChatNewSessionResponse)
@@ -47,6 +51,7 @@ def create_session(
         )
     )
     db.commit()
+    invalidate_chat_sessions(current_user.id)
 
     return ChatNewSessionResponse(session_id=session_id)
 
@@ -159,13 +164,20 @@ def list_sessions(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     """List chat sessions for the current user (persisted in DB)."""
+    redis = get_redis()
+    cache_key = f"chat_sessions:{current_user.id}"
+
+    cached = redis.get(cache_key)
+    if cached:
+        return json.loads(cached)
+
     sessions = (
         db.query(ChatSession)
         .filter(ChatSession.user_id == current_user.id)
         .order_by(ChatSession.last_message_at.desc())
         .all()
     )
-    return [
+    result = [
         ChatSessionSchema(
             session_id=s.id,
             title=s.title,
@@ -175,6 +187,12 @@ def list_sessions(
         )
         for s in sessions
     ]
+    redis.set(
+        cache_key,
+        json.dumps([r.model_dump(mode="json") for r in result]),
+        expire=SESSIONS_CACHE_TTL,
+    )
+    return result
 
 
 @router.get("/sessions/{session_id}/messages", response_model=list[ChatMessageResponse])

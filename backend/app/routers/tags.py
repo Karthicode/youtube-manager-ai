@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Annotated, List
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -13,8 +14,11 @@ from app.models.user import User
 from app.models.tag import Tag
 from app.models.video import Video
 from app.schemas.tag import TagResponse
+from app.redis_client import get_redis
 
 router = APIRouter(prefix="/tags")
+
+CACHE_TTL = 1800  # 30 minutes
 
 
 @router.get("/", response_model=List[TagResponse])
@@ -36,6 +40,18 @@ async def get_tags(
     Returns list of tags ordered by usage count (most used first).
     Only returns tags that have at least one video for this user.
     """
+    redis = get_redis()
+
+    # Only cache when no search query (avoid key explosion)
+    cache_key = None
+    if not search:
+        cache_key = (
+            f"tags:{current_user.id}:{limit}" if limit else f"tags:{current_user.id}"
+        )
+        cached = redis.get(cache_key)
+        if cached:
+            return json.loads(cached)
+
     # Query tags that have videos for this user
     query = (
         db.query(
@@ -71,6 +87,9 @@ async def get_tags(
                 "usage_count": video_count,
             }
         )
+
+    if cache_key:
+        redis.set(cache_key, json.dumps(result), expire=CACHE_TTL)
 
     return result
 
