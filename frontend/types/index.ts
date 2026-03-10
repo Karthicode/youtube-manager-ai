@@ -348,3 +348,24 @@ export interface TasteProfileResponse {
 	video_count: number;
 	min_videos_required: number;
 }
+
+// Watch History types
+export interface WatchHistory {
+	id: number;
+	video_id: number;
+	youtube_id: string;
+	title: string;
+	thumbnail_url: string | null;
+	channel_title: string | null;
+	position_seconds: number;
+	duration_seconds: number | null;
+	progress_percent: number;
+	is_completed: boolean;
+	watched_at: string;
+	created_at: string;
+}
+
+export interface WatchHistoryListResponse {
+	items: WatchHistory[];
+	total: number;
+}

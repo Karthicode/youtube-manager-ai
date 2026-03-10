@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from app.models.playlist import Playlist
     from app.models.chat import ChatSession
     from app.models.user_preference import UserPreference
+    from app.models.watch_history import WatchHistory
 
 
 class User(Base):
@@ -54,4 +55,7 @@ class User(Base):
     )
     preference: Mapped[Optional["UserPreference"]] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+    watch_history: Mapped[List["WatchHistory"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )

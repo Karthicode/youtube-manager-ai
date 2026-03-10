@@ -20,6 +20,7 @@ from app.routers import (
     chat,
     preferences,
     cron,
+    watch_history,
 )
 from app.routers.mcp import create_mcp_app
 
@@ -133,6 +134,9 @@ app.include_router(insights.router, prefix=settings.api_prefix, tags=["Insights"
 app.include_router(chat.router, prefix=settings.api_prefix, tags=["Chat"])
 app.include_router(preferences.router, prefix=settings.api_prefix, tags=["Preferences"])
 app.include_router(cron.router, prefix=settings.api_prefix, tags=["Cron"])
+app.include_router(
+    watch_history.router, prefix=settings.api_prefix, tags=["Watch History"]
+)
 
 
 # Mount MCP server with API key auth at /mcp

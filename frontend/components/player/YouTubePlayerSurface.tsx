@@ -30,11 +30,13 @@ export interface YouTubePlayerSurfaceHandle {
 	play: () => void;
 	pause: () => void;
 	getPaused: () => boolean;
+	getCurrentTime: () => number;
 }
 
 interface YouTubePlayerSurfaceProps {
 	youtubeId: string;
 	className?: string;
+	startSeconds?: number;
 	onPlayingChange?: (isPlaying: boolean) => void;
 	onEnded?: () => void;
 	onError?: () => void;
@@ -44,7 +46,7 @@ const YouTubePlayerSurface = forwardRef<
 	YouTubePlayerSurfaceHandle,
 	YouTubePlayerSurfaceProps
 >(function YouTubePlayerSurface(
-	{ youtubeId, className, onPlayingChange, onEnded, onError },
+	{ youtubeId, className, startSeconds, onPlayingChange, onEnded, onError },
 	ref,
 ) {
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -62,6 +64,7 @@ const YouTubePlayerSurface = forwardRef<
 		play: () => playerRef.current?.playVideo(),
 		pause: () => playerRef.current?.pauseVideo(),
 		getPaused: () => isPausedRef.current,
+		getCurrentTime: () => playerRef.current?.getCurrentTime() ?? 0,
 	}));
 
 	useEffect(() => {
@@ -78,6 +81,9 @@ const YouTubePlayerSurface = forwardRef<
 					modestbranding: 1,
 					playsinline: 1,
 					fs: 1,
+					...(startSeconds && startSeconds > 0
+						? { start: Math.floor(startSeconds) }
+						: {}),
 				},
 				events: {
 					onStateChange: (e: YT.OnStateChangeEvent) => {
@@ -98,7 +104,7 @@ const YouTubePlayerSurface = forwardRef<
 			playerRef.current = null;
 			isPausedRef.current = true;
 		};
-	}, [youtubeId]);
+	}, [youtubeId, startSeconds]);
 
 	return <div ref={containerRef} className={className} />;
 });

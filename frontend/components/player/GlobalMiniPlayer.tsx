@@ -8,7 +8,8 @@ import PauseIcon from "@mui/icons-material/Pause";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import SkipNextIcon from "@mui/icons-material/SkipNext";
 import SkipPreviousIcon from "@mui/icons-material/SkipPrevious";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { watchHistoryApi } from "@/api/api";
 import { useMiniPlayerStore } from "@/store/miniPlayer";
 import YouTubePlayerSurface, {
 	type YouTubePlayerSurfaceHandle,
@@ -29,6 +30,7 @@ export default function GlobalMiniPlayer() {
 		queue,
 		queueIndex,
 		position,
+		resumeSeconds,
 		playNext,
 		playPrev,
 		setMinimized,
@@ -55,6 +57,18 @@ export default function GlobalMiniPlayer() {
 		top: 0,
 	});
 	const dragOffsetRef = useRef({ x: 0, y: 0 });
+
+	const savePosition = useCallback(() => {
+		if (!currentVideo) return;
+		const pos = surfaceRef.current?.getCurrentTime() ?? 0;
+		if (pos < 10) return;
+		watchHistoryApi
+			.savePosition({
+				youtube_id: currentVideo.youtubeId,
+				position_seconds: pos,
+			})
+			.catch(() => {});
+	}, [currentVideo]);
 
 	const canGoPrevious = queueIndex > 0;
 	const canGoNext = queueIndex < queue.length - 1;
@@ -291,6 +305,17 @@ export default function GlobalMiniPlayer() {
 		setPlayerError(false);
 	}, [currentVideo?.youtubeId, isOpen]);
 
+	// Periodic position save every 5 seconds while playing
+	useEffect(() => {
+		if (!isOpen || !currentVideo) return;
+		const interval = setInterval(() => {
+			if (surfaceRef.current?.getPaused() === false) {
+				savePosition();
+			}
+		}, 5000);
+		return () => clearInterval(interval);
+	}, [isOpen, currentVideo, savePosition]);
+
 	if (!isOpen || !currentVideo) {
 		return null;
 	}
@@ -356,7 +381,11 @@ export default function GlobalMiniPlayer() {
 					ref={surfaceRef}
 					youtubeId={currentVideo.youtubeId}
 					className={`rounded-md overflow-hidden bg-black ${isMobile ? "w-full aspect-video" : "w-full h-full"}`}
-					onPlayingChange={setIsPlaying}
+					startSeconds={resumeSeconds ?? undefined}
+					onPlayingChange={(playing) => {
+						setIsPlaying(playing);
+						if (!playing) savePosition();
+					}}
 					onEnded={playNext}
 					onError={() => {
 						setPlayerError(true);
@@ -404,7 +433,10 @@ export default function GlobalMiniPlayer() {
 						<button
 							type="button"
 							className="rounded-md p-1.5 hover:bg-default-100"
-							onClick={closePlayer}
+							onClick={() => {
+								savePosition();
+								closePlayer();
+							}}
 							aria-label="Close player"
 						>
 							<CloseIcon fontSize="small" />
@@ -459,7 +491,10 @@ export default function GlobalMiniPlayer() {
 					type="button"
 					data-no-drag="true"
 					className="rounded-md p-1.5 hover:bg-default-100"
-					onClick={closePlayer}
+					onClick={() => {
+						savePosition();
+						closePlayer();
+					}}
 					aria-label="Close player"
 				>
 					<CloseIcon fontSize="small" />

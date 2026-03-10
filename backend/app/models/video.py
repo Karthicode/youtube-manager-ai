@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from app.models.category import Category
     from app.models.tag import Tag
     from app.models.playlist import PlaylistVideo
+    from app.models.watch_history import WatchHistory
 
 
 class Video(Base):
@@ -74,6 +75,9 @@ class Video(Base):
         secondary=video_tags, back_populates="videos"
     )
     playlist_videos: Mapped[List["PlaylistVideo"]] = relationship(
+        back_populates="video", cascade="all, delete-orphan"
+    )
+    watch_history: Mapped[List["WatchHistory"]] = relationship(
         back_populates="video", cascade="all, delete-orphan"
     )
 

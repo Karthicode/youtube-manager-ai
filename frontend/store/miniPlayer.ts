@@ -40,11 +40,13 @@ interface MiniPlayerState {
 	queueIndex: number;
 	position: MiniPlayerPosition | null;
 	originContext: MiniPlayerContext | null;
+	resumeSeconds: number | null;
 	openPlayer: (
 		video: MiniPlayerVideo,
 		queue: MiniPlayerQueueItem[],
 		index: number,
 		context: MiniPlayerContext,
+		resumeSeconds?: number,
 	) => void;
 	playAtIndex: (index: number) => void;
 	playNext: () => void;
@@ -73,8 +75,9 @@ export const useMiniPlayerStore = create<MiniPlayerState>()(
 			queueIndex: 0,
 			position: null,
 			originContext: null,
+			resumeSeconds: null,
 
-			openPlayer: (video, queue, index, context) => {
+			openPlayer: (video, queue, index, context, resumeSeconds) => {
 				const safeQueue = queue.length > 0 ? queue : [video];
 				const safeIndex = clampQueueIndex(index, safeQueue.length);
 				const queuedVideo = safeQueue[safeIndex];
@@ -87,6 +90,7 @@ export const useMiniPlayerStore = create<MiniPlayerState>()(
 					queueIndex: safeIndex,
 					originContext: context,
 					isMobileExpanded: false,
+					resumeSeconds: resumeSeconds ?? null,
 				});
 			},
 
@@ -97,6 +101,7 @@ export const useMiniPlayerStore = create<MiniPlayerState>()(
 				set({
 					queueIndex: safeIndex,
 					currentVideo: queue[safeIndex],
+					resumeSeconds: null,
 				});
 			},
 
@@ -108,6 +113,7 @@ export const useMiniPlayerStore = create<MiniPlayerState>()(
 				set({
 					queueIndex: nextIndex,
 					currentVideo: queue[nextIndex],
+					resumeSeconds: null,
 				});
 			},
 
@@ -119,6 +125,7 @@ export const useMiniPlayerStore = create<MiniPlayerState>()(
 				set({
 					queueIndex: prevIndex,
 					currentVideo: queue[prevIndex],
+					resumeSeconds: null,
 				});
 			},
 
@@ -137,6 +144,7 @@ export const useMiniPlayerStore = create<MiniPlayerState>()(
 					queue: [],
 					queueIndex: 0,
 					originContext: null,
+					resumeSeconds: null,
 				}),
 		}),
 		{

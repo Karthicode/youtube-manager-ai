@@ -25,6 +25,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { videosApi } from "@/api/api";
 import CategorizationProgressSSE from "@/components/CategorizationProgressSSE";
+import ContinueWatching from "@/components/ContinueWatching";
 import Navbar from "@/components/Navbar";
 import { useAuthGuard } from "@/hooks";
 import type { VideoStats } from "@/types";
@@ -192,6 +193,9 @@ export default function Dashboard() {
 							</Button>
 						</div>
 					</div>
+
+					{/* Continue Watching */}
+					<ContinueWatching />
 
 					{/* Progress Tracking */}
 					{categorizationJobId && (

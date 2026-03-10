@@ -283,3 +283,19 @@ export const preferencesApi = {
 		auto_categorize_max_videos?: number;
 	}) => api.put("/preferences", data),
 };
+
+export const watchHistoryApi = {
+	savePosition: (data: {
+		youtube_id: string;
+		position_seconds: number;
+		duration_seconds?: number;
+	}) => api.post("/watch-history/position", data),
+
+	getContinueWatching: (params?: { limit?: number }) =>
+		api.get("/watch-history/continue-watching", { params }),
+
+	getPosition: (youtubeId: string) =>
+		api.get(`/watch-history/position/${youtubeId}`),
+
+	deleteEntry: (historyId: number) => api.delete(`/watch-history/${historyId}`),
+};
