@@ -12,6 +12,8 @@ import {
 	Input,
 } from "@heroui/react";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
 import { useEffect, useState } from "react";
 import { categoriesApi, tagsApi } from "@/api/api";
@@ -45,6 +47,7 @@ export default function FilterPanel({
 	const [categories, setCategories] = useState<Category[]>([]);
 	const [tags, setTags] = useState<Tag[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [mobileOpen, setMobileOpen] = useState(false);
 
 	useEffect(() => {
 		const fetchFilters = async () => {

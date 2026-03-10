@@ -12,7 +12,10 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import BuildIcon from "@mui/icons-material/Build";
+import ChatIcon from "@mui/icons-material/Chat";
+import CloseIcon from "@mui/icons-material/Close";
 import DeleteIcon from "@mui/icons-material/Delete";
+import MenuIcon from "@mui/icons-material/Menu";
 import SendIcon from "@mui/icons-material/Send";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -34,6 +37,7 @@ export default function ChatPage() {
 
 	const [sessions, setSessions] = useState<ChatSession[]>([]);
 	const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+	const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [input, setInput] = useState("");
 	const [loading, setLoading] = useState(false);
@@ -152,6 +156,7 @@ export default function ChatPage() {
 			activeSessionIdRef.current = sessionId;
 			setActiveSessionId(sessionId);
 			setActiveTool(null);
+			setIsMobileDrawerOpen(false);
 			await loadSessionMessages(sessionId);
 		},
 		[loadSessionMessages],
@@ -333,60 +338,137 @@ export default function ChatPage() {
 		);
 	}
 
+	const activeSession = sessions.find((s) => s.session_id === activeSessionId);
+
+	const SessionList = () => (
+		<>
+			<Button
+				color="primary"
+				variant="flat"
+				startContent={<AddIcon fontSize="small" />}
+				onPress={() => {
+					createNewSession();
+					setIsMobileDrawerOpen(false);
+				}}
+				className="mb-2 w-full"
+			>
+				New Chat
+			</Button>
+			<ScrollShadow className="flex-1">
+				{sessions.map((session) => (
+					<div
+						key={session.session_id}
+						className={`flex items-center justify-between p-2 rounded-lg cursor-pointer text-sm transition-colors ${
+							activeSessionId === session.session_id
+								? "bg-[#E63946]/8 border-l-2 border-[#E63946] text-text-primary"
+								: "hover:bg-surface-elevated text-text-secondary"
+						}`}
+					>
+						{/* biome-ignore lint/a11y/useSemanticElements: Using div for click handler */}
+						<div
+							role="button"
+							tabIndex={0}
+							className="flex-1 truncate"
+							onClick={() => openSession(session.session_id)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									openSession(session.session_id);
+								}
+							}}
+						>
+							{session.title || "Chat"} ({session.message_count} msgs)
+						</div>
+						<Button
+							isIconOnly
+							size="sm"
+							variant="light"
+							onPress={() => deleteSession(session.session_id)}
+						>
+							<DeleteIcon fontSize="small" />
+						</Button>
+					</div>
+				))}
+			</ScrollShadow>
+		</>
+	);
+
 	return (
 		<div className="h-screen bg-background flex flex-col overflow-hidden">
 			<Navbar />
-			<div className="flex flex-1 overflow-hidden max-w-7xl mx-auto w-full">
-				{/* Sidebar */}
-				<div className="w-64 border-r border-border bg-surface flex-col p-4 gap-2 hidden md:flex">
+
+			{/* Mobile drawer overlay */}
+			{isMobileDrawerOpen && (
+				// biome-ignore lint/a11y/useSemanticElements: overlay backdrop uses div intentionally
+				<div
+					className="fixed inset-0 z-40 bg-black/50 md:hidden"
+					onClick={() => setIsMobileDrawerOpen(false)}
+					onKeyDown={(e) => {
+						if (e.key === "Escape") setIsMobileDrawerOpen(false);
+					}}
+					role="button"
+					tabIndex={-1}
+					aria-label="Close drawer"
+				/>
+			)}
+
+			{/* Mobile slide-in drawer */}
+			<div
+				className={`fixed top-0 left-0 h-full w-72 z-50 bg-surface border-r border-border flex flex-col p-4 gap-2 transition-transform duration-300 md:hidden ${
+					isMobileDrawerOpen ? "translate-x-0" : "-translate-x-full"
+				}`}
+			>
+				<div className="flex items-center justify-between mb-2">
+					<span className="font-semibold text-text-primary">Chat History</span>
 					<Button
-						color="primary"
-						variant="flat"
-						startContent={<AddIcon fontSize="small" />}
-						onPress={createNewSession}
-						className="mb-2"
+						isIconOnly
+						size="sm"
+						variant="light"
+						onPress={() => setIsMobileDrawerOpen(false)}
 					>
-						New Chat
+						<CloseIcon fontSize="small" />
 					</Button>
-					<ScrollShadow className="flex-1">
-						{sessions.map((session) => (
-							<div
-								key={session.session_id}
-								className={`flex items-center justify-between p-2 rounded-lg cursor-pointer text-sm transition-colors ${
-									activeSessionId === session.session_id
-										? "bg-[#E63946]/8 border-l-2 border-[#E63946] text-text-primary"
-										: "hover:bg-surface-elevated text-text-secondary"
-								}`}
-							>
-								{/* biome-ignore lint/a11y/useSemanticElements: Using div for click handler */}
-								<div
-									role="button"
-									tabIndex={0}
-									className="flex-1 truncate"
-									onClick={() => openSession(session.session_id)}
-									onKeyDown={(e) => {
-										if (e.key === "Enter" || e.key === " ") {
-											openSession(session.session_id);
-										}
-									}}
-								>
-									{session.title || "Chat"} ({session.message_count} msgs)
-								</div>
-								<Button
-									isIconOnly
-									size="sm"
-									variant="light"
-									onPress={() => deleteSession(session.session_id)}
-								>
-									<DeleteIcon fontSize="small" />
-								</Button>
-							</div>
-						))}
-					</ScrollShadow>
+				</div>
+				<SessionList />
+			</div>
+
+			<div className="flex flex-1 overflow-hidden max-w-7xl mx-auto w-full">
+				{/* Desktop Sidebar */}
+				<div className="w-64 border-r border-border bg-surface flex-col p-4 gap-2 hidden md:flex">
+					<SessionList />
 				</div>
 
 				{/* Chat area */}
 				<div className="flex-1 flex flex-col">
+					{/* Mobile top bar */}
+					<div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface md:hidden">
+						<Button
+							isIconOnly
+							size="sm"
+							variant="light"
+							onPress={() => setIsMobileDrawerOpen(true)}
+							aria-label="Open chat history"
+						>
+							<MenuIcon fontSize="small" />
+						</Button>
+						<div className="flex items-center gap-1.5 flex-1 min-w-0">
+							<ChatIcon
+								sx={{ fontSize: 16 }}
+								className="text-[#E63946] shrink-0"
+							/>
+							<span className="text-sm font-medium text-text-primary truncate">
+								{activeSession?.title || "New Chat"}
+							</span>
+						</div>
+						<Button
+							size="sm"
+							variant="flat"
+							color="primary"
+							startContent={<AddIcon fontSize="small" />}
+							onPress={createNewSession}
+						>
+							New
+						</Button>
+					</div>
 					{/* Messages */}
 					<ScrollShadow className="flex-1 overflow-y-auto p-4 space-y-4">
 						{loadingSessionMessages && (
