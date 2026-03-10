@@ -72,7 +72,7 @@ export default function VideoCard({
 	// List view
 	if (viewMode === "list") {
 		return (
-			<Card className="w-full hover:bg-[#16161E] transition-colors border border-[#1E1E2A] bg-[#0F0F14] shadow-none">
+			<Card className="w-full hover:bg-surface-elevated transition-colors border border-border bg-surface shadow-none">
 				<CardBody className="p-3 sm:p-4">
 					<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
 						{/* biome-ignore lint/a11y/useSemanticElements: Using div with role="button" for layout flexibility */}
@@ -88,10 +88,10 @@ export default function VideoCard({
 								}
 							}}
 						>
-							<h3 className="font-semibold text-sm sm:text-base line-clamp-2 sm:line-clamp-1 mb-1 text-[#F2F2F7]">
+							<h3 className="font-semibold text-sm sm:text-base line-clamp-2 sm:line-clamp-1 mb-1 text-text-primary">
 								{video.title}
 							</h3>
-							<div className="flex items-center flex-wrap gap-2 sm:gap-3 text-xs sm:text-sm text-[#6B6B7E]">
+							<div className="flex items-center flex-wrap gap-2 sm:gap-3 text-xs sm:text-sm text-text-secondary">
 								<span className="truncate">{video.channel_title}</span>
 								{video.duration_seconds && (
 									<>
