@@ -10,9 +10,9 @@ import SkipNextIcon from "@mui/icons-material/SkipNext";
 import SkipPreviousIcon from "@mui/icons-material/SkipPrevious";
 import { useEffect, useRef, useState } from "react";
 import { useMiniPlayerStore } from "@/store/miniPlayer";
-import VidstackYouTubeSurface, {
-	type VidstackYouTubeSurfaceHandle,
-} from "./VidstackYouTubeSurface";
+import YouTubePlayerSurface, {
+	type YouTubePlayerSurfaceHandle,
+} from "./YouTubePlayerSurface";
 
 const DESKTOP_MARGIN = 16;
 const DESKTOP_MIN_WIDTH = 320;
@@ -41,7 +41,7 @@ export default function GlobalMiniPlayer() {
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [playerError, setPlayerError] = useState(false);
 	const [desktopSize, setDesktopSize] = useState(DEFAULT_DESKTOP_SIZE);
-	const surfaceRef = useRef<VidstackYouTubeSurfaceHandle | null>(null);
+	const surfaceRef = useRef<YouTubePlayerSurfaceHandle | null>(null);
 
 	const isDraggingRef = useRef(false);
 	const isResizingRef = useRef(false);
@@ -352,7 +352,7 @@ export default function GlobalMiniPlayer() {
 					Unable to load YouTube player right now.
 				</div>
 			) : (
-				<VidstackYouTubeSurface
+				<YouTubePlayerSurface
 					ref={surfaceRef}
 					youtubeId={currentVideo.youtubeId}
 					className={`rounded-md overflow-hidden bg-black ${isMobile ? "w-full aspect-video" : "w-full h-full"}`}

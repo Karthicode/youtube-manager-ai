@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @config "../tailwind.config.ts";
-@import "@vidstack/react/player/styles/base.css";
 
 /* Light mode colors */
 :root {
