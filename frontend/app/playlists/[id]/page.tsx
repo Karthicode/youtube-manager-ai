@@ -14,7 +14,7 @@ import {
 } from "@heroui/react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { playlistsApi, videosApi } from "@/api/api";
 import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
@@ -29,6 +29,9 @@ export default function PlaylistDetailPage() {
 	const { isReady, isAuthenticated } = useAuthGuard();
 
 	const [playlist, setPlaylist] = useState<Playlist | null>(null);
+	// Ref so fetchPlaylistDetails can read playlist in the append-case without
+	// adding it to useCallback deps (which would cause an infinite re-fetch loop).
+	const playlistRef = useRef<Playlist | null>(null);
 	const [videos, setVideos] = useState<Video[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [loadingMore, setLoadingMore] = useState(false);
@@ -57,9 +60,10 @@ export default function PlaylistDetailPage() {
 			}
 
 			try {
-				// Fetch playlist info (only on initial load)
+				// Fetch playlist info only on initial load; use ref for append case
+				// to avoid adding `playlist` state to deps (causes infinite loop).
 				const playlistPromise = append
-					? Promise.resolve({ data: playlist })
+					? Promise.resolve({ data: playlistRef.current })
 					: playlistsApi.getPlaylist(playlistId);
 
 				const videosPromise = playlistsApi.getPlaylistVideos(playlistId, {
@@ -79,6 +83,7 @@ export default function PlaylistDetailPage() {
 				]);
 
 				if (!append) {
+					playlistRef.current = playlistRes.data;
 					setPlaylist(playlistRes.data);
 				}
 
@@ -100,7 +105,7 @@ export default function PlaylistDetailPage() {
 				setLoadingMore(false);
 			}
 		},
-		[playlistId, selectedCategories, selectedTags, searchQuery, playlist],
+		[playlistId, selectedCategories, selectedTags, searchQuery],
 	);
 
 	useEffect(() => {
