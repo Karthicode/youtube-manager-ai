@@ -138,13 +138,16 @@ export default function VideoCard({
 										<Chip
 											key={tag.id}
 											size="sm"
-											className="bg-[#1E1E2A] text-[#6B6B7E]"
+											className="bg-surface-elevated text-text-secondary"
 										>
 											{tag.name}
 										</Chip>
 									))}
 									{(video.categories.length > 2 || video.tags.length > 2) && (
-										<Chip size="sm" className="bg-[#1E1E2A] text-[#6B6B7E]">
+										<Chip
+											size="sm"
+											className="bg-surface-elevated text-text-secondary"
+										>
 											+{video.categories.length + video.tags.length - 4}
 										</Chip>
 									)}
@@ -179,10 +182,10 @@ export default function VideoCard({
 	// Grid view
 	return (
 		<Card
-			className={`w-full bg-[#0F0F14] border ${
+			className={`w-full bg-surface border ${
 				isPlaying
 					? "border-[#E63946] ring-1 ring-[#E63946]"
-					: "border-[#1E1E2A] hover:border-[#2A2A38]"
+					: "border-border hover:border-text-secondary"
 			} group overflow-hidden shadow-none transition-colors`}
 		>
 			<CardBody className="p-0">
@@ -281,14 +284,14 @@ export default function VideoCard({
 					}}
 				>
 					<Tooltip content={video.title}>
-						<h3 className="font-semibold text-xs sm:text-sm line-clamp-2 text-[#F2F2F7]">
+						<h3 className="font-semibold text-xs sm:text-sm line-clamp-2 text-text-primary">
 							{video.title}
 						</h3>
 					</Tooltip>
-					<p className="text-xs text-[#6B6B7E] truncate">
+					<p className="text-xs text-text-secondary truncate">
 						{video.channel_title}
 					</p>
-					<div className="flex items-center gap-1 sm:gap-2 text-xs text-[#6B6B7E] flex-wrap font-mono-editorial">
+					<div className="flex items-center gap-1 sm:gap-2 text-xs text-text-secondary flex-wrap font-mono-editorial">
 						{video.view_count && (
 							<span>{formatViews(video.view_count)} views</span>
 						)}
