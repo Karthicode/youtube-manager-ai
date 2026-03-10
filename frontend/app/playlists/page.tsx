@@ -90,7 +90,7 @@ export default function PlaylistsPage() {
 					{/* Header */}
 					<div className="flex justify-between items-center">
 						<div>
-							<h1 className="font-display text-3xl font-bold text-[#F2F2F7] tracking-tight">
+							<h1 className="font-display text-3xl font-bold text-text-primary tracking-tight">
 								Playlists
 							</h1>
 							<p className="text-[#6B6B7E] mt-1 text-sm">
