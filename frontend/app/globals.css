@@ -121,6 +121,8 @@ body {
 /* Font utilities */
 .font-display {
 	font-family: var(--font-syne), system-ui, sans-serif;
+	line-height: 1.2;
+	overflow: visible;
 }
 
 .font-mono-editorial {

@@ -72,7 +72,7 @@ export default function Navbar() {
 			<NavbarBrand>
 				<Link
 					href="/dashboard"
-					className="font-display font-bold text-xl tracking-tight text-[#F2F2F7] flex items-center gap-2"
+					className="font-display font-bold text-xl tracking-tight text-[#F2F2F7] flex items-center gap-2 py-1"
 				>
 					<SmartDisplayIcon
 						sx={{ fontSize: { xs: 24, sm: 28 }, color: "#E63946" }}

@@ -326,7 +326,7 @@ export default function ChatPage() {
 			<Navbar />
 			<div className="flex flex-1 overflow-hidden max-w-7xl mx-auto w-full">
 				{/* Sidebar */}
-				<div className="w-64 border-r border-[#1E1E2A] bg-surface flex flex-col p-4 gap-2 hidden md:flex">
+				<div className="w-64 border-r border-border bg-surface flex flex-col p-4 gap-2 hidden md:flex">
 					<Button
 						color="primary"
 						variant="flat"
@@ -342,8 +342,8 @@ export default function ChatPage() {
 								key={session.session_id}
 								className={`flex items-center justify-between p-2 rounded-lg cursor-pointer text-sm transition-colors ${
 									activeSessionId === session.session_id
-										? "bg-[#E63946]/8 border-l-2 border-[#E63946] text-[#F2F2F7]"
-										: "hover:bg-[#16161E] text-[#6B6B7E]"
+										? "bg-[#E63946]/8 border-l-2 border-[#E63946] text-text-primary"
+										: "hover:bg-surface-elevated text-text-secondary"
 								}`}
 							>
 								{/* biome-ignore lint/a11y/useSemanticElements: Using div for click handler */}
@@ -390,10 +390,10 @@ export default function ChatPage() {
 									sx={{ fontSize: 48 }}
 								/>
 								<div className="text-center space-y-2">
-									<h2 className="font-display text-xl font-semibold text-[#F2F2F7]">
+									<h2 className="font-display text-xl font-semibold text-text-primary">
 										Video Library Assistant
 									</h2>
-									<p className="text-[#6B6B7E] text-sm max-w-md">
+									<p className="text-text-secondary text-sm max-w-md">
 										Ask questions about your video library, search for videos,
 										create playlists, or explore your viewing trends.
 									</p>
@@ -403,7 +403,7 @@ export default function ChatPage() {
 										<button
 											key={prompt}
 											type="button"
-											className="px-3 py-1.5 text-sm bg-[#16161E] border border-[#1E1E2A] hover:border-[#E63946] text-[#6B6B7E] hover:text-[#F2F2F7] rounded-full transition-all cursor-pointer"
+											className="px-3 py-1.5 text-sm bg-surface-elevated border border-border hover:border-[#E63946] text-text-secondary hover:text-text-primary rounded-full transition-all cursor-pointer"
 											onClick={() => sendMessage(prompt)}
 										>
 											{prompt}
@@ -457,9 +457,9 @@ export default function ChatPage() {
 
 									{/* Assistant Message */}
 									{msg.role === "assistant" ? (
-										<Card className="border border-[#1E1E2A] shadow-none">
+										<Card className="border border-border shadow-none">
 											<CardBody className="p-4">
-												<div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-[#F2F2F7]">
+												<div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-text-primary">
 													{msg.content}
 												</div>
 											</CardBody>
@@ -490,7 +490,7 @@ export default function ChatPage() {
 									) : (
 										<>
 											<Spinner size="sm" color="secondary" />
-											<span className="text-sm text-[#6B6B7E]">
+											<span className="text-sm text-text-secondary">
 												Thinking...
 											</span>
 										</>
@@ -503,7 +503,7 @@ export default function ChatPage() {
 					</ScrollShadow>
 
 					{/* Input area */}
-					<div className="border-t border-[#1E1E2A] bg-[#0F0F14] p-4">
+					<div className="border-t border-border bg-surface p-4">
 						<div className="flex gap-2 max-w-3xl mx-auto">
 							<Input
 								placeholder="Ask about your video library..."
@@ -516,7 +516,7 @@ export default function ChatPage() {
 								isDisabled={loading}
 								classNames={{
 									inputWrapper:
-										"border-[#1E1E2A] hover:border-[#2A2A38] focus-within:!border-[#E63946]",
+										"border-border hover:border-[#2A2A38] focus-within:!border-[#E63946]",
 								}}
 							/>
 							<Button
