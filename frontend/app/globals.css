@@ -2,37 +2,149 @@
 @config "../tailwind.config.ts";
 @import "@vidstack/react/player/styles/base.css";
 
-/* Light mode colors - WCAG AA compliant contrast ratios */
+/* Light mode colors */
 :root {
-	--background: #ffffff;
-	--foreground: #1a1a1a; /* Darker for better contrast (AAA) */
-	--muted: #6b7280; /* Gray-500 for secondary text */
-	--border: #e5e7eb; /* Gray-200 for borders */
+	--background: #fafaf8;
+	--foreground: #09090b;
+	--surface: #ffffff;
+	--surface-elevated: #f4f4f5;
+	--border: #e4e4e7;
+	--text-primary: #09090b;
+	--text-secondary: #71717a;
+	--accent-red: #e63946;
+	--accent-blue: #3b82f6;
+	--accent-cyan: #06b6d4;
+	--accent-amber: #f59e0b;
+	--success: #10b981;
 
 	/* Font families */
-	--font-jost: "Jost", sans-serif;
+	--font-syne: "Syne", system-ui, sans-serif;
+	--font-dm-sans: "DM Sans", system-ui, sans-serif;
+	--font-dm-mono: "DM Mono", ui-monospace, monospace;
 }
 
-/* Dark mode colors - WCAG AA compliant contrast ratios */
+/* Dark mode colors */
 .dark {
-	--background: #0a0a0a;
-	--foreground: #f5f5f5; /* Lighter for better contrast (AAA) */
-	--muted: #9ca3af; /* Gray-400 for secondary text */
-	--border: #374151; /* Gray-700 for borders */
+	--background: #08080c;
+	--foreground: #f2f2f7;
+	--surface: #0f0f14;
+	--surface-elevated: #16161e;
+	--border: #1e1e2a;
+	--text-primary: #f2f2f7;
+	--text-secondary: #6b6b7e;
+	--accent-red: #e63946;
+	--accent-blue: #3b82f6;
+	--accent-cyan: #06b6d4;
+	--accent-amber: #f59e0b;
+	--success: #10b981;
 }
 
 body {
 	color: var(--foreground);
 	background: var(--background);
 	font-family:
-		var(--font-jost), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+		var(--font-dm-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
 		sans-serif;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
 
-/* Improve focus visibility for accessibility */
+/* Noise overlay */
+.noise-overlay {
+	position: relative;
+}
+.noise-overlay::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+	opacity: 0.025;
+	z-index: 0;
+}
+
+/* Dot grid pattern */
+.dot-grid {
+	background-image: radial-gradient(
+		circle,
+		rgba(255, 255, 255, 0.08) 1px,
+		transparent 1px
+	);
+	background-size: 24px 24px;
+}
+
+.dark .dot-grid {
+	background-image: radial-gradient(
+		circle,
+		rgba(255, 255, 255, 0.06) 1px,
+		transparent 1px
+	);
+}
+
+/* Active nav link red underline */
+.nav-link-active {
+	position: relative;
+}
+.nav-link-active::after {
+	content: "";
+	position: absolute;
+	bottom: -4px;
+	left: 0;
+	right: 0;
+	height: 2px;
+	background-color: #e63946;
+	border-radius: 1px;
+}
+
+/* Glass utilities */
+.glass {
+	background: color-mix(in srgb, var(--surface) 80%, transparent);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+}
+
+.glass-dark {
+	background: color-mix(in srgb, #08080c 85%, transparent);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+}
+
+/* Editorial stat numbers */
+.stat-number {
+	font-family: var(--font-dm-mono), ui-monospace, monospace;
+	font-size: clamp(3rem, 6vw, 4.5rem);
+	font-weight: 500;
+	letter-spacing: -0.03em;
+	line-height: 1;
+}
+
+/* Font utilities */
+.font-display {
+	font-family: var(--font-syne), system-ui, sans-serif;
+}
+
+.font-mono-editorial {
+	font-family: var(--font-dm-mono), ui-monospace, monospace;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	background: var(--border);
+	border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: var(--text-secondary);
+}
+
+/* Focus styles */
 *:focus-visible {
-	outline: 2px solid hsl(var(--nextui-primary));
+	outline: 2px solid var(--accent-red);
 	outline-offset: 2px;
 }

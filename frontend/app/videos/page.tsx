@@ -12,17 +12,12 @@ import {
 	SelectItem,
 	Spinner,
 	Switch,
-	Tab,
-	Tabs,
 	Tooltip,
 } from "@heroui/react";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
-import FavoriteIcon from "@mui/icons-material/Favorite";
 import GridViewIcon from "@mui/icons-material/GridView";
 import SearchIcon from "@mui/icons-material/Search";
-import SyncIcon from "@mui/icons-material/Sync";
 import ViewListIcon from "@mui/icons-material/ViewList";
-import WatchLaterIcon from "@mui/icons-material/WatchLater";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { categoriesApi, playlistsApi, videosApi } from "@/api/api";
@@ -63,10 +58,6 @@ function VideosPageContent() {
 	const [loading, setLoading] = useState(true);
 	const [loadingMore, setLoadingMore] = useState(false);
 	const [categorizingId, setCategorizingId] = useState<number | null>(null);
-
-	// Tab state - "liked" or "watch_later"
-	const [activeTab, setActiveTab] = useState<"liked" | "watch_later">("liked");
-	const [syncingWatchLater, setSyncingWatchLater] = useState(false);
 
 	// Filter states
 	const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
@@ -295,11 +286,7 @@ function VideosPageContent() {
 					params.is_categorized = showOnlyCategorized;
 				}
 
-				// Use the correct API based on active tab
-				const response =
-					activeTab === "liked"
-						? await videosApi.getLikedVideos(params)
-						: await videosApi.getWatchLaterVideos(params);
+				const response = await videosApi.getLikedVideos(params);
 				const data: CursorPaginatedVideosResponse = response.data;
 
 				if (append) {
@@ -326,7 +313,6 @@ function VideosPageContent() {
 			selectedTags,
 			debouncedSearchQuery,
 			showOnlyCategorized,
-			activeTab,
 		],
 	);
 
@@ -388,29 +374,6 @@ function VideosPageContent() {
 		setSelectedTags([]);
 		setSearchQuery("");
 		setShowOnlyCategorized(null);
-	};
-
-	const handleTabChange = (key: string | number) => {
-		const newTab = key as "liked" | "watch_later";
-		if (newTab !== activeTab) {
-			setActiveTab(newTab);
-			// Reset pagination state when switching tabs
-			setNextCursor(null);
-			setHasMore(false);
-			setVideos([]);
-		}
-	};
-
-	const handleSyncWatchLater = async () => {
-		setSyncingWatchLater(true);
-		try {
-			await videosApi.syncWatchLaterVideos({ max_results: 20 });
-			await fetchVideos();
-		} catch {
-			alert("Failed to sync Watch Later videos. Please try again.");
-		} finally {
-			setSyncingWatchLater(false);
-		}
 	};
 
 	const handleCategorizationFilterChange = (value: boolean | null) => {
@@ -515,7 +478,7 @@ function VideosPageContent() {
 				queueIndex,
 				{
 					type: "videos",
-					sourceTab: activeTab,
+					sourceTab: "liked",
 					semanticSearch: semanticSearchEnabled,
 					query:
 						semanticSearchEnabled && semanticQuery.trim()
@@ -524,13 +487,7 @@ function VideosPageContent() {
 				},
 			);
 		},
-		[
-			activePlaybackQueue,
-			activeTab,
-			openPlayer,
-			semanticQuery,
-			semanticSearchEnabled,
-		],
+		[activePlaybackQueue, openPlayer, semanticQuery, semanticSearchEnabled],
 	);
 
 	// Check if any filters are active
@@ -554,60 +511,13 @@ function VideosPageContent() {
 			<Navbar />
 			<div className="container mx-auto px-4 py-8 max-w-7xl">
 				<div className="space-y-6">
-					{/* Header with Tabs */}
+					{/* Header */}
 					<div className="flex flex-col gap-4">
 						<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 							<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
 								Videos
 							</h1>
-							{/* Sync Watch Later Button - Only show when Watch Later tab is active */}
-							{activeTab === "watch_later" && (
-								<Button
-									color="primary"
-									variant="flat"
-									onPress={handleSyncWatchLater}
-									isLoading={syncingWatchLater}
-									startContent={
-										!syncingWatchLater && <SyncIcon fontSize="small" />
-									}
-								>
-									Sync Watch Later
-								</Button>
-							)}
 						</div>
-
-						{/* Tabs */}
-						<Tabs
-							selectedKey={activeTab}
-							onSelectionChange={handleTabChange}
-							aria-label="Video source tabs"
-							color="primary"
-							variant="underlined"
-							classNames={{
-								tabList: "gap-6",
-								cursor: "w-full",
-								tab: "max-w-fit px-0 h-12",
-							}}
-						>
-							<Tab
-								key="liked"
-								title={
-									<div className="flex items-center gap-2">
-										<FavoriteIcon fontSize="small" />
-										<span>Liked Videos</span>
-									</div>
-								}
-							/>
-							<Tab
-								key="watch_later"
-								title={
-									<div className="flex items-center gap-2">
-										<WatchLaterIcon fontSize="small" />
-										<span>Watch Later</span>
-									</div>
-								}
-							/>
-						</Tabs>
 
 						<p className="text-gray-600 dark:text-gray-400">
 							{semanticSearchEnabled ? (
@@ -621,10 +531,7 @@ function VideosPageContent() {
 							) : (
 								totalVideos > 0 && (
 									<>
-										Showing {videos.length} of {totalVideos}{" "}
-										{activeTab === "liked"
-											? "liked videos"
-											: "Watch Later videos"}
+										Showing {videos.length} of {totalVideos} liked videos
 									</>
 								)
 							)}

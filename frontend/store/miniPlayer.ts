@@ -21,7 +21,7 @@ export interface MiniPlayerContext {
 	type: "playlist" | "videos";
 	playlistId?: number;
 	playlistTitle?: string | null;
-	sourceTab?: "liked" | "watch_later";
+	sourceTab?: "liked";
 	semanticSearch?: boolean;
 	query?: string | null;
 }

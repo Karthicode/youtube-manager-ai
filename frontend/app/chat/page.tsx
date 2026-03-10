@@ -14,6 +14,7 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import BuildIcon from "@mui/icons-material/Build";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SendIcon from "@mui/icons-material/Send";
+import { motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chatApi } from "@/api/api";
 import Navbar from "@/components/Navbar";
@@ -314,18 +315,18 @@ export default function ChatPage() {
 
 	if (!isReady || !isAuthenticated) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-				<Spinner size="lg" />
+			<div className="min-h-screen bg-[#08080C] flex items-center justify-center">
+				<Spinner size="lg" color="primary" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+		<div className="min-h-screen bg-[#08080C] flex flex-col">
 			<Navbar />
 			<div className="flex flex-1 overflow-hidden max-w-7xl mx-auto w-full">
 				{/* Sidebar */}
-				<div className="w-64 border-r border-gray-200 dark:border-gray-700 flex flex-col p-4 gap-2 hidden md:flex">
+				<div className="w-64 border-r border-[#1E1E2A] bg-[#0F0F14] flex flex-col p-4 gap-2 hidden md:flex">
 					<Button
 						color="primary"
 						variant="flat"
@@ -339,10 +340,10 @@ export default function ChatPage() {
 						{sessions.map((session) => (
 							<div
 								key={session.session_id}
-								className={`flex items-center justify-between p-2 rounded-lg cursor-pointer text-sm ${
+								className={`flex items-center justify-between p-2 rounded-lg cursor-pointer text-sm transition-colors ${
 									activeSessionId === session.session_id
-										? "bg-primary/10 text-primary"
-										: "hover:bg-gray-100 dark:hover:bg-gray-800"
+										? "bg-[#E63946]/8 border-l-2 border-[#E63946] text-[#F2F2F7]"
+										: "hover:bg-[#16161E] text-[#6B6B7E]"
 								}`}
 							>
 								{/* biome-ignore lint/a11y/useSemanticElements: Using div for click handler */}
@@ -378,52 +379,55 @@ export default function ChatPage() {
 					<ScrollShadow className="flex-1 overflow-y-auto p-4 space-y-4">
 						{loadingSessionMessages && (
 							<div className="flex justify-center py-8">
-								<Spinner />
+								<Spinner color="primary" />
 							</div>
 						)}
 
 						{messages.length === 0 && !loadingSessionMessages && (
-							<div className="flex flex-col items-center justify-center h-full gap-6">
+							<div className="flex flex-col items-center justify-center h-full gap-6 dot-grid rounded-xl py-16">
 								<AutoAwesomeIcon
-									className="text-primary"
+									className="text-[#E63946]"
 									sx={{ fontSize: 48 }}
 								/>
 								<div className="text-center space-y-2">
-									<h2 className="text-xl font-semibold">
+									<h2 className="font-display text-xl font-semibold text-[#F2F2F7]">
 										Video Library Assistant
 									</h2>
-									<p className="text-gray-500 text-sm max-w-md">
+									<p className="text-[#6B6B7E] text-sm max-w-md">
 										Ask questions about your video library, search for videos,
 										create playlists, or explore your viewing trends.
 									</p>
 								</div>
 								<div className="flex flex-wrap gap-2 justify-center max-w-lg">
 									{SUGGESTED_PROMPTS.map((prompt) => (
-										<Chip
+										<button
 											key={prompt}
-											variant="bordered"
-											className="cursor-pointer hover:bg-primary/10"
+											type="button"
+											className="px-3 py-1.5 text-sm bg-[#16161E] border border-[#1E1E2A] hover:border-[#E63946] text-[#6B6B7E] hover:text-[#F2F2F7] rounded-full transition-all cursor-pointer"
 											onClick={() => sendMessage(prompt)}
 										>
 											{prompt}
-										</Chip>
+										</button>
 									))}
 								</div>
 							</div>
 						)}
 
 						{messages.map((msg, index) => (
-							<div
+							<motion.div
 								key={`msg-${
 									// biome-ignore lint/suspicious/noArrayIndexKey: Messages don't have stable IDs
 									index
 								}`}
+								initial={{ opacity: 0, y: 8 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ duration: 0.25, ease: "easeOut" }}
 								className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
 							>
 								<div
 									className={`max-w-[80%] ${
 										msg.role === "user"
-											? "bg-primary text-white rounded-2xl rounded-br-md px-4 py-2"
+											? "bg-[#E63946] text-white rounded-2xl rounded-br-sm px-4 py-2"
 											: "space-y-3"
 									}`}
 								>
@@ -434,7 +438,7 @@ export default function ChatPage() {
 											<div className="flex items-center gap-1.5 flex-wrap px-1">
 												<BuildIcon
 													sx={{ fontSize: 13 }}
-													className="text-secondary-400"
+													className="text-[#06B6D4]"
 												/>
 												{msg.toolCalls.map((tc, i) => (
 													<Chip
@@ -453,9 +457,9 @@ export default function ChatPage() {
 
 									{/* Assistant Message */}
 									{msg.role === "assistant" ? (
-										<Card className="shadow-sm">
+										<Card className="border border-[#1E1E2A] shadow-none">
 											<CardBody className="p-4">
-												<div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+												<div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-[#F2F2F7]">
 													{msg.content}
 												</div>
 											</CardBody>
@@ -464,12 +468,12 @@ export default function ChatPage() {
 										<p className="text-sm">{msg.content}</p>
 									)}
 								</div>
-							</div>
+							</motion.div>
 						))}
 
 						{loading && (
 							<div className="flex justify-start">
-								<div className="flex items-center gap-1.5 px-1 py-1 text-secondary-400">
+								<div className="flex items-center gap-1.5 px-1 py-1 text-[#06B6D4]">
 									{activeTool ? (
 										<>
 											<BuildIcon sx={{ fontSize: 13 }} />
@@ -486,7 +490,9 @@ export default function ChatPage() {
 									) : (
 										<>
 											<Spinner size="sm" color="secondary" />
-											<span className="text-sm text-gray-400">Thinking...</span>
+											<span className="text-sm text-[#6B6B7E]">
+												Thinking...
+											</span>
 										</>
 									)}
 								</div>
@@ -497,7 +503,7 @@ export default function ChatPage() {
 					</ScrollShadow>
 
 					{/* Input area */}
-					<div className="border-t border-gray-200 dark:border-gray-700 p-4">
+					<div className="border-t border-[#1E1E2A] bg-[#0F0F14] p-4">
 						<div className="flex gap-2 max-w-3xl mx-auto">
 							<Input
 								placeholder="Ask about your video library..."
@@ -508,6 +514,10 @@ export default function ChatPage() {
 								size="lg"
 								className="flex-1"
 								isDisabled={loading}
+								classNames={{
+									inputWrapper:
+										"border-[#1E1E2A] hover:border-[#2A2A38] focus-within:!border-[#E63946]",
+								}}
 							/>
 							<Button
 								isIconOnly

@@ -69,10 +69,10 @@ export default function VideoCard({
 		openYouTube();
 	};
 
-	// List view - minimal without image
+	// List view
 	if (viewMode === "list") {
 		return (
-			<Card className="w-full hover:shadow-lg transition-shadow">
+			<Card className="w-full hover:bg-[#16161E] transition-colors border border-[#1E1E2A] bg-[#0F0F14] shadow-none">
 				<CardBody className="p-3 sm:p-4">
 					<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
 						{/* biome-ignore lint/a11y/useSemanticElements: Using div with role="button" for layout flexibility */}
@@ -88,21 +88,25 @@ export default function VideoCard({
 								}
 							}}
 						>
-							<h3 className="font-semibold text-sm sm:text-base line-clamp-2 sm:line-clamp-1 mb-1">
+							<h3 className="font-semibold text-sm sm:text-base line-clamp-2 sm:line-clamp-1 mb-1 text-[#F2F2F7]">
 								{video.title}
 							</h3>
-							<div className="flex items-center flex-wrap gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500">
+							<div className="flex items-center flex-wrap gap-2 sm:gap-3 text-xs sm:text-sm text-[#6B6B7E]">
 								<span className="truncate">{video.channel_title}</span>
 								{video.duration_seconds && (
 									<>
 										<span>•</span>
-										<span>{formatDuration(video.duration_seconds)}</span>
+										<span className="font-mono-editorial">
+											{formatDuration(video.duration_seconds)}
+										</span>
 									</>
 								)}
 								{video.view_count && (
 									<>
 										<span>•</span>
-										<span>{formatViews(video.view_count)} views</span>
+										<span className="font-mono-editorial">
+											{formatViews(video.view_count)} views
+										</span>
 									</>
 								)}
 								{video.published_at && (
@@ -125,26 +129,29 @@ export default function VideoCard({
 										<Chip
 											key={category.id}
 											size="sm"
-											color="primary"
-											variant="flat"
+											className="bg-[#E63946]/10 text-[#E63946]"
 										>
 											{category.name}
 										</Chip>
 									))}
 									{video.tags.slice(0, 2).map((tag) => (
-										<Chip key={tag.id} size="sm" variant="bordered">
+										<Chip
+											key={tag.id}
+											size="sm"
+											className="bg-[#1E1E2A] text-[#6B6B7E]"
+										>
 											{tag.name}
 										</Chip>
 									))}
 									{(video.categories.length > 2 || video.tags.length > 2) && (
-										<Chip size="sm" variant="light">
+										<Chip size="sm" className="bg-[#1E1E2A] text-[#6B6B7E]">
 											+{video.categories.length + video.tags.length - 4}
 										</Chip>
 									)}
 								</div>
 							) : (
 								<>
-									<Chip size="sm" color="warning" variant="flat">
+									<Chip size="sm" className="bg-[#F59E0B]/10 text-[#F59E0B]">
 										Not categorized
 									</Chip>
 									{onCategorize && (
@@ -169,10 +176,14 @@ export default function VideoCard({
 		);
 	}
 
-	// Grid view - original with image (now supports embedded YouTube)
+	// Grid view
 	return (
 		<Card
-			className={`w-full hover:scale-102 sm:hover:scale-105 transition-transform ${isPlaying ? "ring-2 ring-primary" : ""}`}
+			className={`w-full bg-[#0F0F14] border ${
+				isPlaying
+					? "border-[#E63946] ring-1 ring-[#E63946]"
+					: "border-[#1E1E2A] hover:border-[#2A2A38]"
+			} group overflow-hidden shadow-none transition-colors`}
 		>
 			<CardBody className="p-0">
 				{hasMiniPlayerAction ? (
@@ -180,7 +191,7 @@ export default function VideoCard({
 					<div
 						role="button"
 						tabIndex={0}
-						className="relative cursor-pointer"
+						className="relative cursor-pointer overflow-hidden"
 						onClick={handlePrimaryAction}
 						onKeyDown={(e) => {
 							if (e.key === "Enter" || e.key === " ") {
@@ -190,42 +201,33 @@ export default function VideoCard({
 						}}
 					>
 						<Image
-							shadow="sm"
+							shadow="none"
 							radius="none"
 							width="100%"
 							alt={video.title}
-							className="w-full object-cover h-[160px] sm:h-[200px]"
+							className="w-full object-cover h-[160px] sm:h-[200px] group-hover:scale-105 transition-transform duration-300"
 							src={video.thumbnail_url || "/placeholder-thumbnail.jpg"}
 						/>
-						<button
-							type="button"
-							className="absolute top-2 left-2 z-10 bg-black/80 text-white text-xs px-2 py-1 rounded-md hover:bg-black"
-							onClick={(e) => {
-								e.stopPropagation();
-								handlePrimaryAction();
-							}}
-						>
-							Play in Mini Player
-						</button>
-						<div className="absolute inset-0 flex items-center justify-center bg-black/25">
-							<div className="w-14 h-14 rounded-full bg-black/70 text-white flex items-center justify-center">
-								<PlayArrowIcon sx={{ fontSize: 36 }} />
+						{/* Play overlay */}
+						<div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+							<div className="w-12 h-12 rounded-full bg-[#E63946] flex items-center justify-center shadow-lg">
+								<PlayArrowIcon sx={{ fontSize: 28, color: "white" }} />
 							</div>
 						</div>
 						{video.duration_seconds && (
-							<div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+							<div className="absolute bottom-2 right-2 glass-dark text-[#F2F2F7] font-mono-editorial text-xs px-2 py-1 rounded-md">
 								{formatDuration(video.duration_seconds)}
 							</div>
 						)}
 					</div>
 				) : video.youtube_id ? (
-					// Embedded player — keep interactions inside the player (no outer click)
-					<div className="relative">
+					// Embedded player
+					<div className="relative overflow-hidden">
 						<div className="w-full object-cover h-[160px] sm:h-[200px]">
 							<YouTubeEmbed videoid={video.youtube_id} height={200} />
 						</div>
 						{video.duration_seconds && (
-							<div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+							<div className="absolute bottom-2 right-2 glass-dark text-[#F2F2F7] font-mono-editorial text-xs px-2 py-1 rounded-md">
 								{formatDuration(video.duration_seconds)}
 							</div>
 						)}
@@ -235,7 +237,7 @@ export default function VideoCard({
 					<div
 						role="button"
 						tabIndex={0}
-						className="relative cursor-pointer"
+						className="relative cursor-pointer overflow-hidden"
 						onClick={openYouTube}
 						onKeyDown={(e) => {
 							if (e.key === "Enter" || e.key === " ") {
@@ -245,15 +247,21 @@ export default function VideoCard({
 						}}
 					>
 						<Image
-							shadow="sm"
+							shadow="none"
 							radius="none"
 							width="100%"
 							alt={video.title}
-							className="w-full object-cover h-[160px] sm:h-[200px]"
+							className="w-full object-cover h-[160px] sm:h-[200px] group-hover:scale-105 transition-transform duration-300"
 							src={video.thumbnail_url || "/placeholder-thumbnail.jpg"}
 						/>
+						{/* Play overlay */}
+						<div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+							<div className="w-12 h-12 rounded-full bg-[#E63946] flex items-center justify-center shadow-lg">
+								<PlayArrowIcon sx={{ fontSize: 28, color: "white" }} />
+							</div>
+						</div>
 						{video.duration_seconds && (
-							<div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+							<div className="absolute bottom-2 right-2 glass-dark text-[#F2F2F7] font-mono-editorial text-xs px-2 py-1 rounded-md">
 								{formatDuration(video.duration_seconds)}
 							</div>
 						)}
@@ -273,14 +281,14 @@ export default function VideoCard({
 					}}
 				>
 					<Tooltip content={video.title}>
-						<h3 className="font-semibold text-xs sm:text-sm line-clamp-2">
+						<h3 className="font-semibold text-xs sm:text-sm line-clamp-2 text-[#F2F2F7]">
 							{video.title}
 						</h3>
 					</Tooltip>
-					<p className="text-xs text-gray-500 truncate">
+					<p className="text-xs text-[#6B6B7E] truncate">
 						{video.channel_title}
 					</p>
-					<div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-400 flex-wrap">
+					<div className="flex items-center gap-1 sm:gap-2 text-xs text-[#6B6B7E] flex-wrap font-mono-editorial">
 						{video.view_count && (
 							<span>{formatViews(video.view_count)} views</span>
 						)}
@@ -297,28 +305,36 @@ export default function VideoCard({
 					</div>
 				</div>
 			</CardBody>
-			<CardFooter className="flex-col items-start gap-2 pt-0">
+			<CardFooter className="flex-col items-start gap-2 pt-0 px-2 sm:px-3 pb-2 sm:pb-3">
 				{video.is_categorized ? (
 					<div className="flex flex-wrap gap-1 w-full">
 						{video.categories.slice(0, 3).map((category) => (
-							<Chip key={category.id} size="sm" color="primary" variant="flat">
+							<Chip
+								key={category.id}
+								size="sm"
+								className="bg-[#E63946]/10 text-[#E63946]"
+							>
 								{category.name}
 							</Chip>
 						))}
 						{video.tags.slice(0, 2).map((tag) => (
-							<Chip key={tag.id} size="sm" variant="bordered">
+							<Chip
+								key={tag.id}
+								size="sm"
+								className="bg-[#1E1E2A] text-[#6B6B7E]"
+							>
 								{tag.name}
 							</Chip>
 						))}
 						{(video.categories.length > 3 || video.tags.length > 2) && (
-							<Chip size="sm" variant="light">
+							<Chip size="sm" className="bg-[#1E1E2A] text-[#6B6B7E]">
 								+{video.categories.length + video.tags.length - 5} more
 							</Chip>
 						)}
 					</div>
 				) : (
 					<div className="flex items-center justify-between w-full">
-						<Chip size="sm" color="warning" variant="flat">
+						<Chip size="sm" className="bg-[#F59E0B]/10 text-[#F59E0B]">
 							Not categorized
 						</Chip>
 						{onCategorize && (

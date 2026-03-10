@@ -1,13 +1,26 @@
 import type { Metadata } from "next";
-import { Jost } from "next/font/google";
+import { DM_Mono, DM_Sans, Syne } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const jost = Jost({
+const syne = Syne({
 	subsets: ["latin"],
-	weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-	style: ["normal", "italic"],
-	variable: "--font-jost",
+	weight: "variable",
+	variable: "--font-syne",
+	display: "swap",
+});
+
+const dmSans = DM_Sans({
+	subsets: ["latin"],
+	weight: "variable",
+	variable: "--font-dm-sans",
+	display: "swap",
+});
+
+const dmMono = DM_Mono({
+	subsets: ["latin"],
+	weight: ["300", "400", "500"],
+	variable: "--font-dm-mono",
 	display: "swap",
 });
 
@@ -31,7 +44,9 @@ export default function RootLayout({
 }>) {
 	return (
 		<html lang="en" suppressHydrationWarning>
-			<body className={jost.className}>
+			<body
+				className={`${syne.variable} ${dmSans.variable} ${dmMono.variable}`}
+			>
 				<Providers>{children}</Providers>
 			</body>
 		</html>

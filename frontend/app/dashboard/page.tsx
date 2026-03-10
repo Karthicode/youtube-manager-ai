@@ -18,8 +18,8 @@ import {
 	ModalHeader,
 	Spinner,
 } from "@heroui/react";
-import WatchLaterIcon from "@mui/icons-material/WatchLater";
 import { formatDistanceToNow } from "date-fns";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -29,6 +29,24 @@ import Navbar from "@/components/Navbar";
 import { useAuthGuard } from "@/hooks";
 import type { VideoStats } from "@/types";
 
+const containerVariants = {
+	hidden: {},
+	show: {
+		transition: {
+			staggerChildren: 0.08,
+		},
+	},
+};
+
+const itemVariants = {
+	hidden: { opacity: 0, y: 16 },
+	show: {
+		opacity: 1,
+		y: 0,
+		transition: { duration: 0.4, ease: "easeOut" as const },
+	},
+};
+
 export default function Dashboard() {
 	const router = useRouter();
 	const { isReady, isAuthenticated, user } = useAuthGuard();
@@ -36,7 +54,6 @@ export default function Dashboard() {
 	const [loading, setLoading] = useState(true);
 	const [syncing, setSyncing] = useState(false);
 	const [batchSyncing, setBatchSyncing] = useState(false);
-	const [syncingWatchLater, setSyncingWatchLater] = useState(false);
 	const [batchCategorizing, setBatchCategorizing] = useState(false);
 	const [categorizationJobId, setCategorizationJobId] = useState<string | null>(
 		null,
@@ -91,18 +108,6 @@ export default function Dashboard() {
 		}
 	};
 
-	const handleSyncWatchLater = async () => {
-		setSyncingWatchLater(true);
-		try {
-			await videosApi.syncWatchLaterVideos({ max_results: 20 });
-			await fetchStats();
-		} catch {
-			alert("Failed to sync Watch Later videos. Please try again.");
-		} finally {
-			setSyncingWatchLater(false);
-		}
-	};
-
 	const handleBatchCategorize = async (maxConcurrent = 10) => {
 		setBatchCategorizing(true);
 		try {
@@ -119,37 +124,45 @@ export default function Dashboard() {
 
 	const handleCategoryClick = async (category: string) => {
 		try {
-			// Navigate to videos page and include the category name in query params
 			router.push(`/videos?category=${encodeURIComponent(category)}`);
 		} catch {
 			alert("Failed to open category. Please try again.");
 		}
 	};
 
+	const getGreeting = () => {
+		const hour = new Date().getHours();
+		if (hour < 12) return "Good morning";
+		if (hour < 17) return "Good afternoon";
+		return "Good evening";
+	};
+
+	const firstName = user?.name?.split(" ")[0] ?? "there";
+
 	// Don't render anything until hydrated and authenticated
 	if (!isReady || !isAuthenticated) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex justify-center items-center">
-				<Spinner size="lg" />
+			<div className="min-h-screen bg-[#08080C] flex justify-center items-center">
+				<Spinner size="lg" color="primary" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen bg-[#08080C]">
 			<Navbar />
 			<div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-7xl">
 				<div className="space-y-4 sm:space-y-6">
-					{/* Header */}
-					<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+					{/* Editorial Header */}
+					<div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
 						<div>
-							<h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
-							<p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
-								Welcome back, {user?.name}!
-							</p>
+							<h1 className="font-display text-2xl sm:text-3xl font-bold text-[#F2F2F7] tracking-tight">
+								{getGreeting()},{" "}
+								<span className="text-[#E63946]">{firstName}.</span>
+							</h1>
 							{user?.last_sync_at && (
-								<p className="text-xs sm:text-sm text-gray-500 dark:text-gray-500 mt-1">
-									Last synced:{" "}
+								<p className="text-xs text-[#6B6B7E] mt-1">
+									Last synced{" "}
 									{formatDistanceToNow(new Date(user.last_sync_at), {
 										addSuffix: true,
 									})}
@@ -160,6 +173,7 @@ export default function Dashboard() {
 							<Button
 								color="secondary"
 								size="md"
+								variant="flat"
 								className="w-full sm:w-auto"
 								onPress={handleBatchSync}
 								isLoading={batchSyncing}
@@ -214,11 +228,11 @@ export default function Dashboard() {
 									<Spinner size="lg" color="primary" />
 									<div className="text-center space-y-2">
 										<p className="text-lg font-semibold">Please wait...</p>
-										<p className="text-sm text-gray-600 dark:text-gray-400">
+										<p className="text-sm text-[#6B6B7E]">
 											Fetching your liked videos from YouTube and categorizing
 											them with AI.
 										</p>
-										<p className="text-sm text-gray-600 dark:text-gray-400">
+										<p className="text-sm text-[#6B6B7E]">
 											This may take a few minutes depending on the number of
 											videos.
 										</p>
@@ -250,15 +264,15 @@ export default function Dashboard() {
 											<p className="text-lg font-semibold">
 												Syncing all your liked videos...
 											</p>
-											<p className="text-sm text-gray-600 dark:text-gray-400">
+											<p className="text-sm text-[#6B6B7E]">
 												This will fetch all your liked videos from YouTube
 												without limit.
 											</p>
-											<p className="text-sm text-gray-600 dark:text-gray-400">
+											<p className="text-sm text-[#6B6B7E]">
 												For 1000+ videos, this may take 5-10 minutes. Please be
 												patient.
 											</p>
-											<p className="text-xs text-gray-500 dark:text-gray-500 mt-4">
+											<p className="text-xs text-[#6B6B7E] mt-4">
 												You can check the browser console for progress updates.
 											</p>
 										</div>
@@ -271,29 +285,27 @@ export default function Dashboard() {
 												{batchSyncResult.message}
 											</p>
 										</div>
-										<div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 space-y-2">
+										<div className="bg-[#16161E] rounded-lg p-4 space-y-2">
 											<div className="flex justify-between">
-												<span className="text-gray-600 dark:text-gray-400">
+												<span className="text-[#6B6B7E]">
 													Total Videos Synced:
 												</span>
-												<span className="font-semibold">
+												<span className="font-semibold font-mono-editorial">
 													{batchSyncResult.total_videos_synced}
 												</span>
 											</div>
 											<div className="flex justify-between">
-												<span className="text-gray-600 dark:text-gray-400">
-													Pages Fetched:
-												</span>
-												<span className="font-semibold">
+												<span className="text-[#6B6B7E]">Pages Fetched:</span>
+												<span className="font-semibold font-mono-editorial">
 													{batchSyncResult.pages_fetched}
 												</span>
 											</div>
 											{(batchSyncResult.videos_categorized ?? 0) > 0 && (
 												<div className="flex justify-between">
-													<span className="text-gray-600 dark:text-gray-400">
+													<span className="text-[#6B6B7E]">
 														Videos Categorized:
 													</span>
-													<span className="font-semibold">
+													<span className="font-semibold font-mono-editorial">
 														{batchSyncResult.videos_categorized}
 													</span>
 												</div>
@@ -317,71 +329,45 @@ export default function Dashboard() {
 
 					{loading ? (
 						<div className="flex justify-center items-center h-64">
-							<Spinner size="lg" />
+							<Spinner size="lg" color="primary" />
 						</div>
 					) : stats ? (
 						<>
 							{/* Stats Overview */}
-							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-								<Card className="bg-linear-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-none shadow-lg">
-									<CardBody className="p-4 sm:p-6">
-										<h3 className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 mb-1 sm:mb-2">
-											Liked Videos
-										</h3>
-										<p className="text-3xl sm:text-4xl lg:text-5xl font-bold text-blue-600 dark:text-blue-400">
-											{stats.liked_videos}
-										</p>
-									</CardBody>
-								</Card>
-
-								<Card className="bg-linear-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-none shadow-lg">
-									<CardBody className="p-4 sm:p-6">
-										<div className="flex items-center gap-2 mb-1 sm:mb-2">
-											<WatchLaterIcon
-												fontSize="small"
-												className="text-purple-600 dark:text-purple-400"
-											/>
-											<h3 className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
-												Watch Later
-											</h3>
-										</div>
-										<p className="text-3xl sm:text-4xl lg:text-5xl font-bold text-purple-600 dark:text-purple-400">
-											{stats.watch_later_videos}
-										</p>
-									</CardBody>
-								</Card>
-
-								<Card className="bg-linear-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-none shadow-lg">
-									<CardBody className="p-4 sm:p-6">
-										<h3 className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 mb-1 sm:mb-2">
-											Categorized
-										</h3>
-										<p className="text-3xl sm:text-4xl lg:text-5xl font-bold text-green-600 dark:text-green-400">
-											{stats.categorized}
-										</p>
-									</CardBody>
-								</Card>
-
-								<Card className="bg-linear-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-none shadow-lg">
-									<CardBody className="p-4 sm:p-6">
-										<h3 className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400 mb-1 sm:mb-2">
-											Uncategorized
-										</h3>
-										<p className="text-3xl sm:text-4xl lg:text-5xl font-bold text-orange-600 dark:text-orange-400">
-											{stats.uncategorized}
-										</p>
-									</CardBody>
-								</Card>
-							</div>
+							<motion.div
+								variants={containerVariants}
+								initial="hidden"
+								animate="show"
+								className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6"
+							>
+								{[
+									{ label: "Liked Videos", value: stats.liked_videos },
+									{ label: "Categorized", value: stats.categorized },
+									{ label: "Uncategorized", value: stats.uncategorized },
+								].map((stat) => (
+									<motion.div key={stat.label} variants={itemVariants}>
+										<Card className="bg-[#0F0F14] border border-[#1E1E2A] shadow-none">
+											<CardBody className="p-4 sm:p-6">
+												<h3 className="text-xs text-[#6B6B7E] uppercase tracking-widest mb-3">
+													{stat.label}
+												</h3>
+												<p className="stat-number text-[#F2F2F7]">
+													{stat.value}
+												</p>
+											</CardBody>
+										</Card>
+									</motion.div>
+								))}
+							</motion.div>
 
 							{/* Quick Actions */}
-							<Card className="shadow-lg">
+							<Card className="bg-[#0F0F14] border border-[#1E1E2A] shadow-none">
 								<CardHeader className="pb-2 sm:pb-3">
-									<h3 className="text-base sm:text-lg font-semibold">
+									<h3 className="text-base sm:text-lg font-semibold font-display text-[#F2F2F7]">
 										Quick Actions
 									</h3>
 								</CardHeader>
-								<Divider />
+								<Divider className="bg-[#1E1E2A]" />
 								<CardBody className="pt-3 sm:pt-4">
 									<div className="flex flex-wrap justify-center gap-2 sm:gap-3">
 										<Button
@@ -416,22 +402,6 @@ export default function Dashboard() {
 											className="min-w-[140px] flex-1 sm:flex-none"
 										>
 											View Uncategorized
-										</Button>
-										<Button
-											color="secondary"
-											variant="flat"
-											onPress={handleSyncWatchLater}
-											isLoading={syncingWatchLater}
-											radius="md"
-											size="md"
-											className="min-w-[140px] flex-1 sm:flex-none"
-											startContent={
-												!syncingWatchLater && (
-													<WatchLaterIcon fontSize="small" />
-												)
-											}
-										>
-											Sync Watch Later
 										</Button>
 										{stats && stats.uncategorized > 0 && (
 											<Dropdown>
@@ -476,18 +446,18 @@ export default function Dashboard() {
 								</CardBody>
 							</Card>
 
-							{/* Top Categories */}
+							{/* Top Categories + Getting Started */}
 							<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-								<Card className="shadow-lg">
+								<Card className="bg-[#0F0F14] border border-[#1E1E2A] shadow-none">
 									<CardHeader className="pb-2 sm:pb-3">
-										<h3 className="text-base sm:text-lg font-semibold">
+										<h3 className="text-base sm:text-lg font-semibold font-display text-[#F2F2F7]">
 											Top Categories
 										</h3>
 									</CardHeader>
-									<Divider />
+									<Divider className="bg-[#1E1E2A]" />
 									<CardBody className="pt-3 sm:pt-4">
 										{stats.top_categories.length > 0 ? (
-											<div className="space-y-3">
+											<div className="space-y-1">
 												{stats.top_categories.map((category) => (
 													/* biome-ignore lint/a11y/useSemanticElements: Using div with role="button" for layout flexibility */
 													<div
@@ -501,9 +471,9 @@ export default function Dashboard() {
 																handleCategoryClick(category.name);
 															}
 														}}
-														className="flex justify-between items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+														className="flex justify-between items-center p-2 rounded-lg hover:bg-[#16161E] transition-colors cursor-pointer"
 													>
-														<span className="font-medium text-gray-700 dark:text-gray-300">
+														<span className="font-medium text-[#F2F2F7] text-sm">
 															{category.name}
 														</span>
 														<Chip
@@ -518,35 +488,35 @@ export default function Dashboard() {
 												))}
 											</div>
 										) : (
-											<p className="text-gray-500 text-center py-4">
+											<p className="text-[#6B6B7E] text-center py-4">
 												No categories yet
 											</p>
 										)}
 									</CardBody>
 								</Card>
 
-								<Card className="shadow-lg">
+								<Card className="bg-[#0F0F14] border border-[#1E1E2A] shadow-none">
 									<CardHeader className="pb-2 sm:pb-3">
-										<h3 className="text-base sm:text-lg font-semibold">
+										<h3 className="text-base sm:text-lg font-semibold font-display text-[#F2F2F7]">
 											Getting Started
 										</h3>
 									</CardHeader>
-									<Divider />
+									<Divider className="bg-[#1E1E2A]" />
 									<CardBody className="pt-3 sm:pt-4">
 										<ul aria-label="Getting started tips" className="space-y-3">
 											{stats.total_videos === 0 && (
-												<li className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+												<li className="flex items-start gap-3 p-3 rounded-lg border border-[#3B82F6]/20 bg-[#3B82F6]/5">
 													<span
-														className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-blue-500 text-white text-sm font-medium"
+														className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-[#3B82F6] text-white text-sm font-medium"
 														aria-hidden="true"
 													>
 														1
 													</span>
 													<div>
-														<p className="font-medium text-gray-800 dark:text-gray-200">
+														<p className="font-medium text-[#F2F2F7]">
 															Sync your videos
 														</p>
-														<p className="text-sm text-gray-600 dark:text-gray-400">
+														<p className="text-sm text-[#6B6B7E]">
 															Click &quot;Sync Latest&quot; or &quot;Sync All
 															Videos&quot; to import your liked videos from
 															YouTube.
@@ -555,18 +525,18 @@ export default function Dashboard() {
 												</li>
 											)}
 											{stats.total_videos > 0 && stats.uncategorized > 0 && (
-												<li className="flex items-start gap-3 p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+												<li className="flex items-start gap-3 p-3 rounded-lg border border-[#F59E0B]/20 bg-[#F59E0B]/5">
 													<span
-														className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-orange-500 text-white text-sm font-medium"
+														className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-[#F59E0B] text-white text-sm font-medium"
 														aria-hidden="true"
 													>
 														!
 													</span>
 													<div>
-														<p className="font-medium text-gray-800 dark:text-gray-200">
+														<p className="font-medium text-[#F2F2F7]">
 															Categorize your videos
 														</p>
-														<p className="text-sm text-gray-600 dark:text-gray-400">
+														<p className="text-sm text-[#6B6B7E]">
 															You have {stats.uncategorized} uncategorized video
 															{stats.uncategorized !== 1 ? "s" : ""}. Use
 															&quot;Categorize All&quot; in Quick Actions to
@@ -577,42 +547,42 @@ export default function Dashboard() {
 											)}
 											{stats.categorization_percentage === 100 &&
 												stats.total_videos > 0 && (
-													<li className="flex items-start gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
+													<li className="flex items-start gap-3 p-3 rounded-lg border border-[#10B981]/20 bg-[#10B981]/5">
 														<span
-															className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-green-500 text-white text-sm font-medium"
+															className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-[#10B981] text-white text-sm font-medium"
 															aria-hidden="true"
 														>
 															✓
 														</span>
 														<div>
-															<p className="font-medium text-gray-800 dark:text-gray-200">
+															<p className="font-medium text-[#F2F2F7]">
 																All caught up!
 															</p>
-															<p className="text-sm text-gray-600 dark:text-gray-400">
+															<p className="text-sm text-[#6B6B7E]">
 																All your videos are categorized. Browse them by
 																category or create playlists.
 															</p>
 														</div>
 													</li>
 												)}
-											<li className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+											<li className="flex items-start gap-3 p-3 rounded-lg border border-[#1E1E2A] bg-[#16161E]/50">
 												<span
-													className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-gray-500 text-white text-sm font-medium"
+													className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-[#2A2A38] text-[#F2F2F7] text-sm font-medium"
 													aria-hidden="true"
 												>
 													?
 												</span>
 												<div>
-													<p className="font-medium text-gray-800 dark:text-gray-200">
+													<p className="font-medium text-[#F2F2F7]">
 														Keyboard navigation
 													</p>
-													<p className="text-sm text-gray-600 dark:text-gray-400">
+													<p className="text-sm text-[#6B6B7E]">
 														Use{" "}
-														<kbd className="px-1.5 py-0.5 text-xs font-mono bg-gray-200 dark:bg-gray-700 rounded">
+														<kbd className="px-1.5 py-0.5 text-xs font-mono-editorial bg-[#1E1E2A] rounded">
 															Tab
 														</kbd>{" "}
 														to navigate between elements and{" "}
-														<kbd className="px-1.5 py-0.5 text-xs font-mono bg-gray-200 dark:bg-gray-700 rounded">
+														<kbd className="px-1.5 py-0.5 text-xs font-mono-editorial bg-[#1E1E2A] rounded">
 															Enter
 														</kbd>{" "}
 														to activate buttons.
@@ -625,9 +595,9 @@ export default function Dashboard() {
 							</div>
 						</>
 					) : (
-						<Card>
+						<Card className="bg-[#0F0F14] border border-[#1E1E2A] shadow-none">
 							<CardBody>
-								<p className="text-center text-gray-500">
+								<p className="text-center text-[#6B6B7E]">
 									Failed to load stats
 								</p>
 							</CardBody>

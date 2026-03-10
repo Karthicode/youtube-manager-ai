@@ -6,7 +6,18 @@
 		"useIgnoreFile": false
 	},
 	"files": {
-		"ignoreUnknown": false
+		"ignoreUnknown": true,
+		"includes": [
+			"**",
+			"!node_modules",
+			"!.next",
+			"!dist",
+			"!out",
+			"!build",
+			"!.vercel",
+			"!**/*.min.js",
+			"!**/*.min.css"
+		]
 	},
 	"formatter": {
 		"enabled": true,

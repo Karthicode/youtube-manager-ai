@@ -92,25 +92,8 @@ export const videosApi = {
 		sort_order?: string;
 	}) => api.get("/videos/liked", { params }),
 
-	getWatchLaterVideos: (params?: {
-		cursor?: string;
-		limit?: number;
-		category_ids?: string;
-		tag_ids?: string;
-		search?: string;
-		is_categorized?: boolean;
-		sort_by?: string;
-		sort_order?: string;
-	}) => api.get("/videos/watch-later", { params }),
-
 	syncVideos: (params?: { max_results?: number }) =>
 		api.post("/videos/sync", null, { params }),
-
-	syncWatchLaterVideos: (params?: { max_results?: number }) =>
-		api.post("/videos/sync/watch-later", null, { params }),
-
-	syncWatchLaterBatch: (params?: { auto_categorize?: boolean }) =>
-		api.post("/videos/sync/watch-later/batch", null, { params }),
 
 	syncBatch: (params?: { auto_categorize?: boolean }) =>
 		api.post("/videos/sync/batch", null, { params }),

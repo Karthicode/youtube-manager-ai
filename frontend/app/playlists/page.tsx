@@ -1,15 +1,9 @@
 "use client";
 
-import {
-	Button,
-	Card,
-	CardBody,
-	CardFooter,
-	Image,
-	Spinner,
-} from "@heroui/react";
+import { Card, CardBody, Image, Spinner } from "@heroui/react";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import { formatDistanceToNow } from "date-fns";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { playlistsApi } from "@/api/api";
@@ -17,6 +11,24 @@ import Navbar from "@/components/Navbar";
 import SmartPlaylistDialog from "@/components/SmartPlaylistDialog";
 import { useAuthGuard } from "@/hooks";
 import type { Playlist } from "@/types";
+
+const containerVariants = {
+	hidden: {},
+	show: {
+		transition: {
+			staggerChildren: 0.05,
+		},
+	},
+};
+
+const itemVariants = {
+	hidden: { opacity: 0, scale: 0.96 },
+	show: {
+		opacity: 1,
+		scale: 1,
+		transition: { duration: 0.3, ease: "easeOut" as const },
+	},
+};
 
 export default function PlaylistsPage() {
 	const router = useRouter();
@@ -64,22 +76,24 @@ export default function PlaylistsPage() {
 	// Don't render anything until hydrated and authenticated
 	if (!isReady || !isAuthenticated) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-				<Spinner size="lg" />
+			<div className="min-h-screen bg-[#08080C] flex items-center justify-center">
+				<Spinner size="lg" color="primary" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen bg-[#08080C]">
 			<Navbar />
 			<div className="container mx-auto px-4 py-8 max-w-7xl">
 				<div className="space-y-6">
 					{/* Header */}
 					<div className="flex justify-between items-center">
 						<div>
-							<h1 className="text-3xl font-bold">Playlists</h1>
-							<p className="text-gray-600 dark:text-gray-400 mt-1">
+							<h1 className="font-display text-3xl font-bold text-[#F2F2F7] tracking-tight">
+								Playlists
+							</h1>
+							<p className="text-[#6B6B7E] mt-1 text-sm">
 								{syncing
 									? "Syncing with YouTube..."
 									: playlists.length > 0
@@ -87,14 +101,14 @@ export default function PlaylistsPage() {
 										: "No playlists found"}
 							</p>
 						</div>
-						<Button
-							color="primary"
-							variant="shadow"
-							startContent={<AutoAwesomeIcon fontSize="small" />}
-							onPress={() => setSmartDialogOpen(true)}
+						<button
+							type="button"
+							onClick={() => setSmartDialogOpen(true)}
+							className="flex items-center gap-2 px-4 py-2 bg-[#E63946] text-white font-medium rounded-xl hover:bg-[#d4202e] transition-colors text-sm"
 						>
+							<AutoAwesomeIcon sx={{ fontSize: 18 }} />
 							AI Generate
-						</Button>
+						</button>
 					</div>
 
 					{/* Content */}
@@ -102,121 +116,77 @@ export default function PlaylistsPage() {
 						<div className="flex flex-col justify-center items-center h-64 gap-4">
 							<Spinner size="lg" color="primary" />
 							<div className="text-center space-y-2">
-								<p className="text-lg font-semibold">Syncing playlists...</p>
-								<p className="text-sm text-gray-600 dark:text-gray-400">
+								<p className="text-lg font-semibold text-[#F2F2F7]">
+									Syncing playlists...
+								</p>
+								<p className="text-sm text-[#6B6B7E]">
 									Fetching your playlists from YouTube
 								</p>
 							</div>
 						</div>
 					) : loading ? (
 						<div className="flex justify-center items-center h-64">
-							<Spinner size="lg" />
+							<Spinner size="lg" color="primary" />
 						</div>
 					) : playlists.length > 0 ? (
-						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+						<motion.div
+							variants={containerVariants}
+							initial="hidden"
+							animate="show"
+							className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+						>
 							{playlists.map((playlist) => (
-								<Card
-									key={playlist.id}
-									className="w-full hover:shadow-lg transition-shadow"
-								>
-									<CardBody className="p-0">
-										{/* biome-ignore lint/a11y/useSemanticElements: Using div with role="button" for layout flexibility */}
-										<div
-											role="button"
-											tabIndex={0}
-											className="relative cursor-pointer"
-											onClick={() => handleViewPlaylist(playlist.id)}
-											onKeyDown={(e) => {
-												if (e.key === "Enter" || e.key === " ") {
-													e.preventDefault();
-													handleViewPlaylist(playlist.id);
-												}
-											}}
-										>
-											<Image
-												shadow="sm"
-												radius="none"
-												width="100%"
-												alt={playlist.title}
-												className="w-full object-cover h-[180px]"
-												src={
-													playlist.thumbnail_url || "/placeholder-thumbnail.jpg"
-												}
-											/>
-											<div className="absolute top-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
-												{playlist.video_count} videos
+								<motion.div key={playlist.id} variants={itemVariants}>
+									<Card
+										isPressable
+										onPress={() => handleViewPlaylist(playlist.id)}
+										className="w-full bg-[#0F0F14] border border-[#1E1E2A] group overflow-hidden shadow-none hover:border-[#2A2A38] transition-colors"
+									>
+										<CardBody className="p-0">
+											{/* Thumbnail */}
+											<div className="relative aspect-video overflow-hidden">
+												<Image
+													radius="none"
+													width="100%"
+													alt={playlist.title}
+													className="w-full object-cover aspect-video group-hover:scale-105 transition-transform duration-300"
+													src={
+														playlist.thumbnail_url ||
+														"/placeholder-thumbnail.jpg"
+													}
+												/>
+												{/* Bottom gradient */}
+												<div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
+												{/* Video count badge */}
+												<div className="absolute top-2 right-2 glass-dark text-[#F2F2F7] font-mono-editorial text-xs px-2 py-1 rounded-md">
+													{playlist.video_count} videos
+												</div>
 											</div>
-										</div>
-										{/* biome-ignore lint/a11y/useSemanticElements: Using div with role="button" for layout flexibility */}
-										<div
-											role="button"
-											tabIndex={0}
-											className="p-3 space-y-2 cursor-pointer"
-											onClick={() => handleViewPlaylist(playlist.id)}
-											onKeyDown={(e) => {
-												if (e.key === "Enter" || e.key === " ") {
-													e.preventDefault();
-													handleViewPlaylist(playlist.id);
-												}
-											}}
-										>
-											<h3 className="font-semibold text-sm line-clamp-2">
-												{playlist.title}
-											</h3>
-											<p className="text-xs text-gray-500">
-												{playlist.channel_title}
-											</p>
-											{playlist.published_at && (
-												<p className="text-xs text-gray-400">
-													Created{" "}
-													{formatDistanceToNow(
-														new Date(playlist.published_at),
-														{ addSuffix: true },
-													)}
-												</p>
-											)}
-											{playlist.last_synced_at && (
-												<p className="text-xs text-gray-400">
-													Last synced{" "}
-													{formatDistanceToNow(
-														new Date(playlist.last_synced_at),
-														{ addSuffix: true },
-													)}
-												</p>
-											)}
-										</div>
-									</CardBody>
-									<CardFooter className="flex gap-2">
-										<Button
-											size="sm"
-											color="primary"
-											variant="flat"
-											className="flex-1"
-											onPress={() => {
-												handleViewPlaylist(playlist.id);
-											}}
-											radius="md"
-										>
-											View Videos
-										</Button>
-										<Button
-											size="sm"
-											variant="bordered"
-											onPress={() => {
-												handleViewPlaylist(playlist.id);
-											}}
-											radius="md"
-										>
-											YouTube
-										</Button>
-									</CardFooter>
-								</Card>
+
+											{/* Footer metadata */}
+											<div className="p-3 space-y-1">
+												<h3 className="font-semibold text-sm line-clamp-2 text-[#F2F2F7]">
+													{playlist.title}
+												</h3>
+												{playlist.last_synced_at && (
+													<p className="text-xs text-[#6B6B7E]">
+														Synced{" "}
+														{formatDistanceToNow(
+															new Date(playlist.last_synced_at),
+															{ addSuffix: true },
+														)}
+													</p>
+												)}
+											</div>
+										</CardBody>
+									</Card>
+								</motion.div>
 							))}
-						</div>
+						</motion.div>
 					) : (
-						<div className="text-center py-12">
-							<p className="text-gray-500 text-lg">No playlists found</p>
-							<p className="text-gray-400 text-sm mt-2">
+						<div className="text-center py-12 dot-grid rounded-xl">
+							<p className="text-[#6B6B7E] text-lg">No playlists found</p>
+							<p className="text-[#2A2A38] text-sm mt-2">
 								Create playlists on YouTube or from the Videos page to see them
 								here
 							</p>

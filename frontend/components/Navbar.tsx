@@ -57,9 +57,8 @@ export default function Navbar() {
 
 	return (
 		<HeroNavbar
-			isBordered
 			isBlurred
-			className="bg-white/95 dark:bg-gray-900/95"
+			className="border-b border-[#1E1E2A] bg-[#08080C]/85 backdrop-blur-xl"
 			maxWidth="xl"
 			isMenuOpen={isMenuOpen}
 			onMenuOpenChange={setIsMenuOpen}
@@ -73,80 +72,35 @@ export default function Navbar() {
 			<NavbarBrand>
 				<Link
 					href="/dashboard"
-					className="font-bold text-base sm:text-xl text-gray-900 dark:text-white flex items-center gap-2"
+					className="font-display font-bold text-xl tracking-tight text-[#F2F2F7] flex items-center gap-2"
 				>
-					<SmartDisplayIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />
+					<SmartDisplayIcon
+						sx={{ fontSize: { xs: 24, sm: 28 }, color: "#E63946" }}
+					/>
 					<span className="hidden xs:inline">YouTube Manager</span>
 					<span className="xs:hidden">YT Manager</span>
 				</Link>
 			</NavbarBrand>
 
 			<NavbarContent className="hidden sm:flex gap-8" justify="center">
-				<NavbarItem isActive={isActive("/dashboard")}>
-					<Link
-						href="/dashboard"
-						className={`flex items-center gap-2 px-2 ${
-							isActive("/dashboard")
-								? "text-primary font-medium"
-								: "text-foreground font-medium hover:text-primary transition-colors"
-						}`}
-					>
-						<DashboardIcon fontSize="small" />
-						<span>Dashboard</span>
-					</Link>
-				</NavbarItem>
-				<NavbarItem isActive={isActive("/insights")}>
-					<Link
-						href="/insights"
-						className={`flex items-center gap-2 px-2 ${
-							isActive("/insights")
-								? "text-primary font-medium"
-								: "text-foreground font-medium hover:text-primary transition-colors"
-						}`}
-					>
-						<InsightsIcon fontSize="small" />
-						<span>Insights</span>
-					</Link>
-				</NavbarItem>
-				<NavbarItem isActive={isActive("/videos")}>
-					<Link
-						href="/videos"
-						className={`flex items-center gap-2 px-2 ${
-							isActive("/videos")
-								? "text-primary font-medium"
-								: "text-foreground font-medium hover:text-primary transition-colors"
-						}`}
-					>
-						<VideoLibraryIcon fontSize="small" />
-						<span>Liked Videos</span>
-					</Link>
-				</NavbarItem>
-				<NavbarItem isActive={isActive("/playlists")}>
-					<Link
-						href="/playlists"
-						className={`flex items-center gap-2 px-2 ${
-							isActive("/playlists")
-								? "text-primary font-medium"
-								: "text-foreground font-medium hover:text-primary transition-colors"
-						}`}
-					>
-						<PlaylistPlayIcon fontSize="small" />
-						<span>Playlists</span>
-					</Link>
-				</NavbarItem>
-				<NavbarItem isActive={isActive("/chat")}>
-					<Link
-						href="/chat"
-						className={`flex items-center gap-2 px-2 ${
-							isActive("/chat")
-								? "text-primary font-medium"
-								: "text-foreground font-medium hover:text-primary transition-colors"
-						}`}
-					>
-						<ChatIcon fontSize="small" />
-						<span>Chat</span>
-					</Link>
-				</NavbarItem>
+				{menuItems.map((item) => (
+					<NavbarItem key={item.path} isActive={isActive(item.path)}>
+						<Link
+							href={item.path}
+							className={`flex items-center gap-2 px-2 transition-colors ${
+								isActive(item.path)
+									? "text-[#F2F2F7] nav-link-active"
+									: "text-[#6B6B7E] hover:text-[#F2F2F7]"
+							}`}
+						>
+							{React.cloneElement(
+								item.icon as React.ReactElement<{ sx?: object }>,
+								{ sx: { fontSize: 18 } },
+							)}
+							<span>{item.label}</span>
+						</Link>
+					</NavbarItem>
+				))}
 			</NavbarContent>
 
 			<NavbarContent justify="end">
@@ -191,14 +145,14 @@ export default function Navbar() {
 				</Dropdown>
 			</NavbarContent>
 
-			<NavbarMenu>
+			<NavbarMenu className="bg-[#08080C]">
 				{menuItems.map((item, index) => (
 					<NavbarMenuItem key={`${item.label}-${index}`}>
 						<Link
-							className={`w-full flex items-center gap-3 py-2 ${
+							className={`w-full flex items-center gap-3 py-2 transition-colors ${
 								isActive(item.path)
-									? "text-primary font-semibold"
-									: "text-foreground"
+									? "text-[#F2F2F7] font-semibold"
+									: "text-[#6B6B7E]"
 							}`}
 							href={item.path}
 							onClick={() => setIsMenuOpen(false)}

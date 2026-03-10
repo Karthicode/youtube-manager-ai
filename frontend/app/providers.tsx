@@ -7,7 +7,7 @@ import GlobalMiniPlayer from "@/components/player/GlobalMiniPlayer";
 export function Providers({ children }: { children: React.ReactNode }) {
 	return (
 		<HeroUIProvider>
-			<NextThemesProvider attribute="class" defaultTheme="system">
+			<NextThemesProvider attribute="class" defaultTheme="dark">
 				{children}
 				<GlobalMiniPlayer />
 			</NextThemesProvider>

@@ -32,7 +32,7 @@ class Video(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
 
-    # Video source (liked or watch_later)
+    # Video source (currently only "liked")
     video_source: Mapped[str] = mapped_column(String(20), default="liked", index=True)
 
     # YouTube video details
