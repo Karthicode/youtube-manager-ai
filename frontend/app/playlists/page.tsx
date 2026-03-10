@@ -76,14 +76,14 @@ export default function PlaylistsPage() {
 	// Don't render anything until hydrated and authenticated
 	if (!isReady || !isAuthenticated) {
 		return (
-			<div className="min-h-screen bg-[#08080C] flex items-center justify-center">
+			<div className="min-h-screen bg-background flex items-center justify-center">
 				<Spinner size="lg" color="primary" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-[#08080C]">
+		<div className="min-h-screen bg-background">
 			<Navbar />
 			<div className="container mx-auto px-4 py-8 max-w-7xl">
 				<div className="space-y-6">

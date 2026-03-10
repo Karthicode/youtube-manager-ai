@@ -500,26 +500,26 @@ function VideosPageContent() {
 	// Don't render anything until hydrated and authenticated
 	if (!isReady || !isAuthenticated) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex justify-center items-center">
+			<div className="min-h-screen bg-background flex justify-center items-center">
 				<Spinner size="lg" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen bg-background">
 			<Navbar />
 			<div className="container mx-auto px-4 py-8 max-w-7xl">
 				<div className="space-y-6">
 					{/* Header */}
 					<div className="flex flex-col gap-4">
 						<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-							<h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+							<h1 className="font-display text-3xl font-bold text-text-primary tracking-tight">
 								Videos
 							</h1>
 						</div>
 
-						<p className="text-gray-600 dark:text-gray-400">
+						<p className="text-text-secondary">
 							{semanticSearchEnabled ? (
 								semanticResults.length > 0 ? (
 									<>Found {semanticResults.length} similar videos</>
@@ -541,14 +541,12 @@ function VideosPageContent() {
 					<div className="flex justify-end gap-3 items-end flex-wrap">
 						{/* Semantic Search Toggle */}
 						<div className="flex flex-col gap-1">
-							<span className="text-sm text-gray-600 dark:text-gray-400">
-								AI Search
-							</span>
+							<span className="text-sm text-text-secondary">AI Search</span>
 							<Tooltip
 								content="Search by meaning, not just keywords"
 								placement="bottom"
 							>
-								<div className="flex items-center gap-2 h-10 px-3 border rounded-lg border-gray-300 dark:border-gray-600">
+								<div className="flex items-center gap-2 h-10 px-3 border rounded-lg border-border">
 									<AutoAwesomeIcon
 										fontSize="small"
 										className={
@@ -579,9 +577,7 @@ function VideosPageContent() {
 
 						{/* View Toggle */}
 						<div className="flex flex-col gap-1">
-							<span className="text-sm text-gray-600 dark:text-gray-400">
-								View
-							</span>
+							<span className="text-sm text-text-secondary">View</span>
 							<ButtonGroup size="md" variant="bordered">
 								<Button
 									onPress={() => setViewMode("grid")}
@@ -602,9 +598,7 @@ function VideosPageContent() {
 
 						{/* Per Page */}
 						<div className="flex flex-col gap-1">
-							<span className="text-sm text-gray-600 dark:text-gray-400">
-								Per load
-							</span>
+							<span className="text-sm text-text-secondary">Per load</span>
 							<Select
 								selectedKeys={[String(pageSize)]}
 								onSelectionChange={(keys) => {
@@ -626,10 +620,7 @@ function VideosPageContent() {
 
 						{/* Sort By */}
 						<div className="flex flex-col gap-1">
-							<label
-								className="text-sm text-gray-600 dark:text-gray-400"
-								htmlFor="sort-by"
-							>
+							<label className="text-sm text-text-secondary" htmlFor="sort-by">
 								Sort by
 							</label>
 							<Select
@@ -674,7 +665,7 @@ function VideosPageContent() {
 												AI Semantic Search
 											</h3>
 										</div>
-										<p className="text-sm text-gray-500 dark:text-gray-400">
+										<p className="text-sm text-text-secondary">
 											Search by meaning, not just keywords. Find videos even if
 											they don&apos;t contain your exact words.
 										</p>
@@ -685,7 +676,7 @@ function VideosPageContent() {
 												{embeddingProgress ? (
 													<>
 														<div className="flex justify-between text-sm">
-															<span className="text-gray-600 dark:text-gray-400">
+															<span className="text-text-secondary">
 																Indexing progress:
 															</span>
 															<span className="font-medium">
@@ -714,7 +705,7 @@ function VideosPageContent() {
 															</p>
 														)}
 														{embeddingProgress.lastError && (
-															<p className="text-xs text-danger mt-1 break-words">
+															<p className="text-xs text-danger mt-1 wrap-break-word">
 																Error: {embeddingProgress.lastError}
 															</p>
 														)}
@@ -722,7 +713,7 @@ function VideosPageContent() {
 												) : (
 													<>
 														<div className="flex justify-between text-sm">
-															<span className="text-gray-600 dark:text-gray-400">
+															<span className="text-text-secondary">
 																Videos indexed:
 															</span>
 															<span className="font-medium">
@@ -799,7 +790,7 @@ function VideosPageContent() {
 											}}
 										/>
 
-										<p className="text-xs text-gray-400">
+										<p className="text-xs text-text-secondary">
 											Try describing what you&apos;re looking for in natural
 											language
 										</p>
@@ -882,23 +873,23 @@ function VideosPageContent() {
 									</div>
 								) : semanticQuery ? (
 									<div className="text-center py-12">
-										<p className="text-gray-500 text-lg">
+										<p className="text-text-secondary text-lg">
 											No similar videos found
 										</p>
-										<p className="text-gray-400 text-sm mt-2">
+										<p className="text-text-secondary text-sm mt-2">
 											Try a different search query
 										</p>
 									</div>
 								) : (
 									<div className="text-center py-12">
 										<AutoAwesomeIcon
-											className="text-gray-300 dark:text-gray-600 mb-4"
+											className="text-text-secondary mb-4"
 											style={{ fontSize: 64 }}
 										/>
-										<p className="text-gray-500 text-lg">
+										<p className="text-text-secondary text-lg">
 											Enter a search query to find similar videos
 										</p>
-										<p className="text-gray-400 text-sm mt-2">
+										<p className="text-text-secondary text-sm mt-2">
 											{embeddingStats && embeddingStats.embedded > 0
 												? `${embeddingStats.embedded} videos are indexed and ready to search`
 												: "Index your videos first to enable semantic search"}
@@ -952,15 +943,15 @@ function VideosPageContent() {
 
 									{/* Showing count */}
 									{!hasMore && videos.length > 0 && (
-										<p className="text-center text-sm text-gray-500">
+										<p className="text-center text-sm text-text-secondary">
 											Showing all {videos.length} videos
 										</p>
 									)}
 								</div>
 							) : (
 								<div className="text-center py-12">
-									<p className="text-gray-500 text-lg">No videos found</p>
-									<p className="text-gray-400 text-sm mt-2">
+									<p className="text-text-secondary text-lg">No videos found</p>
+									<p className="text-text-secondary text-sm mt-2">
 										Try adjusting your filters or sync your videos
 									</p>
 								</div>
@@ -1002,7 +993,7 @@ export default function VideosPage() {
 	return (
 		<Suspense
 			fallback={
-				<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+				<div className="min-h-screen bg-background">
 					<div className="flex justify-center items-center h-screen">
 						<Spinner size="lg" />
 					</div>

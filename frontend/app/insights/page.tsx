@@ -179,23 +179,23 @@ export default function InsightsPage() {
 	// Don't render anything until hydrated and authenticated
 	if (!isReady || !isAuthenticated) {
 		return (
-			<div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex justify-center items-center">
-				<Spinner size="lg" />
+			<div className="min-h-screen bg-background flex justify-center items-center">
+				<Spinner size="lg" color="primary" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+		<div className="min-h-screen bg-background">
 			<Navbar />
 			<div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-7xl">
 				<div className="space-y-6">
 					{/* Header */}
 					<div>
-						<h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+						<h1 className="font-display text-2xl sm:text-3xl font-bold text-text-primary tracking-tight">
 							Insights
 						</h1>
-						<p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
+						<p className="text-sm sm:text-base text-text-secondary mt-1">
 							Discover patterns in your liked videos
 						</p>
 					</div>

@@ -142,26 +142,26 @@ export default function Dashboard() {
 	// Don't render anything until hydrated and authenticated
 	if (!isReady || !isAuthenticated) {
 		return (
-			<div className="min-h-screen bg-[#08080C] flex justify-center items-center">
+			<div className="min-h-screen bg-background flex justify-center items-center">
 				<Spinner size="lg" color="primary" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-[#08080C]">
+		<div className="min-h-screen bg-background">
 			<Navbar />
 			<div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-7xl">
 				<div className="space-y-4 sm:space-y-6">
 					{/* Editorial Header */}
 					<div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
 						<div>
-							<h1 className="font-display text-2xl sm:text-3xl font-bold text-[#F2F2F7] tracking-tight">
+							<h1 className="font-display text-2xl sm:text-3xl font-bold text-text-primary tracking-tight">
 								{getGreeting()},{" "}
 								<span className="text-[#E63946]">{firstName}.</span>
 							</h1>
 							{user?.last_sync_at && (
-								<p className="text-xs text-[#6B6B7E] mt-1">
+								<p className="text-xs text-text-secondary mt-1">
 									Last synced{" "}
 									{formatDistanceToNow(new Date(user.last_sync_at), {
 										addSuffix: true,
@@ -228,11 +228,11 @@ export default function Dashboard() {
 									<Spinner size="lg" color="primary" />
 									<div className="text-center space-y-2">
 										<p className="text-lg font-semibold">Please wait...</p>
-										<p className="text-sm text-[#6B6B7E]">
+										<p className="text-sm text-text-secondary">
 											Fetching your liked videos from YouTube and categorizing
 											them with AI.
 										</p>
-										<p className="text-sm text-[#6B6B7E]">
+										<p className="text-sm text-text-secondary">
 											This may take a few minutes depending on the number of
 											videos.
 										</p>
@@ -264,15 +264,15 @@ export default function Dashboard() {
 											<p className="text-lg font-semibold">
 												Syncing all your liked videos...
 											</p>
-											<p className="text-sm text-[#6B6B7E]">
+											<p className="text-sm text-text-secondary">
 												This will fetch all your liked videos from YouTube
 												without limit.
 											</p>
-											<p className="text-sm text-[#6B6B7E]">
+											<p className="text-sm text-text-secondary">
 												For 1000+ videos, this may take 5-10 minutes. Please be
 												patient.
 											</p>
-											<p className="text-xs text-[#6B6B7E] mt-4">
+											<p className="text-xs text-text-secondary mt-4">
 												You can check the browser console for progress updates.
 											</p>
 										</div>
@@ -285,9 +285,9 @@ export default function Dashboard() {
 												{batchSyncResult.message}
 											</p>
 										</div>
-										<div className="bg-[#16161E] rounded-lg p-4 space-y-2">
+										<div className="bg-surface-elevated rounded-lg p-4 space-y-2">
 											<div className="flex justify-between">
-												<span className="text-[#6B6B7E]">
+												<span className="text-text-secondary">
 													Total Videos Synced:
 												</span>
 												<span className="font-semibold font-mono-editorial">
@@ -295,14 +295,16 @@ export default function Dashboard() {
 												</span>
 											</div>
 											<div className="flex justify-between">
-												<span className="text-[#6B6B7E]">Pages Fetched:</span>
+												<span className="text-text-secondary">
+													Pages Fetched:
+												</span>
 												<span className="font-semibold font-mono-editorial">
 													{batchSyncResult.pages_fetched}
 												</span>
 											</div>
 											{(batchSyncResult.videos_categorized ?? 0) > 0 && (
 												<div className="flex justify-between">
-													<span className="text-[#6B6B7E]">
+													<span className="text-text-secondary">
 														Videos Categorized:
 													</span>
 													<span className="font-semibold font-mono-editorial">
@@ -338,21 +340,39 @@ export default function Dashboard() {
 								variants={containerVariants}
 								initial="hidden"
 								animate="show"
-								className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6"
+								className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6"
 							>
 								{[
-									{ label: "Liked Videos", value: stats.liked_videos },
-									{ label: "Categorized", value: stats.categorized },
-									{ label: "Uncategorized", value: stats.uncategorized },
+									{
+										label: "Liked Videos",
+										value: stats.liked_videos,
+										suffix: "",
+									},
+									{
+										label: "Categorized",
+										value: stats.categorized,
+										suffix: "",
+									},
+									{
+										label: "Uncategorized",
+										value: stats.uncategorized,
+										suffix: "",
+									},
+									{
+										label: "Progress",
+										value: stats.categorization_percentage,
+										suffix: "%",
+									},
 								].map((stat) => (
 									<motion.div key={stat.label} variants={itemVariants}>
-										<Card className="bg-[#0F0F14] border border-[#1E1E2A] shadow-none">
+										<Card className="bg-surface border border-border shadow-none">
 											<CardBody className="p-4 sm:p-6">
-												<h3 className="text-xs text-[#6B6B7E] uppercase tracking-widest mb-3">
+												<h3 className="text-xs text-text-secondary uppercase tracking-widest mb-3">
 													{stat.label}
 												</h3>
-												<p className="stat-number text-[#F2F2F7]">
+												<p className="stat-number text-text-primary">
 													{stat.value}
+													{stat.suffix}
 												</p>
 											</CardBody>
 										</Card>
@@ -361,9 +381,9 @@ export default function Dashboard() {
 							</motion.div>
 
 							{/* Quick Actions */}
-							<Card className="bg-[#0F0F14] border border-[#1E1E2A] shadow-none">
+							<Card className="bg-surface border border-border shadow-none">
 								<CardHeader className="pb-2 sm:pb-3">
-									<h3 className="text-base sm:text-lg font-semibold font-display text-[#F2F2F7]">
+									<h3 className="text-base sm:text-lg font-semibold font-display text-text-primary">
 										Quick Actions
 									</h3>
 								</CardHeader>
@@ -446,13 +466,22 @@ export default function Dashboard() {
 								</CardBody>
 							</Card>
 
-							{/* Top Categories + Getting Started */}
-							<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-								<Card className="bg-[#0F0F14] border border-[#1E1E2A] shadow-none">
-									<CardHeader className="pb-2 sm:pb-3">
-										<h3 className="text-base sm:text-lg font-semibold font-display text-[#F2F2F7]">
+							{/* Top Categories */}
+							<div className="w-full">
+								<Card className="bg-surface border border-border shadow-none">
+									<CardHeader className="pb-2 sm:pb-3 flex justify-between items-center">
+										<h3 className="text-base sm:text-lg font-semibold font-display text-text-primary">
 											Top Categories
 										</h3>
+										<Button
+											color="primary"
+											variant="flat"
+											size="sm"
+											as={Link}
+											href="/videos"
+										>
+											View All
+										</Button>
 									</CardHeader>
 									<Divider className="bg-[#1E1E2A]" />
 									<CardBody className="pt-3 sm:pt-4">
@@ -471,9 +500,9 @@ export default function Dashboard() {
 																handleCategoryClick(category.name);
 															}
 														}}
-														className="flex justify-between items-center p-2 rounded-lg hover:bg-[#16161E] transition-colors cursor-pointer"
+														className="flex justify-between items-center p-2 rounded-lg hover:bg-surface-elevated transition-colors cursor-pointer"
 													>
-														<span className="font-medium text-[#F2F2F7] text-sm">
+														<span className="font-medium text-text-primary text-sm">
 															{category.name}
 														</span>
 														<Chip
@@ -488,116 +517,18 @@ export default function Dashboard() {
 												))}
 											</div>
 										) : (
-											<p className="text-[#6B6B7E] text-center py-4">
+											<p className="text-text-secondary text-center py-4">
 												No categories yet
 											</p>
 										)}
 									</CardBody>
 								</Card>
-
-								<Card className="bg-[#0F0F14] border border-[#1E1E2A] shadow-none">
-									<CardHeader className="pb-2 sm:pb-3">
-										<h3 className="text-base sm:text-lg font-semibold font-display text-[#F2F2F7]">
-											Getting Started
-										</h3>
-									</CardHeader>
-									<Divider className="bg-[#1E1E2A]" />
-									<CardBody className="pt-3 sm:pt-4">
-										<ul aria-label="Getting started tips" className="space-y-3">
-											{stats.total_videos === 0 && (
-												<li className="flex items-start gap-3 p-3 rounded-lg border border-[#3B82F6]/20 bg-[#3B82F6]/5">
-													<span
-														className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-[#3B82F6] text-white text-sm font-medium"
-														aria-hidden="true"
-													>
-														1
-													</span>
-													<div>
-														<p className="font-medium text-[#F2F2F7]">
-															Sync your videos
-														</p>
-														<p className="text-sm text-[#6B6B7E]">
-															Click &quot;Sync Latest&quot; or &quot;Sync All
-															Videos&quot; to import your liked videos from
-															YouTube.
-														</p>
-													</div>
-												</li>
-											)}
-											{stats.total_videos > 0 && stats.uncategorized > 0 && (
-												<li className="flex items-start gap-3 p-3 rounded-lg border border-[#F59E0B]/20 bg-[#F59E0B]/5">
-													<span
-														className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-[#F59E0B] text-white text-sm font-medium"
-														aria-hidden="true"
-													>
-														!
-													</span>
-													<div>
-														<p className="font-medium text-[#F2F2F7]">
-															Categorize your videos
-														</p>
-														<p className="text-sm text-[#6B6B7E]">
-															You have {stats.uncategorized} uncategorized video
-															{stats.uncategorized !== 1 ? "s" : ""}. Use
-															&quot;Categorize All&quot; in Quick Actions to
-															organize them with AI.
-														</p>
-													</div>
-												</li>
-											)}
-											{stats.categorization_percentage === 100 &&
-												stats.total_videos > 0 && (
-													<li className="flex items-start gap-3 p-3 rounded-lg border border-[#10B981]/20 bg-[#10B981]/5">
-														<span
-															className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-[#10B981] text-white text-sm font-medium"
-															aria-hidden="true"
-														>
-															✓
-														</span>
-														<div>
-															<p className="font-medium text-[#F2F2F7]">
-																All caught up!
-															</p>
-															<p className="text-sm text-[#6B6B7E]">
-																All your videos are categorized. Browse them by
-																category or create playlists.
-															</p>
-														</div>
-													</li>
-												)}
-											<li className="flex items-start gap-3 p-3 rounded-lg border border-[#1E1E2A] bg-[#16161E]/50">
-												<span
-													className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-[#2A2A38] text-[#F2F2F7] text-sm font-medium"
-													aria-hidden="true"
-												>
-													?
-												</span>
-												<div>
-													<p className="font-medium text-[#F2F2F7]">
-														Keyboard navigation
-													</p>
-													<p className="text-sm text-[#6B6B7E]">
-														Use{" "}
-														<kbd className="px-1.5 py-0.5 text-xs font-mono-editorial bg-[#1E1E2A] rounded">
-															Tab
-														</kbd>{" "}
-														to navigate between elements and{" "}
-														<kbd className="px-1.5 py-0.5 text-xs font-mono-editorial bg-[#1E1E2A] rounded">
-															Enter
-														</kbd>{" "}
-														to activate buttons.
-													</p>
-												</div>
-											</li>
-										</ul>
-									</CardBody>
-								</Card>
 							</div>
 						</>
 					) : (
-						<Card className="bg-[#0F0F14] border border-[#1E1E2A] shadow-none">
+						<Card className="bg-surface border border-border shadow-none">
 							<CardBody>
-								<p className="text-center text-[#6B6B7E]">
+								<p className="text-center text-text-secondary">
 									Failed to load stats
 								</p>
 							</CardBody>

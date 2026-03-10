@@ -315,18 +315,18 @@ export default function ChatPage() {
 
 	if (!isReady || !isAuthenticated) {
 		return (
-			<div className="min-h-screen bg-[#08080C] flex items-center justify-center">
+			<div className="min-h-screen bg-background flex items-center justify-center">
 				<Spinner size="lg" color="primary" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-[#08080C] flex flex-col">
+		<div className="min-h-screen bg-background flex flex-col">
 			<Navbar />
 			<div className="flex flex-1 overflow-hidden max-w-7xl mx-auto w-full">
 				{/* Sidebar */}
-				<div className="w-64 border-r border-[#1E1E2A] bg-[#0F0F14] flex flex-col p-4 gap-2 hidden md:flex">
+				<div className="w-64 border-r border-[#1E1E2A] bg-surface flex flex-col p-4 gap-2 hidden md:flex">
 					<Button
 						color="primary"
 						variant="flat"
