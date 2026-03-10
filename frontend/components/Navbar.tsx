@@ -58,7 +58,7 @@ export default function Navbar() {
 	return (
 		<HeroNavbar
 			isBlurred
-			className="border-b border-[#1E1E2A] bg-[#08080C]/85 backdrop-blur-xl"
+			className="border-b border-border bg-background/85 backdrop-blur-xl"
 			maxWidth="xl"
 			isMenuOpen={isMenuOpen}
 			onMenuOpenChange={setIsMenuOpen}
@@ -72,7 +72,7 @@ export default function Navbar() {
 			<NavbarBrand>
 				<Link
 					href="/dashboard"
-					className="font-display font-bold text-xl tracking-tight text-[#F2F2F7] flex items-center gap-2 py-1"
+					className="font-display font-bold text-xl tracking-tight text-text-primary flex items-center gap-2 py-1"
 				>
 					<SmartDisplayIcon
 						sx={{ fontSize: { xs: 24, sm: 28 }, color: "#E63946" }}
@@ -89,8 +89,8 @@ export default function Navbar() {
 							href={item.path}
 							className={`flex items-center gap-2 px-2 transition-colors ${
 								isActive(item.path)
-									? "text-[#F2F2F7] nav-link-active"
-									: "text-[#6B6B7E] hover:text-[#F2F2F7]"
+									? "text-text-primary nav-link-active"
+									: "text-text-secondary hover:text-text-primary"
 							}`}
 						>
 							{React.cloneElement(
@@ -145,14 +145,14 @@ export default function Navbar() {
 				</Dropdown>
 			</NavbarContent>
 
-			<NavbarMenu className="bg-[#08080C]">
+			<NavbarMenu className="bg-background">
 				{menuItems.map((item, index) => (
 					<NavbarMenuItem key={`${item.label}-${index}`}>
 						<Link
 							className={`w-full flex items-center gap-3 py-2 transition-colors ${
 								isActive(item.path)
-									? "text-[#F2F2F7] font-semibold"
-									: "text-[#6B6B7E]"
+									? "text-text-primary font-semibold"
+									: "text-text-secondary"
 							}`}
 							href={item.path}
 							onClick={() => setIsMenuOpen(false)}

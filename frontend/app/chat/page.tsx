@@ -326,7 +326,7 @@ export default function ChatPage() {
 			<Navbar />
 			<div className="flex flex-1 overflow-hidden max-w-7xl mx-auto w-full">
 				{/* Sidebar */}
-				<div className="w-64 border-r border-border bg-surface flex flex-col p-4 gap-2 hidden md:flex">
+				<div className="w-64 border-r border-border bg-surface flex-col p-4 gap-2 hidden md:flex">
 					<Button
 						color="primary"
 						variant="flat"
@@ -459,7 +459,7 @@ export default function ChatPage() {
 									{msg.role === "assistant" ? (
 										<Card className="border border-border shadow-none">
 											<CardBody className="p-4">
-												<div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-text-primary">
+												<div className="text-sm whitespace-pre-wrap text-text-primary leading-relaxed">
 													{msg.content}
 												</div>
 											</CardBody>
