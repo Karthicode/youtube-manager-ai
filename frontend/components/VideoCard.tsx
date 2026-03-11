@@ -324,13 +324,16 @@ export default function VideoCard({
 							<Chip
 								key={tag.id}
 								size="sm"
-								className="bg-[#1E1E2A] text-[#6B6B7E]"
+								className="bg-surface-elevated text-text-secondary"
 							>
 								{tag.name}
 							</Chip>
 						))}
 						{(video.categories.length > 3 || video.tags.length > 2) && (
-							<Chip size="sm" className="bg-[#1E1E2A] text-[#6B6B7E]">
+							<Chip
+								size="sm"
+								className="bg-surface-elevated text-text-secondary"
+							>
 								+{video.categories.length + video.tags.length - 5} more
 							</Chip>
 						)}
