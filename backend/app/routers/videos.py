@@ -1300,6 +1300,9 @@ async def categorize_all_uncategorized(
             user_id=current_user.id,
         )
 
+        if result["success_count"] > 0:
+            invalidate_video_data(current_user.id)
+
         categorized_count = result["success_count"]
         failed_count = result["failed_count"]
 
@@ -1991,6 +1994,9 @@ async def background_categorize_videos(
         result = await ai_service.batch_categorize_videos_async(
             db, uncategorized_videos, max_concurrent=max_concurrent, user_id=user_id
         )
+
+        if result["success_count"] > 0:
+            invalidate_video_data(user_id)
 
         api_logger.info(
             f"Background categorization complete for user {user_id}: "
