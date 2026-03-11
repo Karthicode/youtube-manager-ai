@@ -1,0 +1,654 @@
+# Instincts generated from https://github.com/Karthicode/youtube-manager-ai
+# Generated: 2026-03-11T00:20:51.924Z
+# Version: 2.0
+
+---
+id: youtube-manager-ai-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: feat, fix, refactor, chore
+
+## Evidence
+
+- 200 commits analyzed
+- Detected conventional commit pattern
+- Examples: feat: add three-tier caching with SWR and fix stale insights bug, fix: video card colors on light mode
+
+---
+id: youtube-manager-ai-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Commit Length
+
+## Action
+
+Write moderate-length commit messages (~50 characters)
+
+## Evidence
+
+- Average commit message length: 63 chars
+- Based on 200 commits
+
+---
+id: youtube-manager-ai-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: youtube-manager-ai-import-alias
+trigger: "when importing modules"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Import Alias
+
+## Action
+
+Use path aliases (@/, ~/) instead of relative imports
+
+## Evidence
+
+- Import analysis shows alias pattern
+- Example: import { x } from '@/lib/x'
+
+---
+id: youtube-manager-ai-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Export Style
+
+## Action
+
+Prefer default exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: default
+
+---
+id: youtube-manager-ai-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: youtube-manager-ai-workflow-database-migration
+trigger: "when modifying the database schema or adding tables"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Workflow Database Migration
+
+## Action
+
+Follow the database-migration workflow:
+1. Create migration file
+2. Update schema definitions
+3. Generate/update types
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: **/schema.*, migrations/*
+
+---
+id: youtube-manager-ai-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~16x per month
+- Files: frontend/app/settings/*, frontend/components/*, frontend/app/playlists/[id]/*
+
+---
+id: youtube-manager-ai-workflow-refactoring
+trigger: "when refactoring code"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Workflow Refactoring
+
+## Action
+
+Follow the refactoring workflow:
+1. Ensure tests pass before refactor
+2. Refactor code structure
+3. Verify tests still pass
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: src/**/*
+
+---
+id: youtube-manager-ai-workflow-fix-ui-colors-light-mode
+trigger: "when doing fix ui colors light mode"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Workflow Fix Ui Colors Light Mode
+
+## Action
+
+Follow the fix-ui-colors-light-mode workflow:
+1. Identify components with hardcoded colors
+2. Replace with theme-aware color classes or CSS variables
+3. Test visibility in light mode
+4. Update specific component files
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~8x per month
+- Files: frontend/components/VideoCard.tsx, frontend/app/chat/page.tsx, frontend/components/Navbar.tsx
+
+---
+id: youtube-manager-ai-workflow-add-database-model-with-migration
+trigger: "when doing add database model with migration"
+confidence: 0.7
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Workflow Add Database Model With Migration
+
+## Action
+
+Follow the add-database-model-with-migration workflow:
+1. Create Alembic migration file with table definition
+2. Add model class to backend/app/models/
+3. Update models/__init__.py imports
+4. Create corresponding Pydantic schemas
+5. Add database service layer if needed
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~4x per month
+- Files: backend/alembic/versions/*.py, backend/app/models/*.py, backend/app/models/__init__.py
+
+---
+id: youtube-manager-ai-workflow-fix-infinite-rerender-loops
+trigger: "when doing fix infinite rerender loops"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Workflow Fix Infinite Rerender Loops
+
+## Action
+
+Follow the fix-infinite-rerender-loops workflow:
+1. Identify problematic useCallback/useEffect dependencies
+2. Replace state dependencies with refs where appropriate
+3. Break re-creation cycles in callback functions
+4. Test that loops are resolved
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: frontend/app/playlists/[id]/page.tsx, frontend/app/chat/page.tsx
+
+---
+id: youtube-manager-ai-workflow-enhance-chat-functionality
+trigger: "when doing enhance chat functionality"
+confidence: 0.7
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Workflow Enhance Chat Functionality
+
+## Action
+
+Follow the enhance-chat-functionality workflow:
+1. Update chat backend router and services
+2. Modify chat schemas if needed
+3. Update frontend chat page component
+4. Add new chat-related API endpoints
+5. Test streaming and session functionality
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~4x per month
+- Files: backend/app/routers/chat.py, backend/app/schemas/chat.py, backend/app/services/agent_service.py
+
+---
+id: youtube-manager-ai-workflow-add-api-router-with-main-integration
+trigger: "when doing add api router with main integration"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Workflow Add Api Router With Main Integration
+
+## Action
+
+Follow the add-api-router-with-main-integration workflow:
+1. Create new router file in backend/app/routers/
+2. Implement API endpoints with proper schemas
+3. Add router to backend/app/main.py
+4. Create corresponding frontend API client functions
+5. Add TypeScript types if needed
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: backend/app/routers/*.py, backend/app/main.py, frontend/api/api.ts
+
+---
+id: youtube-manager-ai-workflow-fix-configuration-and-imports
+trigger: "when doing fix configuration and imports"
+confidence: 0.75
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Workflow Fix Configuration And Imports
+
+## Action
+
+Follow the fix-configuration-and-imports workflow:
+1. Identify configuration or import issue
+2. Update config files (tsconfig.json, biome.json, etc.)
+3. Fix import statements and dependencies
+4. Test that errors are resolved
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~5x per month
+- Files: frontend/tsconfig.json, frontend/biome.json, backend/app/config.py
+
+---
+id: youtube-manager-ai-conventional-commits
+trigger: "When writing a commit message"
+confidence: 0.95
+domain: git
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Conventional Commits
+
+## Action
+
+Use conventional commit format: 'type: description' where type is feat/fix/refactor/chore/perf and description is ~63 characters
+
+## Evidence
+
+- All 8 commit examples follow conventional format
+- Average length 63 characters
+- Consistent prefixes: feat, fix, refactor, chore, perf
+
+---
+id: youtube-manager-ai-camel-case-files
+trigger: "When creating new files or functions"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Camel Case Files
+
+## Action
+
+Use camelCase for file names and function names
+
+## Evidence
+
+- Naming conventions show camelCase for files and functions
+- Config files follow this pattern
+
+---
+id: youtube-manager-ai-pascal-case-classes
+trigger: "When creating new classes"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Pascal Case Classes
+
+## Action
+
+Use PascalCase for class names
+
+## Evidence
+
+- Naming conventions specify PascalCase for classes
+- Seen in VideoCategorization model
+
+---
+id: youtube-manager-ai-screaming-snake-constants
+trigger: "When defining constants"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Screaming Snake Constants
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for constant names
+
+## Evidence
+
+- Naming conventions specify SCREAMING_SNAKE_CASE for constants
+
+---
+id: youtube-manager-ai-alias-imports
+trigger: "When importing modules"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Alias Imports
+
+## Action
+
+Use alias import style
+
+## Evidence
+
+- Import style defined as 'alias' in patterns
+
+---
+id: youtube-manager-ai-default-exports
+trigger: "When exporting from modules"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Default Exports
+
+## Action
+
+Use default export style
+
+## Evidence
+
+- Export style defined as 'default' in patterns
+
+---
+id: youtube-manager-ai-try-catch-errors
+trigger: "When handling errors"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Try Catch Errors
+
+## Action
+
+Use try-catch blocks for error handling
+
+## Evidence
+
+- Error handling style is 'try-catch'
+- No custom error classes or global handlers used
+
+---
+id: youtube-manager-ai-fix-light-mode-colors
+trigger: "When components have hardcoded dark colors or poor light mode visibility"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Fix Light Mode Colors
+
+## Action
+
+Replace hardcoded colors with theme-aware color classes or CSS variables and test in light mode
+
+## Evidence
+
+- 8 instances per month of light mode fixes
+- Consistent pattern across VideoCard.tsx, chat/page.tsx, Navbar.tsx
+
+---
+id: youtube-manager-ai-alembic-model-migration
+trigger: "When adding new data persistence requirements"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Alembic Model Migration
+
+## Action
+
+Create Alembic migration file, add model class to backend/app/models/, update __init__.py imports, and create Pydantic schemas
+
+## Evidence
+
+- 4 instances per month
+- Consistent pattern with alembic/versions/*.py and models/*.py files
+- Example: add_api_key_to_users.py migration
+
+---
+id: youtube-manager-ai-fix-react-rerender
+trigger: "When components have cascading re-renders or network request loops"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Fix React Rerender
+
+## Action
+
+Identify problematic useCallback/useEffect dependencies and replace state dependencies with refs where appropriate
+
+## Evidence
+
+- 3 instances per month
+- Pattern in playlists/[id]/page.tsx and chat/page.tsx
+- Commit: 'fix: resolve chat sessions not loading due to re-fetch loop'
+
+---
+id: youtube-manager-ai-enhance-chat-backend
+trigger: "When extending chat capabilities or fixing chat issues"
+confidence: 0.88
+domain: workflow
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Enhance Chat Backend
+
+## Action
+
+Update chat backend router and services, modify schemas, update frontend chat component, and test streaming functionality
+
+## Evidence
+
+- 4 instances per month
+- Consistent files: chat.py router, chat schemas, agent_service.py
+- Commit: 'perf: optimize chat agent latency with caching'
+
+---
+id: youtube-manager-ai-add-fastapi-router
+trigger: "When adding new API endpoints or feature areas"
+confidence: 0.82
+domain: workflow
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Add Fastapi Router
+
+## Action
+
+Create new router file in backend/app/routers/, implement endpoints with schemas, add to main.py, and create frontend API client functions
+
+## Evidence
+
+- 3 instances per month
+- Pattern: new router → main.py integration → frontend api.ts
+- Multiple routers seen in backend structure
+
+---
+id: youtube-manager-ai-fix-config-imports
+trigger: "When there are import errors, config issues, or dependency problems"
+confidence: 0.75
+domain: workflow
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Fix Config Imports
+
+## Action
+
+Update config files (tsconfig.json, biome.json), fix import statements, and test that errors are resolved
+
+## Evidence
+
+- 5 instances per month
+- Files: tsconfig.json, biome.json, config.py
+- Commit: 'fix tsconfig to exclude .next errors'
+
+---
+id: youtube-manager-ai-mobile-responsive-design
+trigger: "When adding new UI components or features"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Mobile Responsive Design
+
+## Action
+
+Include mobile-specific considerations like collapsing panels, mobile chat drawers, and viewport-specific behavior
+
+## Evidence
+
+- Commits: 'collapse filter panel on mobile viewports by default', 'add mobile chat drawer'
+- Pattern of mobile-first considerations
+
+---
+id: youtube-manager-ai-performance-caching
+trigger: "When implementing features with data fetching or API calls"
+confidence: 0.75
+domain: workflow
+source: repo-analysis
+source_repo: Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Performance Caching
+
+## Action
+
+Implement caching strategies like three-tier caching with SWR for performance optimization
+
+## Evidence
+
+- Commit: 'add three-tier caching with SWR'
+- Commit: 'optimize chat agent latency with caching'
+- Performance focus in multiple commits
+
