@@ -37,6 +37,7 @@ from app.services.ai_service import AIService
 from app.services.embedding_service import EmbeddingService
 from app.logger import api_logger
 from app.utils.qstash_client import trigger_categorization_job
+from app.utils.cache_invalidation import invalidate_video_data
 import math
 
 router = APIRouter(prefix="/videos")
@@ -1299,6 +1300,9 @@ async def categorize_all_uncategorized(
             user_id=current_user.id,
         )
 
+        if result["success_count"] > 0:
+            invalidate_video_data(current_user.id)
+
         categorized_count = result["success_count"]
         failed_count = result["failed_count"]
 
@@ -1432,9 +1436,8 @@ def set_cached_stats(user_id: int, stats: dict, expire: int = 300) -> None:
 
 
 def invalidate_user_stats_cache(user_id: int) -> None:
-    """Invalidate cached stats for a user."""
-    redis_client = get_redis()
-    redis_client.delete(f"user_stats:{user_id}")
+    """Invalidate all video-derived caches for a user (delegating to centralized helper)."""
+    invalidate_video_data(user_id)
 
 
 @router.post("/categorize-batch/start")
@@ -1991,6 +1994,9 @@ async def background_categorize_videos(
         result = await ai_service.batch_categorize_videos_async(
             db, uncategorized_videos, max_concurrent=max_concurrent, user_id=user_id
         )
+
+        if result["success_count"] > 0:
+            invalidate_video_data(user_id)
 
         api_logger.info(
             f"Background categorization complete for user {user_id}: "

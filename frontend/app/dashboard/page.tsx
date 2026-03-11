@@ -22,13 +22,14 @@ import { formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { mutate } from "swr";
 import { videosApi } from "@/api/api";
 import CategorizationProgressSSE from "@/components/CategorizationProgressSSE";
 import ContinueWatching from "@/components/ContinueWatching";
 import Navbar from "@/components/Navbar";
-import { useAuthGuard } from "@/hooks";
-import type { VideoStats } from "@/types";
+import { useAuthGuard, useVideoStats } from "@/hooks";
+import { swrKeys } from "@/lib/swrKeys";
 
 const containerVariants = {
 	hidden: {},
@@ -51,8 +52,7 @@ const itemVariants = {
 export default function Dashboard() {
 	const router = useRouter();
 	const { isReady, isAuthenticated, user } = useAuthGuard();
-	const [stats, setStats] = useState<VideoStats | null>(null);
-	const [loading, setLoading] = useState(true);
+	const { stats, isLoading: loading } = useVideoStats();
 	const [syncing, setSyncing] = useState(false);
 	const [batchSyncing, setBatchSyncing] = useState(false);
 	const [batchCategorizing, setBatchCategorizing] = useState(false);
@@ -67,27 +67,17 @@ export default function Dashboard() {
 		[key: string]: unknown;
 	} | null>(null);
 
-	const fetchStats = useCallback(async () => {
-		try {
-			const response = await videosApi.getVideoStats();
-			setStats(response.data);
-		} catch {
-			// Stats fetch failed silently - UI will show loading/empty state
-		} finally {
-			setLoading(false);
-		}
-	}, []);
-
-	useEffect(() => {
-		if (!isReady || !isAuthenticated) return;
-		fetchStats();
-	}, [isReady, isAuthenticated, fetchStats]);
+	const refreshStats = () => {
+		mutate(swrKeys.videoStats());
+		mutate(swrKeys.categories());
+		mutate(swrKeys.tags());
+	};
 
 	const handleSync = async () => {
 		setSyncing(true);
 		try {
 			await videosApi.syncVideos({ max_results: 20 });
-			await fetchStats();
+			refreshStats();
 		} catch {
 			alert("Failed to sync videos. Please try again.");
 		} finally {
@@ -101,7 +91,7 @@ export default function Dashboard() {
 		try {
 			const response = await videosApi.syncBatch({ auto_categorize: false });
 			setBatchSyncResult(response.data);
-			await fetchStats();
+			refreshStats();
 		} catch {
 			alert("Failed to batch sync videos. Please try again.");
 		} finally {
@@ -204,7 +194,7 @@ export default function Dashboard() {
 							onComplete={() => {
 								setBatchCategorizing(false);
 								setCategorizationJobId(null);
-								fetchStats();
+								refreshStats();
 							}}
 							onError={() => {
 								setBatchCategorizing(false);
