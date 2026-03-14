@@ -40,19 +40,19 @@ export function useInsightsContentDist() {
 export function useInsightsChannels(limit = 10) {
 	const key = swrKeys.insightsChannels(limit);
 	const { data, error, isLoading, mutate } = useSWR<{
-		channels: ChannelStats[];
+		top_channels: ChannelStats[];
 	}>(key, {
 		fetcher: paramFetcher,
 		revalidateIfStale: false,
 	});
-	return { channels: data?.channels ?? [], error, isLoading, mutate };
+	return { channels: data?.top_channels ?? [], error, isLoading, mutate };
 }
 
 export function useInsightsTemporal() {
 	const { data, error, isLoading, mutate } = useSWR<{
-		by_month: TemporalData[];
+		likes_by_month: TemporalData[];
 	}>(swrKeys.insightsTemporal(), { revalidateIfStale: false });
-	return { temporal: data?.by_month ?? [], error, isLoading, mutate };
+	return { temporal: data?.likes_by_month ?? [], error, isLoading, mutate };
 }
 
 export function useInsightsDuration() {
