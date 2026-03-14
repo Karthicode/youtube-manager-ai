@@ -38,6 +38,9 @@ class YouTubeService:
         token_expiry = getattr(self.user, "token_expires_at", None)
         is_expired = False
         if token_expiry:
+            # Normalise naive datetimes (stored without tz) to UTC-aware
+            if token_expiry.tzinfo is None:
+                token_expiry = token_expiry.replace(tzinfo=timezone.utc)
             is_expired = datetime.now(timezone.utc) > token_expiry
 
         # Create credentials object

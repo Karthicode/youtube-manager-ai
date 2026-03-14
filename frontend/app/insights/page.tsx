@@ -88,6 +88,7 @@ export default function InsightsPage() {
 					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 						<CategoryPieChart
 							data={categories}
+							totalVideos={overview?.total_videos}
 							loading={loadingContent}
 							error={errContent?.message ?? ""}
 						/>

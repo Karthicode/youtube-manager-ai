@@ -29,6 +29,7 @@ const defaultColors = [
 
 interface CategoryPieChartProps {
 	data: CategoryDistribution[];
+	totalVideos?: number;
 	loading?: boolean;
 	error?: string;
 }
@@ -41,6 +42,7 @@ interface TooltipData {
 
 export default function CategoryPieChart({
 	data,
+	totalVideos,
 	loading = false,
 	error,
 }: CategoryPieChartProps) {
@@ -60,7 +62,7 @@ export default function CategoryPieChart({
 		),
 	});
 
-	const total = data.reduce((sum, d) => sum + d.count, 0);
+	const total = totalVideos ?? data.reduce((sum, d) => sum + d.count, 0);
 
 	return (
 		<div className="relative">
