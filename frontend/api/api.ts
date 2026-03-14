@@ -25,6 +25,24 @@ api.interceptors.request.use(
 	},
 );
 
+// Singleton refresh promise — prevents thundering herd when token expires.
+// All concurrent 401s share one refresh call instead of each firing their own.
+let refreshPromise: Promise<string> | null = null;
+
+async function refreshAccessToken(): Promise<string> {
+	const refreshToken = localStorage.getItem("refresh_token");
+	if (!refreshToken) {
+		throw new Error("No refresh token");
+	}
+	const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+		refresh_token: refreshToken,
+	});
+	const { access_token, refresh_token: newRefreshToken } = response.data;
+	localStorage.setItem("access_token", access_token);
+	localStorage.setItem("refresh_token", newRefreshToken);
+	return access_token;
+}
+
 // Response interceptor to handle token refresh
 api.interceptors.response.use(
 	(response) => {
@@ -37,21 +55,16 @@ api.interceptors.response.use(
 		if (error.response?.status === 401 && !originalRequest._retry) {
 			originalRequest._retry = true;
 
-			const refreshToken = localStorage.getItem("refresh_token");
-			if (refreshToken) {
+			if (localStorage.getItem("refresh_token")) {
 				try {
-					const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-						refresh_token: refreshToken,
-					});
-
-					const { access_token, refresh_token: newRefreshToken } =
-						response.data;
-
-					localStorage.setItem("access_token", access_token);
-					localStorage.setItem("refresh_token", newRefreshToken);
-
-					// Retry original request with new token
-					originalRequest.headers.Authorization = `Bearer ${access_token}`;
+					// Reuse in-flight refresh if one is already running
+					if (!refreshPromise) {
+						refreshPromise = refreshAccessToken().finally(() => {
+							refreshPromise = null;
+						});
+					}
+					const newAccessToken = await refreshPromise;
+					originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 					return api(originalRequest);
 				} catch (refreshError) {
 					// Refresh failed, clear tokens and redirect to login
