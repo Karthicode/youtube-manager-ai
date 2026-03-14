@@ -20,6 +20,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useInView } from "react-intersection-observer";
 import { categoriesApi, playlistsApi, videosApi } from "@/api/api";
 import CreatePlaylistDialog from "@/components/CreatePlaylistDialog";
 import DeleteProgressSSE from "@/components/DeleteProgressSSE";
@@ -351,11 +352,13 @@ function VideosPageContent() {
 		fetchVideos();
 	}, [isReady, isAuthenticated, fetchVideos]);
 
-	const handleLoadMore = () => {
-		if (hasMore && nextCursor && !loadingMore) {
+	const { ref: sentinelRef, inView } = useInView({ rootMargin: "200px" });
+
+	useEffect(() => {
+		if (inView && hasMore && nextCursor && !loadingMore) {
 			fetchVideos(nextCursor, true);
 		}
-	};
+	}, [inView, hasMore, nextCursor, loadingMore, fetchVideos]);
 
 	const handleCategorize = async (videoId: number) => {
 		setCategorizingId(videoId);
@@ -924,20 +927,13 @@ function VideosPageContent() {
 										))}
 									</div>
 
-									{/* Load More Button */}
-									{hasMore && (
+									{/* Infinite scroll sentinel */}
+									<div ref={sentinelRef} className="h-1" />
+
+									{/* Loading indicator */}
+									{loadingMore && (
 										<div className="flex justify-center pt-4">
-											<Button
-												color="primary"
-												variant="flat"
-												onPress={handleLoadMore}
-												isLoading={loadingMore}
-												className="min-w-[200px]"
-											>
-												{loadingMore
-													? "Loading..."
-													: `Load More (${videos.length} of ${totalVideos})`}
-											</Button>
+											<Spinner size="md" />
 										</div>
 									)}
 
