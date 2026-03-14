@@ -15,6 +15,7 @@ import {
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useInView } from "react-intersection-observer";
 import { playlistsApi, videosApi } from "@/api/api";
 import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
@@ -113,11 +114,13 @@ export default function PlaylistDetailPage() {
 		fetchPlaylistDetails();
 	}, [isReady, isAuthenticated, fetchPlaylistDetails]);
 
-	const handleLoadMore = () => {
-		if (hasMore && nextCursor && !loadingMore) {
+	const { ref: sentinelRef, inView } = useInView({ rootMargin: "200px" });
+
+	useEffect(() => {
+		if (inView && hasMore && nextCursor && !loadingMore) {
 			fetchPlaylistDetails(nextCursor, true);
 		}
-	};
+	}, [inView, hasMore, nextCursor, loadingMore, fetchPlaylistDetails]);
 
 	const handleSyncVideos = async () => {
 		setSyncing(true);
@@ -282,20 +285,13 @@ export default function PlaylistDetailPage() {
 										))}
 									</div>
 
-									{/* Load More Button */}
-									{hasMore && (
+									{/* Infinite scroll sentinel */}
+									<div ref={sentinelRef} className="h-1" />
+
+									{/* Loading indicator */}
+									{loadingMore && (
 										<div className="flex justify-center pt-4">
-											<Button
-												color="primary"
-												variant="flat"
-												onPress={handleLoadMore}
-												isLoading={loadingMore}
-												className="min-w-[200px]"
-											>
-												{loadingMore
-													? "Loading..."
-													: `Load More (${videos.length} of ${totalCount})`}
-											</Button>
+											<Spinner size="md" />
 										</div>
 									)}
 
