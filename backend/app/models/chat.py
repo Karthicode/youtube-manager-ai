@@ -55,7 +55,7 @@ class ChatMessage(Base):
         ForeignKey("chat_sessions.id", ondelete="CASCADE"),
         index=True,
     )
-    role: Mapped[str] = mapped_column(String(20), index=True)
+    role: Mapped[str] = mapped_column(String(20))
     content: Mapped[str] = mapped_column(Text)
     tool_calls_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     tool_results_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

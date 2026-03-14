@@ -499,9 +499,15 @@ async def _process_batch_categorization(
                 categorizations = await ai_service.categorize_videos_batch_async(videos)
 
                 # Apply categorizations to all videos
+                tag_increments: dict[int, int] = {}
                 for video, categorization in zip(videos, categorizations):
                     try:
-                        ai_service.apply_categorization(db, video, categorization)
+                        ai_service.apply_categorization(
+                            db,
+                            video,
+                            categorization,
+                            tag_increments=tag_increments,
+                        )
 
                         # Update progress
                         data = get_job_data(job_id)
@@ -534,6 +540,8 @@ async def _process_batch_categorization(
                                 }
                             )
                             set_job_data(job_id, data)
+
+                ai_service._flush_tag_increments(db, tag_increments)
 
                 api_logger.info(
                     f"Successfully categorized batch of {len(videos)} videos"

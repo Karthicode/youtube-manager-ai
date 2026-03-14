@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 import isodate
 
@@ -38,7 +38,7 @@ class YouTubeService:
         token_expiry = getattr(self.user, "token_expires_at", None)
         is_expired = False
         if token_expiry:
-            is_expired = datetime.utcnow() > token_expiry
+            is_expired = datetime.now(timezone.utc) > token_expiry
 
         # Create credentials object
         creds = Credentials(
@@ -210,7 +210,7 @@ class YouTubeService:
                     api_logger.info(
                         f"Marking playlist as deleted: {existing_playlist.title} (ID: {existing_playlist.youtube_id})"
                     )
-                    existing_playlist.deleted_at = datetime.utcnow()
+                    existing_playlist.deleted_at = datetime.now(timezone.utc)
                     deleted_count += 1
 
             # Commit all deletions at once
@@ -304,7 +304,7 @@ class YouTubeService:
                 api_logger.warning(
                     f"Playlist not found on YouTube: {playlist.title} (ID: {playlist.youtube_id}). Marking as deleted."
                 )
-                playlist.deleted_at = datetime.utcnow()
+                playlist.deleted_at = datetime.now(timezone.utc)
                 db.commit()
                 return []
 
@@ -360,7 +360,7 @@ class YouTubeService:
                     ),
                     view_count=int(statistics.get("viewCount", 0)),
                     like_count=int(statistics.get("likeCount", 0)),
-                    liked_at=datetime.utcnow(),
+                    liked_at=datetime.now(timezone.utc),
                 )
                 db.add(video)
             else:
@@ -420,7 +420,7 @@ class YouTubeService:
                 playlist.title = snippet.get("title", playlist.title)
                 playlist.description = snippet.get("description", playlist.description)
                 playlist.video_count = content_details.get("itemCount", 0)
-                playlist.last_synced_at = datetime.utcnow()
+                playlist.last_synced_at = datetime.now(timezone.utc)
 
             db.commit()
             db.refresh(playlist)

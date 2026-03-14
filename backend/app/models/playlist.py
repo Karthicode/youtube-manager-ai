@@ -17,13 +17,13 @@ class Playlist(Base):
 
     __tablename__ = "playlists"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
 
     # YouTube playlist details
-    youtube_id: Mapped[str] = mapped_column(String(50), index=True)
+    youtube_id: Mapped[str] = mapped_column(String(50))
     title: Mapped[str] = mapped_column(String(500))
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     thumbnail_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)

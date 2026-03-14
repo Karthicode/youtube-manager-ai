@@ -1,6 +1,6 @@
 """Auto-categorization service for processing user videos in background."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
 
@@ -33,9 +33,9 @@ class AutoCategorizeService:
             cooldown_until = user.last_auto_categorize_at + timedelta(
                 hours=cooldown_hours
             )
-            if datetime.utcnow() < cooldown_until:
+            if datetime.now(timezone.utc) < cooldown_until:
                 hours_remaining = (
-                    cooldown_until - datetime.utcnow()
+                    cooldown_until - datetime.now(timezone.utc)
                 ).total_seconds() / 3600
                 return (
                     False,

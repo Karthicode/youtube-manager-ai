@@ -6,7 +6,7 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import uuid
 
@@ -422,8 +422,8 @@ async def create_playlist_from_filters(
             description=yt_playlist["snippet"].get("description"),
             thumbnail_url=None,  # Will be updated on next sync
             video_count=len(videos),
-            published_at=datetime.utcnow(),
-            last_synced_at=datetime.utcnow(),
+            published_at=datetime.now(timezone.utc),
+            last_synced_at=datetime.now(timezone.utc),
         )
         db.add(db_playlist)
         db.commit()
@@ -629,8 +629,8 @@ async def confirm_smart_playlist(
             description=yt_playlist["snippet"].get("description"),
             thumbnail_url=None,
             video_count=len(youtube_ids),
-            published_at=datetime.utcnow(),
-            last_synced_at=datetime.utcnow(),
+            published_at=datetime.now(timezone.utc),
+            last_synced_at=datetime.now(timezone.utc),
         )
         db.add(db_playlist)
         db.commit()

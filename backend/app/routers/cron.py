@@ -3,7 +3,7 @@
 import asyncio
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -118,7 +118,7 @@ async def auto_categorize_all_users(
         return {
             "status": "skipped",
             "reason": "Auto-categorization globally disabled",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     api_logger.info("Starting auto-categorization cron job")
@@ -172,7 +172,7 @@ async def auto_categorize_all_users(
                     )
                     stats["total_videos_synced"] += sync_count
                     # Update last sync time
-                    user.last_sync_at = datetime.utcnow()
+                    user.last_sync_at = datetime.now(timezone.utc)
                     db.commit()
             except Exception as e:
                 api_logger.warning(
@@ -224,7 +224,7 @@ async def auto_categorize_all_users(
                 continue
 
             # Update last_auto_categorize_at timestamp
-            user.last_auto_categorize_at = datetime.utcnow()
+            user.last_auto_categorize_at = datetime.now(timezone.utc)
             db.commit()
 
             stats["processed"] += 1
@@ -251,7 +251,7 @@ async def auto_categorize_all_users(
     # Store stats in Redis for monitoring
     run_data = {
         "status": "completed",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "stats": stats,
     }
 
@@ -261,7 +261,9 @@ async def auto_categorize_all_users(
         redis_client.set(LAST_RUN_KEY, json.dumps(run_data))
 
         # Store in daily history (7 day expiry)
-        date_key = RUN_HISTORY_KEY.format(date=datetime.utcnow().strftime("%Y-%m-%d"))
+        date_key = RUN_HISTORY_KEY.format(
+            date=datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        )
         redis_client.set(date_key, json.dumps(run_data), expire=7 * 24 * 60 * 60)
 
         api_logger.info("Auto-categorization stats saved to Redis")

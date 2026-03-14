@@ -10,8 +10,8 @@ from typing import List
 
 from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel, Field
+from sqlalchemy import func, or_, text
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
 
 from app.config import settings
 from app.logger import api_logger
@@ -172,7 +172,11 @@ Rules:
             return f"{secs}s"
 
     def apply_categorization(
-        self, db: Session, video: Video, categorization: VideoCategorization
+        self,
+        db: Session,
+        video: Video,
+        categorization: VideoCategorization,
+        tag_increments: dict[int, int] | None = None,
     ) -> Video:
         """
         Apply AI categorization results to a video.
@@ -204,7 +208,10 @@ Rules:
             tag = self._get_or_create_tag(db, tag_name)
             if tag:
                 video.tags.append(tag)
-                tag.usage_count += 1
+                if tag_increments is not None:
+                    tag_increments[tag.id] = tag_increments.get(tag.id, 0) + 1
+                else:
+                    tag.usage_count += 1
 
         # Mark as categorized
         video.is_categorized = True
@@ -248,6 +255,22 @@ Rules:
             db.flush()
 
         return tag
+
+    def _flush_tag_increments(
+        self, db: Session, tag_increments: dict[int, int]
+    ) -> None:
+        """Flush accumulated tag usage_count increments using a single SQL UPDATE per tag.
+
+        Call this once after a batch of apply_categorization calls to replace the
+        per-video per-tag individual UPDATE statements with a batched operation.
+        """
+        if not tag_increments:
+            return
+        for tag_id, increment in tag_increments.items():
+            db.execute(
+                text("UPDATE tags SET usage_count = usage_count + :inc WHERE id = :id"),
+                {"inc": increment, "id": tag_id},
+            )
 
     async def categorize_videos_batch_async(
         self, videos: List[Video]
@@ -493,6 +516,7 @@ Rules:
         success_count = 0
         failed_count = 0
         categorization_results = []
+        tag_increments: dict[int, int] = {}
 
         for result in results:
             if isinstance(result, BaseException):
@@ -511,7 +535,9 @@ Rules:
 
             try:
                 # Apply categorization to video
-                self.apply_categorization(db, video, categorization)
+                self.apply_categorization(
+                    db, video, categorization, tag_increments=tag_increments
+                )
                 success_count += 1
                 categorization_results.append(
                     {
@@ -531,6 +557,9 @@ Rules:
                 categorization_results.append(
                     {"video_id": video.id, "success": False, "error": str(e)}
                 )
+
+        self._flush_tag_increments(db, tag_increments)
+        db.commit()
 
         api_logger.info(
             f"Parallel categorization complete: {success_count} successful, {failed_count} failed"

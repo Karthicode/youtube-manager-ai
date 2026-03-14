@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 
 from jose import jwt
@@ -30,7 +30,7 @@ class AuthService:
             Encoded JWT token
         """
         to_encode = data.copy()
-        expire = datetime.utcnow() + timedelta(
+        expire = datetime.now(timezone.utc) + timedelta(
             minutes=settings.access_token_expire_minutes
         )
         to_encode.update({"exp": expire, "type": "access"})
@@ -52,7 +52,9 @@ class AuthService:
             Encoded JWT refresh token
         """
         to_encode = data.copy()
-        expire = datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days)
+        expire = datetime.now(timezone.utc) + timedelta(
+            days=settings.refresh_token_expire_days
+        )
         to_encode.update({"exp": expire, "type": "refresh"})
 
         encoded_jwt = jwt.encode(

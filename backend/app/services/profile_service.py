@@ -103,38 +103,54 @@ class ProfileService:
             {"user_id": self.user_id},
         )
 
+        rows = result.fetchall()
+        if not rows:
+            return np.array([]), []
+
+        video_ids = [row.id for row in rows]
+
+        # Bulk-fetch categories for all videos in one query
+        cats_result = self.db.execute(
+            text(
+                """
+                SELECT vc.video_id, c.name
+                FROM categories c
+                JOIN video_categories vc ON vc.category_id = c.id
+                WHERE vc.video_id = ANY(:video_ids)
+                """
+            ),
+            {"video_ids": video_ids},
+        )
+        video_categories: dict[int, list[str]] = defaultdict(list)
+        for r in cats_result:
+            video_categories[r.video_id].append(r.name)
+
+        # Bulk-fetch tags for all videos in one query
+        tags_result = self.db.execute(
+            text(
+                """
+                SELECT vt.video_id, t.name
+                FROM tags t
+                JOIN video_tags vt ON vt.tag_id = t.id
+                WHERE vt.video_id = ANY(:video_ids)
+                """
+            ),
+            {"video_ids": video_ids},
+        )
+        video_tags: dict[int, list[str]] = defaultdict(list)
+        for r in tags_result:
+            video_tags[r.video_id].append(r.name)
+
         embeddings = []
         metadata = []
 
-        for row in result:
+        for row in rows:
             # Parse pgvector embedding string "[0.1,0.2,...]" to numpy array
             embedding_str = row.embedding_text.strip("[]")
             embedding = np.array(
                 [float(x) for x in embedding_str.split(",")], dtype=np.float32
             )
             embeddings.append(embedding)
-
-            # Fetch categories and tags for this video
-            cats = self.db.execute(
-                text(
-                    """
-                    SELECT c.name FROM categories c
-                    JOIN video_categories vc ON vc.category_id = c.id
-                    WHERE vc.video_id = :video_id
-                    """
-                ),
-                {"video_id": row.id},
-            )
-            tags = self.db.execute(
-                text(
-                    """
-                    SELECT t.name FROM tags t
-                    JOIN video_tags vt ON vt.tag_id = t.id
-                    WHERE vt.video_id = :video_id
-                    """
-                ),
-                {"video_id": row.id},
-            )
 
             metadata.append(
                 {
@@ -144,8 +160,8 @@ class ProfileService:
                     "duration": row.duration_seconds,
                     "liked_at": row.liked_at,
                     "published_at": row.published_at,
-                    "categories": [r.name for r in cats],
-                    "tags": [r.name for r in tags],
+                    "categories": video_categories[row.id],
+                    "tags": video_tags[row.id],
                 }
             )
 
