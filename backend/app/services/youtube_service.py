@@ -37,11 +37,18 @@ class YouTubeService:
         # Use getattr for backwards compatibility if column doesn't exist yet
         token_expiry = getattr(self.user, "token_expires_at", None)
         is_expired = False
+        # google-auth expects a naive UTC datetime for `expiry`; normalise either way
+        expiry_for_creds: datetime | None = None
         if token_expiry:
-            # Normalise naive datetimes (stored without tz) to UTC-aware
             if token_expiry.tzinfo is None:
-                token_expiry = token_expiry.replace(tzinfo=timezone.utc)
-            is_expired = datetime.now(timezone.utc) > token_expiry
+                expiry_for_creds = token_expiry  # already naive UTC
+            else:
+                expiry_for_creds = token_expiry.replace(tzinfo=None)  # strip tz
+            is_expired = (
+                datetime.now(timezone.utc) > token_expiry.replace(tzinfo=timezone.utc)
+                if token_expiry.tzinfo is None
+                else datetime.now(timezone.utc) > token_expiry
+            )
 
         # Create credentials object
         creds = Credentials(
@@ -51,7 +58,7 @@ class YouTubeService:
             client_id=settings.youtube_client_id,
             client_secret=settings.youtube_client_secret,
             scopes=settings.youtube_scopes,
-            expiry=token_expiry,
+            expiry=expiry_for_creds,
         )
 
         # Check if token is expired and refresh if needed
