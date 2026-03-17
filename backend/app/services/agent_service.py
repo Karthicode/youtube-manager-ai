@@ -627,7 +627,7 @@ Guidelines:
         # so we run it in a thread to allow true parallelism.
         system_prompt, previous_response_id = await asyncio.gather(
             self._get_system_prompt(),
-            asyncio.get_event_loop().run_in_executor(
+            asyncio.get_running_loop().run_in_executor(
                 None, self._get_previous_response_id, session_id
             ),
         )

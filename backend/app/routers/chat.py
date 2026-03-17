@@ -97,6 +97,7 @@ async def send_message(
     session.last_message_at = now
     session.message_count += 1
     db.commit()
+    invalidate_chat_sessions(current_user.id)
 
     agent = AgentService(user_id=current_user.id, db=db)
 
@@ -169,7 +170,7 @@ def list_sessions(
 
     cached = redis.get(cache_key)
     if cached:
-        return json.loads(cached)
+        return [ChatSessionSchema.model_validate(s) for s in json.loads(cached)]
 
     sessions = (
         db.query(ChatSession)
@@ -262,17 +263,17 @@ def delete_session(
         .filter(ChatSession.id == session_id, ChatSession.user_id == current_user.id)
         .first()
     )
+    redis_client = get_redis()
+    # Invalidate the sessions list cache so stale entries aren't shown.
+    invalidate_chat_sessions(current_user.id)
+    # Best-effort cleanup of legacy Redis session key.
+    redis_client.delete(f"chat:{current_user.id}:{session_id}")
+
     if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found",
-        )
+        # Idempotent: session already gone, nothing to do.
+        return {"status": "deleted", "session_id": session_id}
 
     db.delete(session)
     db.commit()
-
-    # Best-effort cleanup of legacy Redis session key.
-    redis_client = get_redis()
-    redis_client.delete(f"chat:{current_user.id}:{session_id}")
 
     return {"status": "deleted", "session_id": session_id}
