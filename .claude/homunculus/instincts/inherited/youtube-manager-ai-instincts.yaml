@@ -1,0 +1,197 @@
+# Instincts generated from https://github.com/Karthicode/youtube-manager-ai
+# Generated: 2026-03-23T17:20:53.157Z
+# Version: 2.0
+
+---
+id: youtube-manager-ai-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: feat, fix, chore, refactor
+
+## Evidence
+
+- 200 commits analyzed
+- Detected conventional commit pattern
+- Examples: chore(deps): bump the python-minor group across 1 directory with 15 updates, fix: bump trivy version
+
+---
+id: youtube-manager-ai-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Commit Length
+
+## Action
+
+Write moderate-length commit messages (~50 characters)
+
+## Evidence
+
+- Average commit message length: 62 chars
+- Based on 200 commits
+
+---
+id: youtube-manager-ai-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: youtube-manager-ai-import-alias
+trigger: "when importing modules"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Import Alias
+
+## Action
+
+Use path aliases (@/, ~/) instead of relative imports
+
+## Evidence
+
+- Import analysis shows alias pattern
+- Example: import { x } from '@/lib/x'
+
+---
+id: youtube-manager-ai-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Export Style
+
+## Action
+
+Prefer default exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: default
+
+---
+id: youtube-manager-ai-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: youtube-manager-ai-workflow-database-migration
+trigger: "when modifying the database schema or adding tables"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Workflow Database Migration
+
+## Action
+
+Follow the database-migration workflow:
+1. Create migration file
+2. Update schema definitions
+3. Generate/update types
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: **/schema.*
+
+---
+id: youtube-manager-ai-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~11x per month
+- Files: frontend/app/chat/*, frontend/components/*, frontend/api/*
+
+---
+id: youtube-manager-ai-workflow-refactoring
+trigger: "when refactoring code"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/Karthicode/youtube-manager-ai
+---
+
+# Youtube Manager Ai Workflow Refactoring
+
+## Action
+
+Follow the refactoring workflow:
+1. Ensure tests pass before refactor
+2. Refactor code structure
+3. Verify tests still pass
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: src/**/*
+
