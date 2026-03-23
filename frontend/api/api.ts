@@ -1,5 +1,6 @@
 import axios from "axios";
 import { deleteCookie } from "@/lib/cookies";
+import { useAuthStore } from "@/store/auth";
 
 const API_BASE_URL =
 	process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -40,6 +41,7 @@ async function refreshAccessToken(): Promise<string> {
 	const { access_token, refresh_token: newRefreshToken } = response.data;
 	localStorage.setItem("access_token", access_token);
 	localStorage.setItem("refresh_token", newRefreshToken);
+	useAuthStore.getState().updateTokens(access_token, newRefreshToken);
 	return access_token;
 }
 
@@ -71,6 +73,7 @@ api.interceptors.response.use(
 					localStorage.removeItem("access_token");
 					localStorage.removeItem("refresh_token");
 					deleteCookie("is_authenticated");
+					useAuthStore.getState().clearAuth();
 					window.location.href = "/";
 					return Promise.reject(refreshError);
 				}
