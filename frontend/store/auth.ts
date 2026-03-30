@@ -66,7 +66,15 @@ export const useAuthStore = create<AuthState>()(
 				isAuthenticated: state.isAuthenticated,
 			}),
 			onRehydrateStorage: () => (state) => {
-				state?.setHydrated(true);
+				if (state) {
+					state.setHydrated(true);
+				} else {
+					// Rehydration failed (corrupted/invalid storage).
+					// Clear stale tokens and mark hydrated so the UI never spins forever.
+					localStorage.removeItem("access_token");
+					localStorage.removeItem("refresh_token");
+					useAuthStore.setState({ isHydrated: true });
+				}
 			},
 		},
 	),
