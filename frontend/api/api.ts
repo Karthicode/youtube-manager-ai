@@ -1,5 +1,5 @@
 import axios from "axios";
-import { deleteCookie } from "@/lib/cookies";
+import { deleteCookie, setCookie } from "@/lib/cookies";
 import { useAuthStore } from "@/store/auth";
 
 const API_BASE_URL =
@@ -41,6 +41,10 @@ async function refreshAccessToken(): Promise<string> {
 	const { access_token, refresh_token: newRefreshToken } = response.data;
 	localStorage.setItem("access_token", access_token);
 	localStorage.setItem("refresh_token", newRefreshToken);
+	// Renew the is_authenticated cookie so middleware continues to allow access.
+	// Without this, the cookie expires after 7 days even if tokens are refreshed,
+	// causing a middleware redirect loop.
+	setCookie("is_authenticated", "true", 604800);
 	useAuthStore.getState().updateTokens(access_token, newRefreshToken);
 	return access_token;
 }

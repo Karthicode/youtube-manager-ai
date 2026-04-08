@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { authApi } from "@/api/api";
+import { setCookie } from "@/lib/cookies";
 import { useAuthStore } from "@/store/auth";
 
 export default function Home() {
@@ -16,6 +17,10 @@ export default function Home() {
 		if (!isHydrated) return;
 
 		if (isAuthenticated) {
+			// Ensure the middleware cookie is set before navigating. This fixes
+			// the case where tokens exist in localStorage but the cookie has
+			// expired, which causes an infinite middleware redirect loop.
+			setCookie("is_authenticated", "true", 604800);
 			router.push("/dashboard");
 		}
 	}, [isAuthenticated, isHydrated, router]);

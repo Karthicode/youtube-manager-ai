@@ -9,7 +9,7 @@ const PROTECTED_ROUTES = [
 	"/help",
 ];
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
 	const { pathname } = request.nextUrl;
 	const isAuthenticated = request.cookies.get("is_authenticated")?.value;
 
