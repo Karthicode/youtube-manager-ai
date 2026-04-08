@@ -3,7 +3,7 @@
 import CloseIcon from "@mui/icons-material/Close";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { watchHistoryApi } from "@/api/api";
 import { useMiniPlayerStore } from "@/store/miniPlayer";
 import type { WatchHistory } from "@/types";
@@ -23,16 +23,29 @@ export default function ContinueWatching() {
 	const [items, setItems] = useState<WatchHistory[]>([]);
 	const [loaded, setLoaded] = useState(false);
 	const openPlayer = useMiniPlayerStore((s) => s.openPlayer);
+	const isOpen = useMiniPlayerStore((s) => s.isOpen);
+	const wasOpenRef = useRef(isOpen);
 
-	useEffect(() => {
+	const fetchItems = useCallback(() => {
 		watchHistoryApi
 			.getContinueWatching({ limit: 10 })
-			.then((res) => {
-				setItems(res.data.items);
-			})
+			.then((res) => setItems(res.data.items))
 			.catch(() => {})
 			.finally(() => setLoaded(true));
 	}, []);
+
+	useEffect(() => {
+		fetchItems();
+	}, [fetchItems]);
+
+	useEffect(() => {
+		const wasOpen = wasOpenRef.current;
+		wasOpenRef.current = isOpen;
+		if (wasOpen && !isOpen) {
+			const timer = setTimeout(fetchItems, 500);
+			return () => clearTimeout(timer);
+		}
+	}, [isOpen, fetchItems]);
 
 	if (!loaded || items.length === 0) return null;
 
