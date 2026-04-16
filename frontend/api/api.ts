@@ -304,6 +304,33 @@ export const preferencesApi = {
 	}) => api.put("/preferences", data),
 };
 
+export const autoCategorizeApi = {
+	// Per-user status of the last auto-categorize run (failed / stale / ok).
+	getStatus: () =>
+		api.get<{
+			status: string;
+			reason?: string;
+			stage?: string;
+			error?: string;
+			videos_synced?: number;
+			videos_categorized?: number;
+			job_id?: string;
+			user_id?: number;
+			timestamp?: string;
+		}>("/cron/auto-categorize/status/me"),
+
+	// Re-run sync + categorize for the current user (backs the "Retry now" button).
+	retry: () =>
+		api.post<{
+			status: string;
+			reason?: string;
+			videos_synced?: number;
+			videos_categorized?: number;
+			job_id?: string;
+			user_id?: number;
+		}>("/auto-categorize/retry"),
+};
+
 export const watchHistoryApi = {
 	savePosition: (data: {
 		youtube_id: string;

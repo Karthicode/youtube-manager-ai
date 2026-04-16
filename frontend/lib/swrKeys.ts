@@ -21,4 +21,5 @@ export const swrKeys = {
 		limit
 			? (["/insights/recommendations", { limit }] as const)
 			: "/insights/recommendations",
+	autoCategorizeStatus: () => "/cron/auto-categorize/status/me",
 };

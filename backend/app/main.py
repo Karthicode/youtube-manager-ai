@@ -10,6 +10,7 @@ from app.config import settings
 from app.logger import app_logger, db_logger, redis_logger
 from app.routers import (
     auth,
+    auto_categorize,
     videos,
     playlists,
     categories,
@@ -134,6 +135,9 @@ app.include_router(insights.router, prefix=settings.api_prefix, tags=["Insights"
 app.include_router(chat.router, prefix=settings.api_prefix, tags=["Chat"])
 app.include_router(preferences.router, prefix=settings.api_prefix, tags=["Preferences"])
 app.include_router(cron.router, prefix=settings.api_prefix, tags=["Cron"])
+app.include_router(
+    auto_categorize.router, prefix=settings.api_prefix, tags=["Auto-Categorize"]
+)
 app.include_router(
     watch_history.router, prefix=settings.api_prefix, tags=["Watch History"]
 )

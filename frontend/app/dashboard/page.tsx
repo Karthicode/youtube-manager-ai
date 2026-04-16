@@ -25,6 +25,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { mutate } from "swr";
 import { videosApi } from "@/api/api";
+import AutoCategorizeBanner from "@/components/AutoCategorizeBanner";
 import CategorizationProgressSSE from "@/components/CategorizationProgressSSE";
 import ContinueWatching from "@/components/ContinueWatching";
 import Navbar from "@/components/Navbar";
@@ -53,7 +54,6 @@ export default function Dashboard() {
 	const router = useRouter();
 	const { isReady, isAuthenticated, user } = useAuthGuard();
 	const { stats, isLoading: loading } = useVideoStats();
-	const [syncing, setSyncing] = useState(false);
 	const [batchSyncing, setBatchSyncing] = useState(false);
 	const [batchCategorizing, setBatchCategorizing] = useState(false);
 	const [categorizationJobId, setCategorizationJobId] = useState<string | null>(
@@ -71,18 +71,6 @@ export default function Dashboard() {
 		mutate(swrKeys.videoStats());
 		mutate(swrKeys.categories());
 		mutate(swrKeys.tags());
-	};
-
-	const handleSync = async () => {
-		setSyncing(true);
-		try {
-			await videosApi.syncVideos({ max_results: 20 });
-			refreshStats();
-		} catch {
-			alert("Failed to sync videos. Please try again.");
-		} finally {
-			setSyncing(false);
-		}
 	};
 
 	const handleBatchSync = async () => {
@@ -172,17 +160,14 @@ export default function Dashboard() {
 								<span className="hidden sm:inline">Sync All Videos</span>
 								<span className="sm:hidden">Sync All</span>
 							</Button>
-							<Button
-								color="primary"
-								size="md"
-								className="w-full sm:w-auto"
-								onPress={handleSync}
-								isLoading={syncing}
-							>
-								Sync Latest (20)
-							</Button>
 						</div>
 					</div>
+
+					{/* Auto-categorize status banner (failure / stale) */}
+					<AutoCategorizeBanner
+						lastSyncAt={user?.last_sync_at ?? null}
+						onJobComplete={refreshStats}
+					/>
 
 					{/* Continue Watching */}
 					<ContinueWatching />
@@ -203,38 +188,6 @@ export default function Dashboard() {
 							}}
 						/>
 					)}
-
-					{/* Sync Modal */}
-					<Modal
-						isOpen={syncing}
-						isDismissable={false}
-						isKeyboardDismissDisabled={true}
-						hideCloseButton={true}
-						size="md"
-						backdrop="blur"
-					>
-						<ModalContent>
-							<ModalHeader className="flex flex-col gap-1">
-								Syncing Videos
-							</ModalHeader>
-							<ModalBody className="py-8">
-								<div className="flex flex-col items-center gap-4">
-									<Spinner size="lg" color="primary" />
-									<div className="text-center space-y-2">
-										<p className="text-lg font-semibold">Please wait...</p>
-										<p className="text-sm text-text-secondary">
-											Fetching your liked videos from YouTube and categorizing
-											them with AI.
-										</p>
-										<p className="text-sm text-text-secondary">
-											This may take a few minutes depending on the number of
-											videos.
-										</p>
-									</div>
-								</div>
-							</ModalBody>
-						</ModalContent>
-					</Modal>
 
 					{/* Batch Sync Modal */}
 					<Modal

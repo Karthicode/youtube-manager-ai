@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -13,33 +12,24 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.dependencies import get_current_user
+from app.logger import api_logger
 from app.models.user import User
 from app.models.user_preference import UserPreference
 from app.redis_client import get_redis
 from app.services.auto_categorize_service import AutoCategorizeService
-from app.services.youtube_service import YouTubeService
-from app.logger import api_logger
-from app.utils.qstash_client import trigger_categorization_job
 
 router = APIRouter(prefix="/cron", tags=["cron"])
 
-# Redis keys for tracking
+# Redis keys for tracking the aggregate cron run.
 LAST_RUN_KEY = "auto_categorize:last_run"
 RUN_HISTORY_KEY = "auto_categorize:run_history:{date}"
-
-
-def set_job_data(job_id: str, data: dict, expire: int = 3600) -> None:
-    """Set job data in Redis with expiration (default 1 hour)."""
-    redis_client = get_redis()
-    redis_client.set(f"categorization_job:{job_id}", json.dumps(data), expire=expire)
 
 
 @router.get("/auto-categorize/status")
 async def get_auto_categorize_status() -> dict[str, Any]:
     """
-    Get the status of the last auto-categorization run.
-
-    Returns stats from the most recent run if available.
+    Get the status of the last auto-categorization run (aggregate across all users).
     """
     try:
         redis_client = get_redis()
@@ -59,6 +49,21 @@ async def get_auto_categorize_status() -> dict[str, Any]:
             status_code=500,
             detail="Failed to retrieve auto-categorization status",
         )
+
+
+@router.get("/auto-categorize/status/me")
+async def get_my_auto_categorize_status(
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Per-user status from the most recent auto-categorize attempt.
+
+    Returns ``{"status": "no_runs"}`` when nothing has been recorded for this
+    user yet (e.g., first login, or Redis entry expired after 7 days).
+    """
+    data = AutoCategorizeService.get_user_status(current_user.id)
+    if data is None:
+        return {"status": "no_runs"}
+    return data
 
 
 @router.post("/auto-categorize")
@@ -148,103 +153,51 @@ async def auto_categorize_all_users(
     # Process each user sequentially with delay
     for user in users:
         try:
-            # Check if should run for this user
-            should_run, reason = AutoCategorizeService.should_run_for_user(db, user)
-
-            if not should_run:
-                stats["skipped"] += 1
-                stats["skip_reasons"][reason] = stats["skip_reasons"].get(reason, 0) + 1
-                api_logger.info(f"Skipping user {user.id}: {reason}")
-                continue
-
-            # Sync latest videos from YouTube before categorizing
-            try:
-                api_logger.info(
-                    f"Syncing latest {settings.auto_categorize_sync_videos} videos for user {user.id}"
-                )
-                youtube_service = YouTubeService(user)
-                synced_videos, sync_count = youtube_service.fetch_liked_videos(
-                    db, max_results=settings.auto_categorize_sync_videos
-                )
-                if sync_count > 0:
-                    api_logger.info(
-                        f"Synced {sync_count} new videos for user {user.id}"
-                    )
-                    stats["total_videos_synced"] += sync_count
-                    # Update last sync time
-                    user.last_sync_at = datetime.now(timezone.utc)
-                    db.commit()
-            except Exception as e:
-                api_logger.warning(
-                    f"Failed to sync videos for user {user.id}: {e}. Continuing with categorization."
-                )
-                # Continue with categorization even if sync fails
-
-            # Get uncategorized videos
-            videos = AutoCategorizeService.get_uncategorized_videos(db, user)
-
-            if not videos:
-                stats["skipped"] += 1
-                stats["skip_reasons"]["No uncategorized videos"] = (
-                    stats["skip_reasons"].get("No uncategorized videos", 0) + 1
-                )
-                api_logger.info(f"Skipping user {user.id}: No uncategorized videos")
-                continue
-
-            # Generate unique job ID
-            job_id = str(uuid.uuid4())
-
-            # Initialize job data in Redis (required for worker)
-            video_ids = [v.id for v in videos]
-            set_job_data(
-                job_id,
-                {
-                    "user_id": user.id,
-                    "total": len(video_ids),
-                    "completed": 0,
-                    "failed": 0,
-                    "current_video": None,
-                    "status": "queued",
-                    "paused": False,
-                    "results": [],
-                },
+            user_result = await AutoCategorizeService.run_for_user(db, user)
+        except Exception as e:
+            # Defensive: run_for_user catches internally, but in case of bugs
+            # we still want the loop to continue.
+            stats["failed"] += 1
+            api_logger.error(
+                f"Unexpected error processing user {user.id}: {e}", exc_info=True
             )
+            continue
 
-            # Trigger QStash categorization job
-            job_result = await trigger_categorization_job(
-                job_id=job_id, user_id=user.id, video_ids=video_ids
-            )
+        videos_synced = user_result.get("videos_synced", 0) or 0
+        stats["total_videos_synced"] += videos_synced
 
-            # Check if QStash trigger failed
-            if job_result.get("mode") == "error":
-                stats["failed"] += 1
-                api_logger.error(
-                    f"Failed to trigger job for user {user.id}: {job_result}"
-                )
-                continue
-
-            # Update last_auto_categorize_at timestamp
-            user.last_auto_categorize_at = datetime.now(timezone.utc)
-            db.commit()
-
+        status_value = user_result.get("status")
+        if status_value == "skipped":
+            stats["skipped"] += 1
+            reason = user_result.get("reason", "unknown")
+            stats["skip_reasons"][reason] = stats["skip_reasons"].get(reason, 0) + 1
+            api_logger.info(f"Skipping user {user.id}: {reason}")
+        elif status_value == "no_videos":
+            stats["skipped"] += 1
+            reason = "No uncategorized videos"
+            stats["skip_reasons"][reason] = stats["skip_reasons"].get(reason, 0) + 1
+            api_logger.info(f"User {user.id}: {reason} after sync")
+        elif status_value == "triggered":
             stats["processed"] += 1
-            stats["total_videos_categorized"] += len(videos)
             stats["jobs_triggered"] += 1
-
+            stats["total_videos_categorized"] += user_result.get(
+                "videos_categorized", 0
+            )
             api_logger.info(
                 f"Triggered categorization job for user {user.id}: "
-                f"{len(videos)} videos, job_id={job_id}"
+                f"{user_result.get('videos_categorized', 0)} videos, "
+                f"job_id={user_result.get('job_id')}"
+            )
+        elif status_value == "failed":
+            stats["failed"] += 1
+            api_logger.error(
+                f"Failed to process user {user.id} at stage "
+                f"{user_result.get('stage')}: {user_result.get('error')}"
             )
 
-            # Add delay before processing next user
-            if settings.auto_categorize_user_delay_seconds > 0:
-                await asyncio.sleep(settings.auto_categorize_user_delay_seconds)
-
-        except Exception as e:
-            stats["failed"] += 1
-            api_logger.error(f"Error processing user {user.id}: {e}", exc_info=True)
-            # Continue to next user even if one fails
-            continue
+        # Add delay before processing next user
+        if settings.auto_categorize_user_delay_seconds > 0:
+            await asyncio.sleep(settings.auto_categorize_user_delay_seconds)
 
     api_logger.info(f"Auto-categorization cron job completed: {stats}")
 
