@@ -43,13 +43,20 @@ class AutoCategorizeService:
 
         if user.last_auto_categorize_at:
             cooldown_hours = settings.auto_categorize_cooldown_hours
-            cooldown_until = user.last_auto_categorize_at + timedelta(
-                hours=cooldown_hours
-            )
-            if datetime.now(timezone.utc) < cooldown_until:
-                hours_remaining = (
-                    cooldown_until - datetime.now(timezone.utc)
-                ).total_seconds() / 3600
+            # The column is TIMESTAMP WITHOUT TIME ZONE (see migration
+            # 8d9e7f6a5b4c), so SQLAlchemy returns a naive datetime even though
+            # we always write UTC. Normalize to tz-aware UTC before comparing
+            # against datetime.now(timezone.utc) — otherwise Python raises
+            # TypeError ("can't compare offset-naive and offset-aware datetimes")
+            # which would escape this function and surface as a 500 on the
+            # retry endpoint / a failed user in the cron loop.
+            last_run = user.last_auto_categorize_at
+            if last_run.tzinfo is None:
+                last_run = last_run.replace(tzinfo=timezone.utc)
+            cooldown_until = last_run + timedelta(hours=cooldown_hours)
+            now = datetime.now(timezone.utc)
+            if now < cooldown_until:
+                hours_remaining = (cooldown_until - now).total_seconds() / 3600
                 return (
                     False,
                     f"Cooldown active (next run in {hours_remaining:.1f} hours)",
