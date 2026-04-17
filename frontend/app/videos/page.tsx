@@ -566,13 +566,25 @@ function VideosPageContent() {
 							</Tooltip>
 						</div>
 
+						{/* Clear Filters Button */}
+						{!semanticSearchEnabled && hasActiveFilters && (
+							<Button
+								color="danger"
+								variant="flat"
+								onPress={handleClearFilters}
+								className="h-10 mt-6"
+							>
+								Clear filters
+							</Button>
+						)}
+
 						{/* Create Playlist Button */}
 						{!semanticSearchEnabled && hasActiveFilters && totalVideos > 0 && (
 							<Button
 								color="success"
 								variant="shadow"
 								onPress={() => setShowCreatePlaylistDialog(true)}
-								className="h-10"
+								className="h-10 mt-6"
 							>
 								Create Playlist ({totalVideos})
 							</Button>
