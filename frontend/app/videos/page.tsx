@@ -28,6 +28,7 @@ import DeleteVideosDialog from "@/components/DeleteVideosDialog";
 import FilterPanel from "@/components/FilterPanel";
 import Navbar from "@/components/Navbar";
 import VideoCard from "@/components/VideoCard";
+import VideoCardSkeleton from "@/components/VideoCardSkeleton";
 import { useAuthGuard } from "@/hooks";
 import { useMiniPlayerStore } from "@/store/miniPlayer";
 import type {
@@ -912,8 +913,14 @@ function VideosPageContent() {
 									</div>
 								)
 							) : loading ? (
-								<div className="flex justify-center items-center h-64">
-									<Spinner size="lg" />
+								<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+									{Array.from({ length: 9 }).map((_, i) => (
+										<VideoCardSkeleton
+											// biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton placeholders
+											key={i}
+											viewMode={viewMode}
+										/>
+									))}
 								</div>
 							) : videos.length > 0 ? (
 								<div className="space-y-6">

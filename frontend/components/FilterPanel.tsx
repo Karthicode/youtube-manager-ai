@@ -10,6 +10,7 @@ import {
 	Chip,
 	Divider,
 	Input,
+	Skeleton,
 } from "@heroui/react";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
@@ -154,7 +155,21 @@ export default function FilterPanel({
 					<Divider />
 
 					{/* Categories */}
-					{!loading && categories.length > 0 && (
+					{loading ? (
+						<>
+							<div className="space-y-3">
+								<Skeleton className="h-4 w-24 rounded" />
+								{Array.from({ length: 5 }).map((_, i) => (
+									<Skeleton
+										// biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton placeholders
+										key={i}
+										className="h-4 w-full rounded"
+									/>
+								))}
+							</div>
+							<Divider />
+						</>
+					) : categories.length > 0 ? (
 						<>
 							<div className="space-y-3">
 								<p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -183,10 +198,23 @@ export default function FilterPanel({
 							</div>
 							<Divider />
 						</>
-					)}
+					) : null}
 
 					{/* Tags */}
-					{!loading && tags.length > 0 && (
+					{loading ? (
+						<div className="space-y-3">
+							<Skeleton className="h-4 w-16 rounded" />
+							<div className="flex flex-wrap gap-2">
+								{Array.from({ length: 6 }).map((_, i) => (
+									<Skeleton
+										// biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton placeholders
+										key={i}
+										className="h-6 w-16 rounded-md"
+									/>
+								))}
+							</div>
+						</div>
+					) : tags.length > 0 ? (
 						<div className="space-y-3">
 							<p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
 								Tags
@@ -217,7 +245,7 @@ export default function FilterPanel({
 								))}
 							</div>
 						</div>
-					)}
+					) : null}
 
 					{/* Bulk Actions - Delete by Tags */}
 					{selectedTags.length > 0 && onDeleteByTags && (
