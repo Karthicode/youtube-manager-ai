@@ -944,17 +944,18 @@ function VideosPageContent() {
 												viewMode={viewMode}
 											/>
 										))}
+										{loadingMore &&
+											Array.from({ length: 3 }).map((_, i) => (
+												<VideoCardSkeleton
+													// biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton placeholders
+													key={i}
+													viewMode={viewMode}
+												/>
+											))}
 									</div>
 
 									{/* Infinite scroll sentinel */}
 									<div ref={sentinelRef} className="h-1" />
-
-									{/* Loading indicator */}
-									{loadingMore && (
-										<div className="flex justify-center pt-4">
-											<Spinner size="md" />
-										</div>
-									)}
 
 									{/* Showing count */}
 									{!hasMore && videos.length > 0 && (
