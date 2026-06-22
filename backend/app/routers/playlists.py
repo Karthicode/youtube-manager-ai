@@ -27,6 +27,8 @@ from app.schemas.playlist import (
     PlaylistSuggestion,
     SmartPlaylistConfirmRequest,
 )
+from google.auth.exceptions import RefreshError
+
 from app.services.youtube_service import YouTubeService
 from app.services.ai_service import AIService
 from app.logger import api_logger
@@ -39,7 +41,7 @@ router = APIRouter(prefix="/playlists")
 CACHE_TTL = 600  # 10 minutes
 
 
-@router.get("/", response_model=List[PlaylistResponse])
+@router.get("", response_model=List[PlaylistResponse])
 async def get_playlists(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -247,6 +249,10 @@ async def sync_playlists(
             "total_playlists": len(playlists),
         }
 
+    except RefreshError:
+        raise
+    except HTTPException:
+        raise
     except Exception as e:
         api_logger.error(
             f"Failed to sync playlists for user {current_user.id}: {e}", exc_info=True
@@ -294,6 +300,10 @@ async def sync_playlist_videos(
             "playlist_title": playlist.title,
         }
 
+    except RefreshError:
+        raise
+    except HTTPException:
+        raise
     except Exception as e:
         api_logger.error(
             f"Failed to sync playlist {playlist_id} videos for user {current_user.id}: {e}",
@@ -477,6 +487,8 @@ async def create_playlist_from_filters(
             job_id=job_id,
         )
 
+    except RefreshError:
+        raise
     except HTTPException:
         raise
     except Exception as e:
@@ -677,6 +689,8 @@ async def confirm_smart_playlist(
             job_id=job_id,
         )
 
+    except RefreshError:
+        raise
     except HTTPException:
         raise
     except Exception as e:

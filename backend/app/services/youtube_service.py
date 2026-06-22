@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any
 import isodate
 
+from fastapi import HTTPException, status
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -61,15 +63,36 @@ class YouTubeService:
             expiry=expiry_for_creds,
         )
 
-        # Check if token is expired and refresh if needed
+        # Check if token is expired and refresh if needed.
+        # We also proactively refresh when we don't know the expiry so that a
+        # dead refresh token is caught here instead of leaking out as a 500
+        # during an actual YouTube API call.
         try:
-            if (is_expired or creds.expired) and creds.refresh_token:
-                api_logger.info("Refreshing expired YouTube access token")
+            needs_refresh = bool(
+                creds.refresh_token
+                and (is_expired or creds.expired or expiry_for_creds is None)
+            )
+            if needs_refresh:
+                api_logger.info("Refreshing YouTube access token")
                 creds.refresh(Request())
                 # Update user's tokens in database (will be done by caller)
                 self.user.access_token = creds.token
                 if creds.expiry and hasattr(self.user, "token_expires_at"):
                     self.user.token_expires_at = creds.expiry
+        except RefreshError as e:
+            user_id = getattr(self.user, "id", "unknown")
+            api_logger.error(
+                f"Google refresh token expired or revoked for user {user_id}: {e}"
+            )
+            # Clear stored credentials so the user must re-authenticate
+            self.user.access_token = None
+            self.user.refresh_token = None
+            if hasattr(self.user, "token_expires_at"):
+                self.user.token_expires_at = None
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="YouTube authentication expired. Please reconnect your account.",
+            )
         except Exception as e:
             api_logger.warning(f"Token refresh failed, trying with current token: {e}")
             # Continue with current token - it might still work
@@ -281,7 +304,9 @@ class YouTubeService:
                     )
 
                     for video_item in videos_response.get("items", []):
-                        video = self._process_video_item(db, video_item)
+                        video = self._process_video_item(
+                            db, video_item, video_source="playlist"
+                        )
                         if video:
                             # Create playlist-video association
                             playlist_video = (
@@ -337,13 +362,12 @@ class YouTubeService:
                 duration = isodate.parse_duration(content_details["duration"])
                 duration_seconds = int(duration.total_seconds())
 
-            # Check if video already exists for this source
+            # Check if video already exists for this user (any source)
             video = (
                 db.query(Video)
-                .filter_by(
-                    user_id=self.user.id,
-                    youtube_id=youtube_id,
-                    video_source=video_source,
+                .filter(
+                    Video.user_id == self.user.id,
+                    Video.youtube_id == youtube_id,
                 )
                 .first()
             )
@@ -385,6 +409,7 @@ class YouTubeService:
             return video
 
         except Exception as e:
+            db.rollback()
             api_logger.error(f"Error processing video item: {e}")
             return None
 

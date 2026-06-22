@@ -4,8 +4,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-
+from fastapi.responses import JSONResponse
+from google.auth.exceptions import RefreshError
 from app.config import settings
 from app.logger import app_logger, db_logger, redis_logger
 from app.routers import (
@@ -112,16 +112,16 @@ app.add_middleware(
 )
 
 # Add trusted host middleware in production for additional security
-if settings.is_production:
-    # Extract hostnames from CORS origins for trusted hosts
-    trusted_hosts = [
-        origin.replace("https://", "").replace("http://", "")
-        for origin in settings.cors_origins
-    ]
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=trusted_hosts + ["*.vercel.app"],
-    )
+# if settings.is_production:
+#     # Extract hostnames from CORS origins for trusted hosts
+#     trusted_hosts = [
+#         origin.replace("https://", "").replace("http://", "")
+#         for origin in settings.cors_origins
+#     ]
+#     app.add_middleware(
+#         TrustedHostMiddleware,
+#         allowed_hosts=trusted_hosts + ["*.vercel.app", "*"],
+#     )
 
 # Include routers
 app.include_router(auth.router, prefix=settings.api_prefix, tags=["Authentication"])
@@ -141,6 +141,23 @@ app.include_router(
 app.include_router(
     watch_history.router, prefix=settings.api_prefix, tags=["Watch History"]
 )
+
+
+# Global exception handler for expired/revoked Google OAuth tokens
+# This catches RefreshError anywhere in the app (including inside googleapiclient
+# auto-refresh during request.execute()) and returns a clean 401 so the frontend
+# can redirect the user to re-authenticate with YouTube.
+@app.exception_handler(RefreshError)
+async def google_refresh_error_handler(request, exc):
+    from app.logger import app_logger
+
+    app_logger.warning(f"Google OAuth token expired/revoked: {exc}")
+    return JSONResponse(
+        status_code=401,
+        content={
+            "detail": "YouTube authentication expired. Please reconnect your account."
+        },
+    )
 
 
 # Mount MCP server with API key auth at /mcp

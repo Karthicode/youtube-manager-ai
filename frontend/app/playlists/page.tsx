@@ -1,7 +1,8 @@
 "use client";
 
-import { Card, CardBody, Image, Spinner } from "@heroui/react";
+import { Card, CardBody, Image, Spinner, Tooltip } from "@heroui/react";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import SyncIcon from "@mui/icons-material/Sync";
 import { formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -37,6 +38,7 @@ export default function PlaylistsPage() {
 	const [playlists, setPlaylists] = useState<Playlist[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [syncing, setSyncing] = useState(false);
+	const [syncError, setSyncError] = useState(false);
 	const [smartDialogOpen, setSmartDialogOpen] = useState(false);
 
 	const fetchPlaylists = useCallback(async () => {
@@ -53,11 +55,12 @@ export default function PlaylistsPage() {
 
 	const syncPlaylistsFromYouTube = useCallback(async () => {
 		setSyncing(true);
+		setSyncError(false);
 		try {
 			await playlistsApi.syncPlaylists({ max_results: 50 });
 			await fetchPlaylists();
 		} catch {
-			// Failed to sync playlists - user can retry
+			setSyncError(true);
 		} finally {
 			setSyncing(false);
 		}
@@ -93,22 +96,42 @@ export default function PlaylistsPage() {
 							<h1 className="font-display text-3xl font-bold text-text-primary tracking-tight">
 								Playlists
 							</h1>
-							<p className="text-[#6B6B7E] mt-1 text-sm">
+							<p
+								className={`mt-1 text-sm ${syncError ? "text-red-400" : "text-[#6B6B7E]"}`}
+							>
 								{syncing
 									? "Syncing with YouTube..."
-									: playlists.length > 0
-										? `${playlists.length} playlists`
-										: "No playlists found"}
+									: syncError
+										? "Sync failed — click Sync to retry"
+										: playlists.length > 0
+											? `${playlists.length} playlists`
+											: "No playlists found"}
 							</p>
 						</div>
-						<button
-							type="button"
-							onClick={() => setSmartDialogOpen(true)}
-							className="flex items-center gap-2 px-4 py-2 bg-[#E63946] text-white font-medium rounded-xl hover:bg-[#d4202e] transition-colors text-sm"
-						>
-							<AutoAwesomeIcon sx={{ fontSize: 18 }} />
-							AI Generate
-						</button>
+						<div className="flex items-center gap-2">
+							<Tooltip content="Sync from YouTube">
+								<button
+									type="button"
+									onClick={syncPlaylistsFromYouTube}
+									disabled={syncing}
+									className="flex items-center gap-2 px-4 py-2 bg-[#1E1E2A] text-[#F2F2F7] font-medium rounded-xl hover:bg-[#2A2A38] transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed border border-[#2A2A38]"
+								>
+									<SyncIcon
+										sx={{ fontSize: 18 }}
+										className={syncing ? "animate-spin" : ""}
+									/>
+									Sync
+								</button>
+							</Tooltip>
+							<button
+								type="button"
+								onClick={() => setSmartDialogOpen(true)}
+								className="flex items-center gap-2 px-4 py-2 bg-[#E63946] text-white font-medium rounded-xl hover:bg-[#d4202e] transition-colors text-sm"
+							>
+								<AutoAwesomeIcon sx={{ fontSize: 18 }} />
+								AI Generate
+							</button>
+						</div>
 					</div>
 
 					{/* Content */}

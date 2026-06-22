@@ -311,7 +311,17 @@ Guidelines:
                 return {"error": f"Unknown tool: {tool_name}"}
         except Exception as e:
             api_logger.error(f"Tool execution error ({tool_name}): {e}", exc_info=True)
-            return {"error": str(e)}
+            # Roll back the aborted transaction so subsequent DB operations work.
+            # Without this, a failed DB query inside a tool leaves the PostgreSQL
+            # transaction in an aborted state, causing InFailedSqlTransaction on
+            # every later commit (session save, assistant message persist, etc.).
+            try:
+                self.db.rollback()
+            except Exception:
+                pass
+            return {
+                "error": f"Tool '{tool_name}' failed. Please try a different query."
+            }
 
         if cacheable:
             self._redis.set(
@@ -739,6 +749,6 @@ Guidelines:
             api_logger.error(f"Agent chat error: {e}", exc_info=True)
             yield ChatStreamEvent(
                 type="error",
-                content=f"An error occurred: {str(e)}",
+                content="Something went wrong while processing your request. Please try again.",
             )
             yield ChatStreamEvent(type="done")

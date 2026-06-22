@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Mono, DM_Sans, Syne } from "next/font/google";
+import { preconnect } from "react-dom";
 import "./globals.css";
 import { Providers } from "./providers";
 
@@ -42,6 +43,8 @@ export default function RootLayout({
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
+	preconnect("https://fonts.googleapis.com");
+	preconnect("https://fonts.gstatic.com", { crossOrigin: "anonymous" });
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<body

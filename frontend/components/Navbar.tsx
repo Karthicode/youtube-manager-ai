@@ -72,6 +72,7 @@ export default function Navbar() {
 			<NavbarBrand>
 				<Link
 					href="/dashboard"
+					prefetch={false}
 					className="font-display font-bold text-xl tracking-tight text-text-primary flex items-center gap-2 py-1"
 				>
 					<SmartDisplayIcon
@@ -87,6 +88,7 @@ export default function Navbar() {
 					<NavbarItem key={item.path} isActive={isActive(item.path)}>
 						<Link
 							href={item.path}
+							prefetch={false}
 							className={`flex items-center gap-2 px-2 transition-colors ${
 								isActive(item.path)
 									? "text-text-primary nav-link-active"
@@ -155,6 +157,7 @@ export default function Navbar() {
 									: "text-text-secondary"
 							}`}
 							href={item.path}
+							prefetch={false}
 							onClick={() => setIsMenuOpen(false)}
 						>
 							{item.icon}

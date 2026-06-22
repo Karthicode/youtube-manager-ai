@@ -74,6 +74,10 @@ next-env.d.ts
 # TypeScript
 *.tsbuildinfo
 
+# Kubernetes secrets (real values — never commit)
+k8s/secrets/create-secrets.sh
+k8s/helm/youtube-manager/gcp.values.yaml
+
 # Misc
 .cache/
 tmp/
@@ -82,3 +86,4 @@ supabase/.temp/
 
 # Playwright MCP output
 playwright-output/
+k8s/helm/youtube-manager/secrets.values.yaml

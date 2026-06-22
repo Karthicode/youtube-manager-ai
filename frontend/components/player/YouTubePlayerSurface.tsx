@@ -1,7 +1,7 @@
 /// <reference types="youtube" />
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { useEffect, useImperativeHandle, useRef } from "react";
 
 // Singleton script loader — safe for multiple instances
 let ytScriptStatus: "unloaded" | "loading" | "ready" = "unloaded";
@@ -40,15 +40,18 @@ interface YouTubePlayerSurfaceProps {
 	onPlayingChange?: (isPlaying: boolean) => void;
 	onEnded?: () => void;
 	onError?: () => void;
+	ref?: React.Ref<YouTubePlayerSurfaceHandle>;
 }
 
-const YouTubePlayerSurface = forwardRef<
-	YouTubePlayerSurfaceHandle,
-	YouTubePlayerSurfaceProps
->(function YouTubePlayerSurface(
-	{ youtubeId, className, startSeconds, onPlayingChange, onEnded, onError },
+function YouTubePlayerSurface({
+	youtubeId,
+	className,
+	startSeconds,
+	onPlayingChange,
+	onEnded,
+	onError,
 	ref,
-) {
+}: YouTubePlayerSurfaceProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const playerRef = useRef<YT.Player | null>(null);
 	const isPausedRef = useRef(true);
@@ -107,6 +110,6 @@ const YouTubePlayerSurface = forwardRef<
 	}, [youtubeId, startSeconds]);
 
 	return <div ref={containerRef} className={className} />;
-});
+}
 
 export default YouTubePlayerSurface;

@@ -84,10 +84,9 @@ class Video(Base):
     # Composite index for better query performance
     __table_args__ = (
         Index(
-            "idx_user_youtube_id_source",
+            "idx_user_youtube_id",
             "user_id",
             "youtube_id",
-            "video_source",
             unique=True,
         ),
         Index("idx_user_categorized", "user_id", "is_categorized"),

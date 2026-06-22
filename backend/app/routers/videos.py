@@ -32,6 +32,8 @@ from app.schemas.video import (
     EmbeddingStatsResponse,
     EmbeddingGenerateResponse,
 )
+from google.auth.exceptions import RefreshError
+
 from app.services.youtube_service import YouTubeService
 from app.services.ai_service import AIService
 from app.services.embedding_service import EmbeddingService
@@ -215,6 +217,10 @@ async def sync_liked_videos(
             "message": f"Synced {count} latest videos from YouTube",
         }
 
+    except RefreshError:
+        raise
+    except HTTPException:
+        raise
     except Exception as e:
         api_logger.error(
             f"Failed to sync videos for user {current_user.id}: {e}", exc_info=True
@@ -1226,6 +1232,10 @@ async def sync_all_liked_videos(
             "message": f"Successfully synced {total_synced} videos",
         }
 
+    except RefreshError:
+        raise
+    except HTTPException:
+        raise
     except Exception as e:
         api_logger.error(
             f"Batch sync failed for user {current_user.id}: {e}", exc_info=True
@@ -2404,6 +2414,16 @@ async def run_bulk_delete(
             f"{data['failed'] if data else 0} failed"
         )
 
+    except RefreshError:
+        # Mark job as error before re-raising
+        data = get_delete_job_data(job_id)
+        if data:
+            data["status"] = "error"
+            data["error"] = (
+                "YouTube authentication expired. Please reconnect your account."
+            )
+            set_delete_job_data(job_id, data)
+        raise
     except Exception as e:
         # Mark job as error
         data = get_delete_job_data(job_id)
