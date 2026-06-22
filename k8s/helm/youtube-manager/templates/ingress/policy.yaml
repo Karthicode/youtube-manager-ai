@@ -1,0 +1,13 @@
+apiVersion: networking.gke.io/v1
+kind: GCPBackendPolicy
+metadata:
+  name: youtube-manager-backend-policy
+  labels:
+    {{- include "youtube-manager.labels" . | nindent 4 }}
+spec:
+  default:
+    timeoutSec: {{ .Values.ingress.proxyReadTimeout | int }}
+  targetRef:
+    group: ""
+    kind: Service
+    name: backend-svc

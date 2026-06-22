@@ -1,0 +1,19 @@
+{{- if .Values.ingress.tls.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: youtube-manager-tls
+  annotations:
+    cert-manager.io/issue-temporary-certificate: "true"
+  labels:
+    {{- include "youtube-manager.labels" . | nindent 4 }}
+spec:
+  # The secret that the Gateway is looking for
+  secretName: youtube-manager-tls
+  issuerRef:
+    name: {{ .Values.ingress.tls.issuerName }}
+    kind: Issuer
+  dnsNames:
+    # This must match the domain/nip.io address in your values.yaml
+    - {{ .Values.domain | quote }}
+{{- end }}

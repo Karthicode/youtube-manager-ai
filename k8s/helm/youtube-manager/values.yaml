@@ -1,0 +1,89 @@
+# ── Domain ────────────────────────────────────────────────────────────────────
+domain: youtube-manager.local
+
+# ── Environment ───────────────────────────────────────────────────────────────
+environment: local
+
+# ── Backend ───────────────────────────────────────────────────────────────────
+backend:
+  image:
+    repository: youtube-manager-backend
+    tag: dev
+    pullPolicy: Never   # image is in minikube's local daemon, not Docker Hub
+  replicas: 1
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "400Mi"
+    limits:
+      cpu: "1000m"
+      memory: "768Mi"
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+frontend:
+  image:
+    repository: youtube-manager-frontend
+    tag: dev
+    pullPolicy: Never
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+
+# ── PostgreSQL ────────────────────────────────────────────────────────────────
+postgres:
+  enabled: true
+  image: pgvector/pgvector:pg15
+  storage: 5Gi
+  storageClass: standard
+  database: youtube_manager
+  user: postgres
+  host: postgres   # in-cluster service name; override with Cloud SQL IP for GCP
+
+# ── Redis ─────────────────────────────────────────────────────────────────────
+redis:
+  enabled: true
+  image: redis:7-alpine
+  storage: 1Gi
+  storageClass: standard
+
+# ── HPA ──────────────────────────────────────────────────────────────────────
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+  cpuUtilization: 70
+  memoryUtilization: 150
+
+# ── Config (non-sensitive) ────────────────────────────────────────────────────
+config:
+  algorithm: "HS256"
+  openaiModel: "gpt-5.2"
+
+# ── Ingress ───────────────────────────────────────────────────────────────────
+ingress:
+  className: gke-l7-global-external-managed
+  proxyBodySize: "50m"
+  proxyReadTimeout: 60
+  proxySendTimeout: 60
+  tls:
+    enabled: true
+    issuerName: youtube-manager-issuer
+    email: "karthikga124@gmail.com"
+
+# ── Secrets (NO real values here — pass via secrets.values.yaml or --set) ─────
+# These keys define the shape; values are empty so the chart lints without secrets.
+# Real values: cp k8s/helm/youtube-manager/secrets.values.yaml.example secrets.values.yaml
+secrets:
+  postgresPassword: ""
+  secretKey: ""
+  openaiApiKey: ""
+  youtubeClientId: ""
+  youtubeClientSecret: ""
+  qstashToken: ""
+  qstashCurrentSigningKey: ""
+  qstashNextSigningKey: ""

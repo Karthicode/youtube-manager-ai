@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  labels:
+    {{- include "youtube-manager.labels" . | nindent 4 }}
+data:
+  ENVIRONMENT: {{ .Values.environment | quote }}
+  REDIS_URL: {{ .Values.config.redisUrl | default "redis://redis:6379/0" | quote }}
+  ALGORITHM: {{ .Values.config.algorithm | default "HS256" | quote }}
+  OPENAI_MODEL: {{ .Values.config.openaiModel | default "gpt-5.2" | quote }}
+  CORS_ORIGINS: {{ .Values.config.corsOrigins | default (printf "[\"http://%s\",\"http://localhost:3000\"]" .Values.domain) | quote }}
+  YOUTUBE_REDIRECT_URI: {{ .Values.config.youtubeRedirectUri | default (printf "http://%s/api/v1/auth/youtube/callback" .Values.domain) | quote }}
+  FRONTEND_URL: {{ .Values.config.frontendUrl | default (printf "http://%s" .Values.domain) | quote }}
+  BACKEND_URL: {{ .Values.config.backendUrl | default (printf "http://%s" .Values.domain) | quote }}

@@ -1,0 +1,30 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: youtube-manager-gateway
+  labels:
+    {{- include "youtube-manager.labels" . | nindent 4 }}
+spec:
+  # In GKE, this is typically 'gke-l7-global-external-managed', 'gke-l7-regional-external-managed', etc.
+  gatewayClassName: {{ .Values.ingress.className | quote }}
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      {{- if .Values.ingress.tls.enabled }}
+      # Optional: Automatically redirect HTTP to HTTPS
+      allowedRoutes:
+        namespaces:
+          from: Same
+      {{- end }}
+    {{- if .Values.ingress.tls.enabled }}
+    - name: https
+      port: 443
+      protocol: HTTPS
+      hostname: {{ .Values.domain | quote }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          # Cert-manager will automatically create this secret
+          - name: youtube-manager-tls
+    {{- end }}

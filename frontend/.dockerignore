@@ -1,0 +1,26 @@
+# Dependencies (reinstalled fresh by npm ci in Dockerfile)
+node_modules/
+
+# Build output (rebuilt in Dockerfile)
+.next/
+
+# Environment files — never bake secrets into an image
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Docs
+*.md
+
+# OS artifacts
+.DS_Store
+Thumbs.db
