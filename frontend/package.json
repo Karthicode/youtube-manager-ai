@@ -56,11 +56,11 @@
 		"react-intersection-observer": "^10.0.3",
 		"swr": "^2.3.6",
 		"tailwindcss": "^4.1.16",
-		"typescript": "^5.9.3",
 		"zustand": "^5.0.8"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.0",
-		"@types/youtube": "^0.1.2"
+		"@types/youtube": "^0.1.2",
+		"typescript": "^7.0.1-rc"
 	}
 }
