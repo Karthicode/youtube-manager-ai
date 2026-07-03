@@ -1,4 +1,23 @@
+from datetime import datetime
+
 from pydantic import BaseModel
+
+
+class CurrentUserResponse(BaseModel):
+    """Authenticated user profile.
+
+    Field names match the frontend's User type and the payload the OAuth
+    callback redirect encodes (picture, youtube_channel_id) — not the DB
+    column names (picture_url, youtube_id).
+    """
+
+    id: int
+    email: str
+    name: str | None = None
+    picture: str | None = None
+    youtube_channel_id: str
+    last_sync_at: datetime | None = None
+    created_at: datetime
 
 
 class Token(BaseModel):

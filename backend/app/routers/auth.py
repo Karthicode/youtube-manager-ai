@@ -10,7 +10,13 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.logger import auth_logger
 from app.models.user import User
-from app.schemas.auth import Token, YouTubeAuthURL, RefreshTokenRequest, ApiKeyResponse
+from app.schemas.auth import (
+    ApiKeyResponse,
+    CurrentUserResponse,
+    RefreshTokenRequest,
+    Token,
+    YouTubeAuthURL,
+)
 from app.services.auth_service import AuthService
 from app.services.auto_categorize_service import AutoCategorizeService
 from app.services.youtube_service import YouTubeService
@@ -27,6 +33,26 @@ async def youtube_login():
     """
     auth_url = AuthService.get_youtube_authorization_url()
     return YouTubeAuthURL(auth_url=auth_url)
+
+
+@router.get("/me", response_model=CurrentUserResponse)
+async def get_me(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> CurrentUserResponse:
+    """Return the authenticated user's profile.
+
+    Response field names match the frontend User type / OAuth callback
+    payload (picture, youtube_channel_id), not the DB column names.
+    """
+    return CurrentUserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        name=current_user.name,
+        picture=current_user.picture_url,
+        youtube_channel_id=current_user.youtube_id,
+        last_sync_at=current_user.last_sync_at,
+        created_at=current_user.created_at,
+    )
 
 
 @router.get("/youtube/callback")
