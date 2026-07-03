@@ -5,7 +5,7 @@ import type { AxiosError } from "axios";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
-import { autoCategorizeApi } from "@/api/api";
+import { authApi, autoCategorizeApi } from "@/api/api";
 import { swrKeys } from "@/lib/swrKeys";
 import type { VideoStats } from "@/types";
 import CategorizationProgressSSE from "./CategorizationProgressSSE";
@@ -17,6 +17,7 @@ type StatusPayload = {
 	reason?: string;
 	stage?: string;
 	error?: string;
+	error_type?: string;
 	videos_synced?: number;
 	videos_categorized?: number;
 	job_id?: string;
@@ -111,6 +112,19 @@ export default function LibraryStatusStrip({
 		}
 	};
 
+	const isAuthFailure = failed && status?.error_type === "auth";
+
+	const handleReconnect = async () => {
+		setRetrying(true);
+		try {
+			const response = await authApi.getLoginUrl();
+			window.location.href = response.data.auth_url;
+		} catch {
+			setRetryError("Couldn't start YouTube reconnect. Please try again.");
+			setRetrying(false);
+		}
+	};
+
 	return (
 		<div className="bg-surface border border-border rounded-xl px-4 py-2.5">
 			<div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-text-secondary">
@@ -140,22 +154,40 @@ export default function LibraryStatusStrip({
 				{!healthy && !jobId && (
 					<span className="flex items-center gap-3 sm:ml-auto">
 						<span className={failed ? "text-[#E63946]" : "text-[#F59E0B]"}>
-							{problemMessage}
+							{isAuthFailure ? "YouTube connection expired." : problemMessage}
 						</span>
-						<Button
-							color="warning"
-							size="sm"
-							variant="flat"
-							onPress={handleRetry}
-							isLoading={retrying}
-						>
-							Retry now
-						</Button>
+						{isAuthFailure ? (
+							<Button
+								color="danger"
+								size="sm"
+								variant="flat"
+								onPress={handleReconnect}
+								isLoading={retrying}
+							>
+								Reconnect YouTube
+							</Button>
+						) : (
+							<Button
+								color="warning"
+								size="sm"
+								variant="flat"
+								onPress={handleRetry}
+								isLoading={retrying}
+							>
+								Retry now
+							</Button>
+						)}
 					</span>
 				)}
 			</div>
 
 			{retryError && <p className="text-xs text-danger mt-2">{retryError}</p>}
+
+			{failed && !isAuthFailure && status?.error && (
+				<p className="text-xs text-text-secondary mt-1 line-clamp-1">
+					{status.error}
+				</p>
+			)}
 
 			{jobId && (
 				<div className="mt-3">

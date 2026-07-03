@@ -309,6 +309,7 @@ export const autoCategorizeApi = {
 			reason?: string;
 			stage?: string;
 			error?: string;
+			error_type?: string;
 			videos_synced?: number;
 			videos_categorized?: number;
 			job_id?: string;
