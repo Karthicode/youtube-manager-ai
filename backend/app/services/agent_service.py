@@ -20,6 +20,7 @@ from app.models.video import Video
 from app.models.category import Category
 from app.models.tag import Tag
 from app.models.chat import ChatSession
+from app.models.user import User
 from app.redis_client import get_redis
 from app.services.embedding_service import EmbeddingService
 from app.schemas.chat import ChatStreamEvent
@@ -72,7 +73,7 @@ AGENT_TOOLS = [
     {
         "type": "function",
         "name": "filter_videos",
-        "description": "Filter videos by categories, tags, date range, or duration. Returns matching videos with metadata.",
+        "description": "Filter videos by categories, tags, date range, or duration. Results are always sorted by most recently liked first — call with just a limit to list the user's most recent liked videos. Returns matching videos with metadata.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -175,6 +176,44 @@ AGENT_TOOLS = [
 ]
 
 
+def format_data_freshness(
+    last_sync_at: datetime | None, latest_liked_at: datetime | None
+) -> str:
+    """Build the data-freshness section of the agent system prompt.
+
+    The agent only sees videos that have been synced into the database;
+    likes newer than the last sync are invisible to every tool. Making the
+    cutoff explicit lets the agent caveat recency answers instead of
+    asserting a false negative ("you have no recent food videos") when the
+    library is simply out of date.
+    """
+    if not last_sync_at and not latest_liked_at:
+        return (
+            "Data freshness: the library has never been synced from YouTube, "
+            "so it is empty or stale. Tell the user to sync from the dashboard."
+        )
+    parts = []
+    if latest_liked_at:
+        parts.append(
+            "the most recent liked video in the library is from "
+            f"{latest_liked_at.strftime('%Y-%m-%d')}"
+        )
+    if last_sync_at:
+        parts.append(
+            "the library was last synced from YouTube on "
+            f"{last_sync_at.strftime('%Y-%m-%d')}"
+        )
+    return (
+        "Data freshness: "
+        + "; ".join(parts)
+        + ". Videos liked after the last sync are NOT in the library and no "
+        "tool can find them. If the user asks about recently liked videos "
+        "and you find no matches (or the question implies likes newer than "
+        "the last sync), say the library may be out of date and suggest "
+        "syncing from the dashboard."
+    )
+
+
 def _is_simple_query(message: str) -> bool:
     """Return True if the message matches known low-complexity patterns (Optimization C)."""
     return any(p.search(message) for p in _SIMPLE_QUERY_PATTERNS)
@@ -239,12 +278,21 @@ class AgentService:
         if date_range and date_range[0] and date_range[1]:
             date_info = f"Date range: {date_range[0].strftime('%b %Y')} to {date_range[1].strftime('%b %Y')}"
 
+        user = self.db.query(User).filter(User.id == self.user_id).first()
+        freshness = format_data_freshness(
+            last_sync_at=user.last_sync_at if user else None,
+            latest_liked_at=date_range[1] if date_range else None,
+        )
+
         prompt = f"""You are a helpful assistant for the user's YouTube video library. You can search, filter, analyze, and create playlists from their liked videos.
 
 Library summary: {total_videos} videos across {total_categories} categories from {total_channels} channels. {date_info}
 
+{freshness}
+
 Guidelines:
 - Use the available tools to answer questions about their library
+- For questions about the most recent / latest liked videos, use filter_videos with just a limit — its results are sorted by most recently liked first. Never use search_videos for recency questions: it ranks by topic similarity, not by when the video was liked
 - When showing search results, include video titles, channels, and why they match
 - When creating playlists, confirm the selection with the user first
 - Be concise but informative
