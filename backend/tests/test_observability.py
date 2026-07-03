@@ -1,16 +1,9 @@
 """Tests for the Langfuse observability gate (no-op safety is the contract)."""
 
 import importlib
-from unittest.mock import patch
+import sys
 
 import openai
-
-
-def _reload_observability(env: dict[str, str]):
-    with patch.dict("os.environ", env, clear=False):
-        import app.observability as obs
-
-        return importlib.reload(obs)
 
 
 def test_disabled_without_keys(monkeypatch) -> None:
@@ -52,18 +45,23 @@ def test_caller_exceptions_propagate_through_spans(monkeypatch) -> None:
             raise ValueError("boom")
 
 
-def test_enabled_with_keys() -> None:
-    obs = _reload_observability(
-        {
-            "LANGFUSE_PUBLIC_KEY": "pk-lf-test",
-            "LANGFUSE_SECRET_KEY": "sk-lf-test",
-            "LANGFUSE_HOST": "https://cloud.langfuse.com",
-        }
-    )
+def test_enabled_with_keys(monkeypatch) -> None:
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-test")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-test")
+    monkeypatch.setenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
+    import app.observability as obs
+
+    obs = importlib.reload(obs)
     assert obs.langfuse_enabled() is True
-    assert obs.AsyncOpenAI is not openai.AsyncOpenAI
+    # The drop-in re-exports openai.AsyncOpenAI; the instrumentation is the
+    # import side effect — assert the patching module was actually imported.
+    assert "langfuse.openai" in sys.modules
+    assert obs.AsyncOpenAI is openai.AsyncOpenAI
     assert obs.get_langfuse() is not None
+
     # Restore a disabled module for other tests.
+    monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+    monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
     import app.observability as obs2
 
     importlib.reload(obs2)

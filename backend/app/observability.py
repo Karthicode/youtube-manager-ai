@@ -12,42 +12,31 @@ import os
 from contextlib import contextmanager
 from typing import Any, Iterator
 
-from openai import AsyncOpenAI as _BaseAsyncOpenAI
-
 from app.logger import api_logger
-
-# Determine enabled state at module load time
-_langfuse_enabled_at_init = bool(
-    os.environ.get("LANGFUSE_PUBLIC_KEY") and os.environ.get("LANGFUSE_SECRET_KEY")
-)
 
 
 def langfuse_enabled() -> bool:
-    """True when both Langfuse keys are present at module load time."""
-    return _langfuse_enabled_at_init
+    """True when both Langfuse keys are present in the environment."""
+    return bool(
+        os.environ.get("LANGFUSE_PUBLIC_KEY") and os.environ.get("LANGFUSE_SECRET_KEY")
+    )
 
 
-if _langfuse_enabled_at_init:
-    # The drop-in wrapper auto-traces every OpenAI call (incl. Responses API)
-    # as a Langfuse generation with model, tokens, cost, and latency.
+if langfuse_enabled():
+    # Importing langfuse.openai registers tracing on the OpenAI SDK as a
+    # module-level side effect (register_tracing); the exported class is
+    # openai.AsyncOpenAI itself — instrumentation lives in method patches.
     from langfuse import get_client
-
-    # Create a wrapper class to maintain instrumentation
-    class AsyncOpenAI(_BaseAsyncOpenAI):  # noqa: F811
-        """Wrapped AsyncOpenAI that auto-traces with Langfuse."""
-
-        pass
-
+    from langfuse.openai import AsyncOpenAI  # noqa: F401
 else:
+    from openai import AsyncOpenAI  # noqa: F401
 
-    # Use base class directly when disabled
-    AsyncOpenAI = _BaseAsyncOpenAI  # type: ignore[assignment,misc] # noqa: F811
     get_client = None  # type: ignore[assignment]
 
 
 def get_langfuse() -> Any | None:
     """Return the Langfuse client, or None when tracing is disabled."""
-    if not _langfuse_enabled_at_init or get_client is None:
+    if not langfuse_enabled() or get_client is None:
         return None
     try:
         return get_client()
