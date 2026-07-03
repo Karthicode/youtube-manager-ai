@@ -33,6 +33,7 @@ pgvector = "^0.4.2"
 scikit-learn = "^1.8.0"
 mcp = "^1.26.0"
 sqlmodel = "^0.0.38"
+langfuse = "^4.13.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"

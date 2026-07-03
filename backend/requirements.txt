@@ -22,3 +22,4 @@ qstash==3.2.0
 pgvector==0.4.2
 scikit-learn==1.8.0
 mcp==1.26.0
+langfuse==4.13.0
