@@ -63,3 +63,9 @@ def test_freshness_caveat_required_but_absent() -> None:
     case = {**CASE, "expect_freshness_caveat": True, "expected_titles_any": []}
     scores = score_case(case, "You have no videos this week.", GOOD_EVENTS)
     assert scores["freshness_caveat"] == 0.0
+
+
+def test_hallucinated_title_in_smart_quotes_fails_groundedness() -> None:
+    answer = "You liked “Totally Invented Video” recently."
+    scores = score_case(CASE, answer, GOOD_EVENTS)
+    assert scores["groundedness"] == 0.0

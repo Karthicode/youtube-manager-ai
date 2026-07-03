@@ -15,6 +15,9 @@ _FRESHNESS_MARKERS = re.compile(
     re.IGNORECASE,
 )
 
+# Quote characters: straight quotes (", ') and smart/curly quotes (U+2018, U+2019, U+201C, U+201D)
+_QUOTE_CHARS = "\"'‘’“”"
+
 
 def _result_titles(tool_events: list[dict[str, Any]]) -> set[str]:
     titles: set[str] = set()
@@ -32,7 +35,9 @@ def _answer_mentions_unknown_title(answer: str, known_titles: set[str]) -> bool:
     appear in some tool result. We check known titles both ways to avoid
     parsing natural language: any known title mentioned is fine; an answer
     that lists 'video'-like quoted strings not in the results is flagged."""
-    quoted = re.findall(r"[\"'''" "]([^\"'''" "]{8,90})[\"'''" "]", answer)
+    quoted = re.findall(
+        rf"[{_QUOTE_CHARS}]([^{_QUOTE_CHARS}]{{8,90}})[{_QUOTE_CHARS}]", answer
+    )
     for candidate in quoted:
         if candidate.strip() and candidate.strip() not in known_titles:
             return True
