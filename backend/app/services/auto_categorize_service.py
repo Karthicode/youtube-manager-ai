@@ -3,7 +3,7 @@
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import HTTPException
 from sqlalchemy import and_, select
@@ -97,7 +97,7 @@ class AutoCategorizeService:
         return list(videos)
 
     @staticmethod
-    def classify_sync_error(exc: Exception) -> str:
+    def classify_sync_error(exc: Exception) -> Literal["auth", "transient"]:
         """Classify a sync-stage failure for the dashboard status strip.
 
         ``auth``: YouTube credentials are expired/revoked (YouTubeService raises
@@ -255,6 +255,28 @@ class AutoCategorizeService:
             }
             AutoCategorizeService._write_user_status(user.id, result)
             return result
+
+    @staticmethod
+    def clear_failed_user_status(user_id: int) -> None:
+        """Clear a stored failed status after the user re-authenticates.
+
+        Called from the OAuth callback: a successful token exchange makes a
+        previously recorded failure (e.g. expired refresh token) obsolete, so
+        the dashboard strip should fall back to staleness-based messaging
+        instead of keeping the dead failure sticky until the next cron run.
+        Best-effort — Redis errors are logged, never raised.
+        """
+        try:
+            key = USER_STATUS_KEY.format(user_id=user_id)
+            raw = get_redis().get(key)
+            if not raw:
+                return
+            if json.loads(raw).get("status") == "failed":
+                get_redis().delete(key)
+        except Exception as e:
+            api_logger.warning(
+                f"Failed to clear auto-categorize status for {user_id}: {e}"
+            )
 
     @staticmethod
     def get_user_status(user_id: int) -> dict[str, Any] | None:

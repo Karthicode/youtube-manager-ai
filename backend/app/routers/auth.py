@@ -12,6 +12,7 @@ from app.logger import auth_logger
 from app.models.user import User
 from app.schemas.auth import Token, YouTubeAuthURL, RefreshTokenRequest, ApiKeyResponse
 from app.services.auth_service import AuthService
+from app.services.auto_categorize_service import AutoCategorizeService
 from app.services.youtube_service import YouTubeService
 
 router = APIRouter(prefix="/auth")
@@ -67,6 +68,9 @@ async def youtube_callback(
         user = AuthService.get_or_create_user_from_youtube(
             db, credentials, youtube_user_info
         )
+
+        # A successful re-auth invalidates any stored auto-sync failure.
+        AutoCategorizeService.clear_failed_user_status(user.id)
 
         # Generate JWT tokens
         tokens = AuthService.create_tokens_for_user(user)
