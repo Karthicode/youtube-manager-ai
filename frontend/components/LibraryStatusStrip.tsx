@@ -201,6 +201,7 @@ export default function LibraryStatusStrip({
 						onError={(err) => {
 							setJobId(null);
 							setRetryError(err || "Categorization failed.");
+							mutate(swrKeys.autoCategorizeStatus());
 						}}
 					/>
 				</div>

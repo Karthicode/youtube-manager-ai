@@ -62,7 +62,9 @@ export default function PlaylistsPage() {
 		} catch {
 			// Failed to fetch playlists - UI will show empty state
 		} finally {
-			setInitialLoading(false);
+			if (seq === fetchSeq.current) {
+				setInitialLoading(false);
+			}
 		}
 	}, []);
 
@@ -81,10 +83,12 @@ export default function PlaylistsPage() {
 
 	useEffect(() => {
 		if (!isReady || !isAuthenticated) return;
-		// Cached-first: render stored playlists immediately, refresh from
+		// Cached-first: render stored playlists immediately, then refresh from
 		// YouTube in the background.
-		fetchPlaylists();
-		syncPlaylistsFromYouTube();
+		void (async () => {
+			await fetchPlaylists();
+			await syncPlaylistsFromYouTube();
+		})();
 	}, [isReady, isAuthenticated, fetchPlaylists, syncPlaylistsFromYouTube]);
 
 	const handleViewPlaylist = (playlistId: number) => {
@@ -111,7 +115,12 @@ export default function PlaylistsPage() {
 							<h1 className="font-display text-3xl font-bold text-text-primary tracking-tight">
 								Playlists
 							</h1>
-							<p className="mt-1 text-sm text-text-secondary">
+							{/* biome-ignore lint/a11y/useSemanticElements: keep <p> for layout; role/aria-live announce sync status changes */}
+							<p
+								className="mt-1 text-sm text-text-secondary"
+								role="status"
+								aria-live="polite"
+							>
 								{playlists.length > 0
 									? `${playlists.length} playlists`
 									: initialLoading
