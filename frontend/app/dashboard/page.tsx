@@ -9,16 +9,15 @@ import {
 	ModalHeader,
 	Spinner,
 } from "@heroui/react";
-import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import { Suspense, useState } from "react";
 import { mutate } from "swr";
 import { videosApi } from "@/api/api";
-import AutoCategorizeBanner from "@/components/AutoCategorizeBanner";
 import CategorizationProgressSSE from "@/components/CategorizationProgressSSE";
 import ContinueWatching from "@/components/ContinueWatching";
 import DashboardStats from "@/components/DashboardStats";
 import DashboardStatsSkeleton from "@/components/DashboardStatsSkeleton";
+import LibraryStatusStrip from "@/components/LibraryStatusStrip";
 import Navbar from "@/components/Navbar";
 import { useAuthGuard } from "@/hooks";
 import { swrKeys } from "@/lib/swrKeys";
@@ -111,14 +110,6 @@ export default function Dashboard() {
 								{getGreeting()},{" "}
 								<span className="text-[#E63946]">{firstName}.</span>
 							</h1>
-							{user?.last_sync_at && (
-								<p className="text-xs text-text-secondary mt-1">
-									Last synced{" "}
-									{formatDistanceToNow(new Date(user.last_sync_at), {
-										addSuffix: true,
-									})}
-								</p>
-							)}
 						</div>
 						<div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
 							<Button
@@ -136,7 +127,7 @@ export default function Dashboard() {
 					</div>
 
 					{/* Auto-categorize status banner (failure / stale) */}
-					<AutoCategorizeBanner
+					<LibraryStatusStrip
 						lastSyncAt={user?.last_sync_at ?? null}
 						onJobComplete={refreshStats}
 					/>
