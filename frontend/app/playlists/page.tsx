@@ -13,7 +13,7 @@ import SyncIcon from "@mui/icons-material/Sync";
 import { formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { playlistsApi } from "@/api/api";
 import Navbar from "@/components/Navbar";
 import SmartPlaylistDialog from "@/components/SmartPlaylistDialog";
@@ -48,10 +48,17 @@ export default function PlaylistsPage() {
 	const [syncError, setSyncError] = useState(false);
 	const [smartDialogOpen, setSmartDialogOpen] = useState(false);
 
+	// Guard against out-of-order fetch responses overwriting newer data.
+	// Only the most recent fetchPlaylists call may write state.
+	const fetchSeq = useRef(0);
+
 	const fetchPlaylists = useCallback(async () => {
+		const seq = ++fetchSeq.current;
 		try {
 			const response = await playlistsApi.getPlaylists({ page_size: 50 });
-			setPlaylists(response.data);
+			if (seq === fetchSeq.current) {
+				setPlaylists(response.data);
+			}
 		} catch {
 			// Failed to fetch playlists - UI will show empty state
 		} finally {
