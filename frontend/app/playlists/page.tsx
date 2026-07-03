@@ -1,6 +1,13 @@
 "use client";
 
-import { Card, CardBody, Image, Spinner, Tooltip } from "@heroui/react";
+import {
+	Card,
+	CardBody,
+	Image,
+	Skeleton,
+	Spinner,
+	Tooltip,
+} from "@heroui/react";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import SyncIcon from "@mui/icons-material/Sync";
 import { formatDistanceToNow } from "date-fns";
@@ -36,20 +43,19 @@ export default function PlaylistsPage() {
 	const { isReady, isAuthenticated } = useAuthGuard();
 
 	const [playlists, setPlaylists] = useState<Playlist[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [initialLoading, setInitialLoading] = useState(true);
 	const [syncing, setSyncing] = useState(false);
 	const [syncError, setSyncError] = useState(false);
 	const [smartDialogOpen, setSmartDialogOpen] = useState(false);
 
 	const fetchPlaylists = useCallback(async () => {
-		setLoading(true);
 		try {
 			const response = await playlistsApi.getPlaylists({ page_size: 50 });
 			setPlaylists(response.data);
 		} catch {
 			// Failed to fetch playlists - UI will show empty state
 		} finally {
-			setLoading(false);
+			setInitialLoading(false);
 		}
 	}, []);
 
@@ -68,9 +74,11 @@ export default function PlaylistsPage() {
 
 	useEffect(() => {
 		if (!isReady || !isAuthenticated) return;
-		// Auto-sync playlists on page load
+		// Cached-first: render stored playlists immediately, refresh from
+		// YouTube in the background.
+		fetchPlaylists();
 		syncPlaylistsFromYouTube();
-	}, [isReady, isAuthenticated, syncPlaylistsFromYouTube]);
+	}, [isReady, isAuthenticated, fetchPlaylists, syncPlaylistsFromYouTube]);
 
 	const handleViewPlaylist = (playlistId: number) => {
 		router.push(`/playlists/${playlistId}`);
@@ -96,16 +104,20 @@ export default function PlaylistsPage() {
 							<h1 className="font-display text-3xl font-bold text-text-primary tracking-tight">
 								Playlists
 							</h1>
-							<p
-								className={`mt-1 text-sm ${syncError ? "text-red-400" : "text-[#6B6B7E]"}`}
-							>
-								{syncing
-									? "Syncing with YouTube..."
-									: syncError
-										? "Sync failed — click Sync to retry"
-										: playlists.length > 0
-											? `${playlists.length} playlists`
-											: "No playlists found"}
+							<p className="mt-1 text-sm text-text-secondary">
+								{playlists.length > 0
+									? `${playlists.length} playlists`
+									: initialLoading
+										? "Loading…"
+										: "No playlists found"}
+								{syncing && (
+									<span className="ml-2 text-text-secondary">· Syncing…</span>
+								)}
+								{!syncing && syncError && (
+									<span className="ml-2 text-[#F59E0B]">
+										· Sync failed — showing saved playlists
+									</span>
+								)}
 							</p>
 						</div>
 						<div className="flex items-center gap-2">
@@ -114,7 +126,7 @@ export default function PlaylistsPage() {
 									type="button"
 									onClick={syncPlaylistsFromYouTube}
 									disabled={syncing}
-									className="flex items-center gap-2 px-4 py-2 bg-[#1E1E2A] text-[#F2F2F7] font-medium rounded-xl hover:bg-[#2A2A38] transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed border border-[#2A2A38]"
+									className="flex items-center gap-2 px-4 py-2 bg-surface text-text-primary font-medium rounded-xl hover:bg-surface-elevated transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed border border-border"
 								>
 									<SyncIcon
 										sx={{ fontSize: 18 }}
@@ -135,21 +147,21 @@ export default function PlaylistsPage() {
 					</div>
 
 					{/* Content */}
-					{syncing ? (
-						<div className="flex flex-col justify-center items-center h-64 gap-4">
-							<Spinner size="lg" color="primary" />
-							<div className="text-center space-y-2">
-								<p className="text-lg font-semibold text-[#F2F2F7]">
-									Syncing playlists...
-								</p>
-								<p className="text-sm text-[#6B6B7E]">
-									Fetching your playlists from YouTube
-								</p>
-							</div>
-						</div>
-					) : loading ? (
-						<div className="flex justify-center items-center h-64">
-							<Spinner size="lg" color="primary" />
+					{initialLoading && playlists.length === 0 ? (
+						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+							{Array.from({ length: 8 }).map((_, i) => (
+								<div
+									// biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton placeholders
+									key={i}
+									className="rounded-xl border border-border overflow-hidden"
+								>
+									<Skeleton className="aspect-video w-full" />
+									<div className="p-3 space-y-2">
+										<Skeleton className="h-4 w-3/4 rounded" />
+										<Skeleton className="h-3 w-1/2 rounded" />
+									</div>
+								</div>
+							))}
 						</div>
 					) : playlists.length > 0 ? (
 						<motion.div
@@ -163,7 +175,7 @@ export default function PlaylistsPage() {
 									<Card
 										isPressable
 										onPress={() => handleViewPlaylist(playlist.id)}
-										className="w-full bg-[#0F0F14] border border-[#1E1E2A] group overflow-hidden shadow-none hover:border-[#2A2A38] transition-colors"
+										className="w-full bg-surface border border-border group overflow-hidden shadow-none hover:border-surface-elevated transition-colors"
 									>
 										<CardBody className="p-0">
 											{/* Thumbnail */}
@@ -188,11 +200,11 @@ export default function PlaylistsPage() {
 
 											{/* Footer metadata */}
 											<div className="p-3 space-y-1">
-												<h3 className="font-semibold text-sm line-clamp-2 text-[#F2F2F7]">
+												<h3 className="font-semibold text-sm line-clamp-2 text-text-primary">
 													{playlist.title}
 												</h3>
 												{playlist.last_synced_at && (
-													<p className="text-xs text-[#6B6B7E]">
+													<p className="text-xs text-text-secondary">
 														Synced{" "}
 														{formatDistanceToNow(
 															new Date(playlist.last_synced_at),
@@ -208,8 +220,8 @@ export default function PlaylistsPage() {
 						</motion.div>
 					) : (
 						<div className="text-center py-12 dot-grid rounded-xl">
-							<p className="text-[#6B6B7E] text-lg">No playlists found</p>
-							<p className="text-[#2A2A38] text-sm mt-2">
+							<p className="text-text-secondary text-lg">No playlists found</p>
+							<p className="text-text-secondary/60 text-sm mt-2">
 								Create playlists on YouTube or from the Videos page to see them
 								here
 							</p>
