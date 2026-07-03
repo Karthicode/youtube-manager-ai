@@ -19,6 +19,7 @@ import DashboardStats from "@/components/DashboardStats";
 import DashboardStatsSkeleton from "@/components/DashboardStatsSkeleton";
 import LibraryStatusStrip from "@/components/LibraryStatusStrip";
 import Navbar from "@/components/Navbar";
+import RecentlyLiked from "@/components/RecentlyLiked";
 import { useAuthGuard } from "@/hooks";
 import { swrKeys } from "@/lib/swrKeys";
 
@@ -134,6 +135,9 @@ export default function Dashboard() {
 
 					{/* Continue Watching */}
 					<ContinueWatching />
+
+					{/* Recently Liked */}
+					<RecentlyLiked />
 
 					{/* Progress Tracking */}
 					{categorizationJobId && (
