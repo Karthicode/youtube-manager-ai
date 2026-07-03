@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 from fastapi import HTTPException
+from googleapiclient.errors import HttpError
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
@@ -100,11 +101,17 @@ class AutoCategorizeService:
     def classify_sync_error(exc: Exception) -> Literal["auth", "transient"]:
         """Classify a sync-stage failure for the dashboard status strip.
 
-        ``auth``: YouTube credentials are expired/revoked (YouTubeService raises
-        HTTPException 401 in that case) — the user must reconnect their account.
+        ``auth``: YouTube credentials are expired/revoked. YouTubeService
+        normally raises HTTPException 401 in that case, but a silently-failed
+        token refresh can leave a dead access token, causing
+        ``fetch_liked_videos`` to instead re-raise the raw
+        ``googleapiclient.errors.HttpError`` (401) from the YouTube API — the
+        user must reconnect their account.
         ``transient``: anything else — a retry may succeed.
         """
         if isinstance(exc, HTTPException) and exc.status_code == 401:
+            return "auth"
+        if isinstance(exc, HttpError) and getattr(exc.resp, "status", None) == 401:
             return "auth"
         return "transient"
 

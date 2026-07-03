@@ -3,7 +3,9 @@
 import json
 from unittest.mock import MagicMock, patch
 
+import httplib2
 from fastapi import HTTPException
+from googleapiclient.errors import HttpError
 
 from app.services.auto_categorize_service import (
     USER_STATUS_KEY,
@@ -27,6 +29,16 @@ def test_classify_sync_error_transient_for_generic_exception() -> None:
 
 def test_classify_sync_error_transient_for_non_401_http_exception() -> None:
     exc = HTTPException(status_code=500, detail="upstream error")
+    assert AutoCategorizeService.classify_sync_error(exc) == "transient"
+
+
+def test_classify_sync_error_auth_for_401_googleapiclient_http_error() -> None:
+    exc = HttpError(resp=httplib2.Response({"status": "401"}), content=b"unauthorized")
+    assert AutoCategorizeService.classify_sync_error(exc) == "auth"
+
+
+def test_classify_sync_error_transient_for_503_googleapiclient_http_error() -> None:
+    exc = HttpError(resp=httplib2.Response({"status": "503"}), content=b"unavailable")
     assert AutoCategorizeService.classify_sync_error(exc) == "transient"
 
 
