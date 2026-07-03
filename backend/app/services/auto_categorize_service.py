@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from fastapi import HTTPException
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
@@ -96,6 +97,18 @@ class AutoCategorizeService:
         return list(videos)
 
     @staticmethod
+    def classify_sync_error(exc: Exception) -> str:
+        """Classify a sync-stage failure for the dashboard status strip.
+
+        ``auth``: YouTube credentials are expired/revoked (YouTubeService raises
+        HTTPException 401 in that case) — the user must reconnect their account.
+        ``transient``: anything else — a retry may succeed.
+        """
+        if isinstance(exc, HTTPException) and exc.status_code == 401:
+            return "auth"
+        return "transient"
+
+    @staticmethod
     def _write_user_status(user_id: int, data: dict[str, Any]) -> None:
         """Persist per-user status in Redis (7-day TTL). Best-effort."""
         try:
@@ -159,6 +172,7 @@ class AutoCategorizeService:
                 "status": "failed",
                 "stage": "sync",
                 "error": str(e),
+                "error_type": AutoCategorizeService.classify_sync_error(e),
                 "user_id": user.id,
             }
             AutoCategorizeService._write_user_status(user.id, result)
