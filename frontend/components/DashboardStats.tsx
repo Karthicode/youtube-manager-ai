@@ -63,7 +63,7 @@ export default function DashboardStats({
 				variants={containerVariants}
 				initial="hidden"
 				animate="show"
-				className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
+				className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4"
 			>
 				{/* Liked Videos */}
 				<motion.div variants={itemVariants}>
@@ -101,9 +101,48 @@ export default function DashboardStats({
 				<motion.div variants={itemVariants}>
 					<Card className="bg-surface border border-border shadow-none h-full">
 						<CardBody className="p-4 sm:p-5">
-							<h3 className="text-[10px] sm:text-xs text-text-secondary uppercase tracking-widest mb-3">
-								Uncategorized
-							</h3>
+							<div className="flex justify-between items-start gap-2">
+								<h3 className="text-[10px] sm:text-xs text-text-secondary uppercase tracking-widest mb-3">
+									Uncategorized
+								</h3>
+								{stats.uncategorized > 0 && (
+									<Dropdown>
+										<DropdownTrigger>
+											<Button
+												color="warning"
+												variant="flat"
+												size="sm"
+												isLoading={batchCategorizing}
+											>
+												Categorize
+											</Button>
+										</DropdownTrigger>
+										<DropdownMenu aria-label="Categorization options">
+											<DropdownItem
+												key="fast"
+												description="10 concurrent requests with real-time progress"
+												onPress={() => onBatchCategorize(10)}
+											>
+												Fast (Recommended)
+											</DropdownItem>
+											<DropdownItem
+												key="faster"
+												description="20 concurrent requests (May hit rate limits)"
+												onPress={() => onBatchCategorize(20)}
+											>
+												Faster
+											</DropdownItem>
+											<DropdownItem
+												key="fastest"
+												description="30 concurrent requests (Higher rate limit risk)"
+												onPress={() => onBatchCategorize(30)}
+											>
+												Fastest
+											</DropdownItem>
+										</DropdownMenu>
+									</Dropdown>
+								)}
+							</div>
 							<p
 								className={`font-mono-editorial text-3xl sm:text-4xl font-semibold whitespace-nowrap ${
 									stats.uncategorized > 0
@@ -117,121 +156,7 @@ export default function DashboardStats({
 						</CardBody>
 					</Card>
 				</motion.div>
-
-				{/* Progress */}
-				<motion.div variants={itemVariants}>
-					<Card className="bg-surface border border-border shadow-none h-full">
-						<CardBody className="p-4 sm:p-5">
-							<h3 className="text-[10px] sm:text-xs text-text-secondary uppercase tracking-widest mb-3">
-								Progress
-							</h3>
-							<div className="flex items-baseline gap-1">
-								<span className="font-mono-editorial text-3xl sm:text-4xl font-semibold text-text-primary">
-									{stats.categorization_percentage.toFixed(1)}
-								</span>
-								<span className="font-mono-editorial text-lg sm:text-xl font-semibold text-text-secondary">
-									%
-								</span>
-							</div>
-							<div className="mt-3 h-1.5 bg-border rounded-full overflow-hidden">
-								<div
-									className="h-full bg-[#E63946] rounded-full transition-all duration-700"
-									style={{
-										width: `${stats.categorization_percentage}%`,
-									}}
-								/>
-							</div>
-							<p className="text-xs text-text-secondary mt-2">Organized</p>
-						</CardBody>
-					</Card>
-				</motion.div>
 			</motion.div>
-
-			{/* Quick Actions */}
-			<Card className="bg-surface border border-border shadow-none">
-				<CardHeader className="pb-2 sm:pb-3">
-					<h3 className="text-base sm:text-lg font-semibold font-display text-text-primary">
-						Quick Actions
-					</h3>
-				</CardHeader>
-				<Divider className="bg-[#1E1E2A]" />
-				<CardBody className="pt-3 sm:pt-4">
-					<div className="flex flex-wrap justify-center gap-2 sm:gap-3">
-						<Button
-							color="primary"
-							variant="flat"
-							as={Link}
-							href="/videos"
-							radius="md"
-							size="md"
-							className="min-w-[140px] flex-1 sm:flex-none"
-						>
-							View All Videos
-						</Button>
-						<Button
-							color="secondary"
-							variant="flat"
-							as={Link}
-							href="/playlists"
-							radius="md"
-							size="md"
-							className="min-w-[140px] flex-1 sm:flex-none"
-						>
-							View Playlists
-						</Button>
-						<Button
-							color="success"
-							variant="flat"
-							as={Link}
-							href="/videos?categorized=false"
-							radius="md"
-							size="md"
-							className="min-w-[140px] flex-1 sm:flex-none"
-						>
-							View Uncategorized
-						</Button>
-						{stats.uncategorized > 0 && (
-							<Dropdown>
-								<DropdownTrigger>
-									<Button
-										color="warning"
-										variant="solid"
-										isLoading={batchCategorizing}
-										radius="md"
-										size="md"
-										className="min-w-[140px] flex-1 sm:flex-none"
-									>
-										Categorize All ({stats.uncategorized})
-									</Button>
-								</DropdownTrigger>
-								<DropdownMenu aria-label="Categorization options">
-									<DropdownItem
-										key="fast"
-										description="10 concurrent requests with real-time progress"
-										onPress={() => onBatchCategorize(10)}
-									>
-										Fast (Recommended)
-									</DropdownItem>
-									<DropdownItem
-										key="faster"
-										description="20 concurrent requests (May hit rate limits)"
-										onPress={() => onBatchCategorize(20)}
-									>
-										Faster
-									</DropdownItem>
-									<DropdownItem
-										key="fastest"
-										description="30 concurrent requests (Higher rate limit risk)"
-										onPress={() => onBatchCategorize(30)}
-									>
-										Fastest
-									</DropdownItem>
-								</DropdownMenu>
-							</Dropdown>
-						)}
-					</div>
-				</CardBody>
-			</Card>
 
 			{/* Top Categories + Top Tags */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
