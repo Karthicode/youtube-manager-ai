@@ -10,7 +10,7 @@ cases:
     expected_titles_any:
       - "Nginx Explained in 10 Minutes"
       - "Spicy Garlic Noodles in 15 Minutes"
-      - "Ultimate Ramen Broth Guide"
+      - "Canon in D — Piano Cover"
     expect_freshness_caveat: false
 
   - id: food-recent
@@ -19,6 +19,7 @@ cases:
     expected_titles_any:
       - "Spicy Garlic Noodles in 15 Minutes"
       - "Ultimate Ramen Broth Guide"
+      - "One-Pot Pasta for Busy Weeknights"
     expect_freshness_caveat: false
 
   - id: noodles-search
