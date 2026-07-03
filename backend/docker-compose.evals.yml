@@ -1,0 +1,9 @@
+services:
+  evals-db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: evals
+      POSTGRES_PASSWORD: evals
+      POSTGRES_DB: evals
+    ports:
+      - "55432:5432"
