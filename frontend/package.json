@@ -60,6 +60,6 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.0",
 		"@types/youtube": "^0.1.2",
-		"typescript": "^7.0.1-rc"
+		"typescript": "~5.8.0"
 	}
 }
