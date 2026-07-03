@@ -3,7 +3,6 @@ import { api } from "@/api/api";
 import { swrKeys } from "@/lib/swrKeys";
 import type {
 	CategoryDistribution,
-	ChannelRecommendation,
 	ChannelStats,
 	DurationBucket,
 	InsightsOverview,
@@ -63,28 +62,6 @@ export function useInsightsDuration() {
 	return {
 		buckets: data?.buckets ?? [],
 		avgDuration: data?.avg_duration_seconds ?? 0,
-		error,
-		isLoading,
-		mutate,
-	};
-}
-
-export function useInsightsRecommendations(limit = 10) {
-	const key = swrKeys.insightsRecommendations(limit);
-	const { data, error, isLoading, mutate } = useSWR<{
-		recommendations: ChannelRecommendation[];
-		top_categories: string[];
-		top_tags: string[];
-		total_analyzed_channels: number;
-	}>(key, {
-		fetcher: paramFetcher,
-		revalidateIfStale: false,
-	});
-	return {
-		items: data?.recommendations ?? [],
-		topCategories: data?.top_categories ?? [],
-		topTags: data?.top_tags ?? [],
-		totalAnalyzed: data?.total_analyzed_channels ?? 0,
 		error,
 		isLoading,
 		mutate,

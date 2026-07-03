@@ -1,12 +1,5 @@
 "use client";
 
-import { Card, CardBody } from "@heroui/react";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import CategoryIcon from "@mui/icons-material/Category";
-import DateRangeIcon from "@mui/icons-material/DateRange";
-import LocalOfferIcon from "@mui/icons-material/LocalOffer";
-import PlayCircleIcon from "@mui/icons-material/PlayCircle";
-import SubscriptionsIcon from "@mui/icons-material/Subscriptions";
 import type { InsightsOverview } from "@/types";
 
 interface InsightsSummaryCardsProps {
@@ -30,102 +23,43 @@ function formatWatchTime(seconds: number): string {
 	return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days} days`;
 }
 
-function _formatDateRange(
-	earliest: string | null,
-	latest: string | null,
-): string {
-	if (!earliest || !latest) return "No data";
-	const start = new Date(earliest);
-	const end = new Date(latest);
-	const startStr = start.toLocaleDateString("en-US", {
-		month: "short",
-		year: "numeric",
-	});
-	const endStr = end.toLocaleDateString("en-US", {
-		month: "short",
-		year: "numeric",
-	});
-	return startStr === endStr ? startStr : `${startStr} - ${endStr}`;
-}
-
 export default function InsightsSummaryCards({
 	data,
 	loading = false,
 }: InsightsSummaryCardsProps) {
-	const cards = [
-		{
-			label: "Total Videos",
-			value: data?.total_videos ?? 0,
-			icon: PlayCircleIcon,
-			color: "from-blue-500 to-blue-600",
-			textColor: "text-blue-600 dark:text-blue-400",
-		},
-		{
-			label: "Channels",
-			value: data?.unique_channels ?? 0,
-			icon: SubscriptionsIcon,
-			color: "from-purple-500 to-purple-600",
-			textColor: "text-purple-600 dark:text-purple-400",
-		},
+	const items = [
+		{ label: "Videos", value: (data?.total_videos ?? 0).toLocaleString() },
+		{ label: "Channels", value: (data?.unique_channels ?? 0).toLocaleString() },
 		{
 			label: "Categories",
-			value: data?.unique_categories ?? 0,
-			icon: CategoryIcon,
-			color: "from-green-500 to-green-600",
-			textColor: "text-green-600 dark:text-green-400",
+			value: (data?.unique_categories ?? 0).toLocaleString(),
 		},
-		{
-			label: "Tags",
-			value: data?.unique_tags ?? 0,
-			icon: LocalOfferIcon,
-			color: "from-orange-500 to-orange-600",
-			textColor: "text-orange-600 dark:text-orange-400",
-		},
+		{ label: "Tags", value: (data?.unique_tags ?? 0).toLocaleString() },
 		{
 			label: "Avg Duration",
 			value: formatDuration(data?.avg_video_duration_seconds ?? 0),
-			icon: AccessTimeIcon,
-			color: "from-cyan-500 to-cyan-600",
-			textColor: "text-cyan-600 dark:text-cyan-400",
-			isText: true,
 		},
 		{
-			label: "Total Watch Time",
+			label: "Watch Time",
 			value: formatWatchTime(data?.total_watch_time_seconds ?? 0),
-			icon: DateRangeIcon,
-			color: "from-pink-500 to-pink-600",
-			textColor: "text-pink-600 dark:text-pink-400",
-			isText: true,
 		},
 	];
 
 	return (
-		<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-			{cards.map((card) => (
-				<Card
-					key={card.label}
-					className="shadow-md hover:shadow-lg transition-shadow"
-				>
-					<CardBody className="p-3 sm:p-4">
-						<div className="flex items-center gap-2 mb-2">
-							<div
-								className={`p-1.5 rounded-lg bg-gradient-to-br ${card.color}`}
-							>
-								<card.icon className="text-white" sx={{ fontSize: 18 }} />
-							</div>
-							<span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-								{card.label}
-							</span>
-						</div>
-						<p
-							className={`text-xl sm:text-2xl font-bold ${card.textColor} ${
-								loading ? "animate-pulse" : ""
-							}`}
-						>
-							{loading ? "..." : card.value}
-						</p>
-					</CardBody>
-				</Card>
+		<div className="grid grid-cols-3 lg:grid-cols-6 divide-x divide-y lg:divide-y-0 divide-border bg-surface border border-border rounded-xl overflow-hidden">
+			{items.map((item) => (
+				<div key={item.label} className="px-3 py-2.5 sm:px-4 sm:py-3">
+					<p className="text-[10px] uppercase tracking-widest text-text-secondary">
+						{item.label}
+					</p>
+					<p
+						className={`font-mono-editorial text-lg sm:text-xl font-semibold text-text-primary mt-0.5 ${
+							loading ? "animate-pulse" : ""
+						}`}
+					>
+						{loading ? "…" : item.value}
+					</p>
+				</div>
 			))}
 		</div>
 	);

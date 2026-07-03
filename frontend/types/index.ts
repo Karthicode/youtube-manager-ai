@@ -79,14 +79,6 @@ export interface SyncResponse {
 	total_videos: number;
 }
 
-export interface TagCloudItem {
-	id: number;
-	name: string;
-	slug: string;
-	usage_count: number;
-	weight: number;
-}
-
 export interface PaginatedVideosResponse {
 	items: Video[];
 	total: number;
@@ -172,25 +164,6 @@ export interface DurationResponse {
 	buckets: DurationBucket[];
 	avg_duration_seconds: number;
 	total_watch_time_seconds: number;
-}
-
-export interface ChannelRecommendation {
-	channel_id: string;
-	channel_title: string;
-	thumbnail_url: string | null;
-	subscriber_count: number | null;
-	video_count: number | null;
-	description: string | null;
-	recommendation_reason: string;
-	score: number; // 0.0 to 1.0
-	source: "content_based" | "youtube_api" | "hybrid";
-}
-
-export interface RecommendationsResponse {
-	recommendations: ChannelRecommendation[];
-	total_analyzed_channels: number;
-	top_categories: string[];
-	top_tags: string[];
 }
 
 // Delete by tags types

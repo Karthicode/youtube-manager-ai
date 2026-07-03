@@ -286,9 +286,6 @@ export const insightsApi = {
 	getDuration: (params?: { force_refresh?: boolean }) =>
 		api.get("/insights/duration", { params }),
 
-	getRecommendations: (params?: { limit?: number; force_refresh?: boolean }) =>
-		api.get("/insights/recommendations", { params }),
-
 	getTasteProfile: (params?: { force_refresh?: boolean }) =>
 		api.get("/insights/taste-profile", { params }),
 
@@ -312,6 +309,7 @@ export const autoCategorizeApi = {
 			reason?: string;
 			stage?: string;
 			error?: string;
+			error_type?: string;
 			videos_synced?: number;
 			videos_categorized?: number;
 			job_id?: string;
