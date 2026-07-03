@@ -17,9 +17,5 @@ export const swrKeys = {
 		limit ? (["/insights/channels", { limit }] as const) : "/insights/channels",
 	insightsTemporal: () => "/insights/temporal",
 	insightsDuration: () => "/insights/duration",
-	insightsRecommendations: (limit?: number) =>
-		limit
-			? (["/insights/recommendations", { limit }] as const)
-			: "/insights/recommendations",
 	autoCategorizeStatus: () => "/cron/auto-categorize/status/me",
 };

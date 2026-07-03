@@ -4,11 +4,9 @@ import { Spinner } from "@heroui/react";
 import {
 	CategoryPieChart,
 	ChannelBarChart,
-	ChannelRecommendations,
 	DurationDistribution,
 	InsightsSummaryCards,
 	LikesTrendChart,
-	TagCloud,
 	TasteProfile,
 } from "@/components/insights";
 import Navbar from "@/components/Navbar";
@@ -18,9 +16,16 @@ import {
 	useInsightsContentDist,
 	useInsightsDuration,
 	useInsightsOverview,
-	useInsightsRecommendations,
 	useInsightsTemporal,
 } from "@/hooks/useInsights";
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+	return (
+		<h2 className="text-[11px] uppercase tracking-widest text-text-secondary font-semibold">
+			{children}
+		</h2>
+	);
+}
 
 export default function InsightsPage() {
 	const { isReady, isAuthenticated } = useAuthGuard();
@@ -28,7 +33,6 @@ export default function InsightsPage() {
 	const { data: overview, isLoading: loadingOverview } = useInsightsOverview();
 	const {
 		categories,
-		tags,
 		isLoading: loadingContent,
 		error: errContent,
 	} = useInsightsContentDist();
@@ -48,14 +52,6 @@ export default function InsightsPage() {
 		isLoading: loadingDuration,
 		error: errDuration,
 	} = useInsightsDuration();
-	const {
-		items: recommendations,
-		topCategories,
-		topTags,
-		totalAnalyzed,
-		isLoading: loadingRecommendations,
-		error: errRecommendations,
-	} = useInsightsRecommendations(10);
 
 	// Don't render anything until hydrated and authenticated
 	if (!isReady || !isAuthenticated) {
@@ -81,37 +77,43 @@ export default function InsightsPage() {
 						</p>
 					</div>
 
-					{/* Summary Cards */}
+					{/* Compact summary strip */}
 					<InsightsSummaryCards data={overview} loading={loadingOverview} />
 
-					{/* Charts Row 1: Category + Tags */}
-					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-						<CategoryPieChart
-							data={categories}
-							totalVideos={overview?.total_videos}
-							loading={loadingContent}
-							error={errContent?.message ?? ""}
-						/>
-						<TagCloud
-							data={tags}
-							loading={loadingContent}
-							error={errContent?.message ?? ""}
-						/>
+					{/* Taste Profile — marquee AI element */}
+					<div className="space-y-3">
+						<SectionLabel>Your taste profile</SectionLabel>
+						<TasteProfile />
 					</div>
 
-					{/* Charts Row 2: Likes Trend (Full Width) */}
-					<LikesTrendChart
-						data={temporal}
-						loading={loadingTemporal}
-						error={errTemporal?.message ?? ""}
-					/>
-
-					{/* Charts Row 3: Channels + Duration */}
+					{/* What you watch / Who you watch */}
 					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-						<ChannelBarChart
-							data={channels}
-							loading={loadingChannels}
-							error={errChannels?.message ?? ""}
+						<div className="space-y-3">
+							<SectionLabel>What you watch</SectionLabel>
+							<CategoryPieChart
+								data={categories}
+								totalVideos={overview?.total_videos}
+								loading={loadingContent}
+								error={errContent?.message ?? ""}
+							/>
+						</div>
+						<div className="space-y-3">
+							<SectionLabel>Who you watch</SectionLabel>
+							<ChannelBarChart
+								data={channels}
+								loading={loadingChannels}
+								error={errChannels?.message ?? ""}
+							/>
+						</div>
+					</div>
+
+					{/* How you watch */}
+					<div className="space-y-3">
+						<SectionLabel>How you watch</SectionLabel>
+						<LikesTrendChart
+							data={temporal}
+							loading={loadingTemporal}
+							error={errTemporal?.message ?? ""}
 						/>
 						<DurationDistribution
 							data={buckets}
@@ -120,19 +122,6 @@ export default function InsightsPage() {
 							error={errDuration?.message ?? ""}
 						/>
 					</div>
-
-					{/* Channel Recommendations */}
-					<ChannelRecommendations
-						recommendations={recommendations}
-						topCategories={topCategories}
-						topTags={topTags}
-						totalAnalyzed={totalAnalyzed}
-						loading={loadingRecommendations}
-						error={errRecommendations?.message ?? ""}
-					/>
-
-					{/* AI Taste Profile */}
-					<TasteProfile />
 				</div>
 			</div>
 		</div>

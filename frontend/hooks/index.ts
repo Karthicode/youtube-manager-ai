@@ -6,7 +6,6 @@ export {
 	useInsightsContentDist,
 	useInsightsDuration,
 	useInsightsOverview,
-	useInsightsRecommendations,
 	useInsightsTemporal,
 } from "./useInsights";
 export { useTags } from "./useTags";
