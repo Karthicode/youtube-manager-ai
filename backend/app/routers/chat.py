@@ -24,6 +24,7 @@ from app.schemas.chat import (
 from app.services.agent_service import AgentService
 from app.redis_client import get_redis
 from app.utils.cache_invalidation import invalidate_chat_sessions
+from app.observability import flush_langfuse
 
 router = APIRouter(prefix="/chat")
 
@@ -102,52 +103,57 @@ async def send_message(
     agent = AgentService(user_id=current_user.id, db=db)
 
     async def event_stream():
-        assistant_content = ""
-        tool_calls: list[dict] = []
-        tool_results: list[dict] = []
+        try:
+            assistant_content = ""
+            tool_calls: list[dict] = []
+            tool_results: list[dict] = []
 
-        async for event in agent.chat(request.session_id, request.message):
-            event_type = event.type
-            if event_type == "message":
-                assistant_content = event.content or ""
-            elif event_type == "error" and not assistant_content:
-                assistant_content = (
-                    event.content or "Sorry, something went wrong. Please try again."
-                )
-            elif event_type == "tool_call":
-                tool_calls.append(
-                    {
-                        "tool": event.tool,
-                        "arguments": event.arguments or {},
-                    }
-                )
-            elif event_type == "tool_result":
-                tool_results.append(
-                    {
-                        "tool": event.tool,
-                        "result": event.result,
-                    }
-                )
+            async for event in agent.chat(request.session_id, request.message):
+                event_type = event.type
+                if event_type == "message":
+                    assistant_content = event.content or ""
+                elif event_type == "error" and not assistant_content:
+                    assistant_content = (
+                        event.content
+                        or "Sorry, something went wrong. Please try again."
+                    )
+                elif event_type == "tool_call":
+                    tool_calls.append(
+                        {
+                            "tool": event.tool,
+                            "arguments": event.arguments or {},
+                        }
+                    )
+                elif event_type == "tool_result":
+                    tool_results.append(
+                        {
+                            "tool": event.tool,
+                            "result": event.result,
+                        }
+                    )
 
-            yield event.model_dump_json(exclude_none=True) + "\n"
+                yield event.model_dump_json(exclude_none=True) + "\n"
 
-        if assistant_content or tool_calls or tool_results:
-            persisted_content = assistant_content or "No response content"
-            db.add(
-                ChatMessage(
-                    session_id=request.session_id,
-                    role="assistant",
-                    content=persisted_content,
-                    tool_calls_json=json.dumps(tool_calls) if tool_calls else None,
-                    tool_results_json=(
-                        json.dumps(tool_results) if tool_results else None
-                    ),
-                    created_at=datetime.now(timezone.utc),
+            if assistant_content or tool_calls or tool_results:
+                persisted_content = assistant_content or "No response content"
+                db.add(
+                    ChatMessage(
+                        session_id=request.session_id,
+                        role="assistant",
+                        content=persisted_content,
+                        tool_calls_json=json.dumps(tool_calls) if tool_calls else None,
+                        tool_results_json=(
+                            json.dumps(tool_results) if tool_results else None
+                        ),
+                        created_at=datetime.now(timezone.utc),
+                    )
                 )
-            )
-            session.message_count += 1
-            session.last_message_at = datetime.now(timezone.utc)
-            db.commit()
+                session.message_count += 1
+                session.last_message_at = datetime.now(timezone.utc)
+                db.commit()
+        finally:
+            # Serverless: force-send buffered spans before Vercel freezes us.
+            flush_langfuse()
 
     return StreamingResponse(
         event_stream(),

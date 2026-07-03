@@ -9,13 +9,13 @@ import re
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Literal
 
-from openai import AsyncOpenAI
 from openai.types.shared_params import Reasoning
 from sqlalchemy.orm import Session
 from sqlalchemy import func, distinct, extract
 
 from app.config import settings
 from app.logger import api_logger
+from app.observability import AsyncOpenAI, tool_span, trace_span
 from app.models.video import Video
 from app.models.category import Category
 from app.models.tag import Tag
@@ -334,6 +334,18 @@ Guidelines:
         with a 5-minute TTL (Optimization B). The create_playlist tool is never
         cached because it performs writes.
         """
+        with tool_span(tool_name, input=arguments) as span:
+            result, cache_hit = await self._execute_tool_inner(tool_name, arguments)
+            span.update(
+                output=result,
+                metadata={"cache_hit": cache_hit, "user_id": self.user_id},
+            )
+            return result
+
+    async def _execute_tool_inner(
+        self, tool_name: str, arguments: dict
+    ) -> tuple[Any, bool]:
+        """Original tool dispatch; returns (result, served_from_cache)."""
         # Skip caching for write tools
         cacheable = tool_name != "create_playlist"
 
@@ -342,7 +354,7 @@ Guidelines:
             cached_raw = self._redis.get(cache_key)
             if cached_raw:
                 api_logger.debug(f"Tool cache hit: {tool_name}")
-                return json.loads(cached_raw)
+                return json.loads(cached_raw), True
 
         try:
             if tool_name == "search_videos":
@@ -356,7 +368,7 @@ Guidelines:
             elif tool_name == "get_temporal_trends":
                 result = self._tool_get_temporal_trends(**arguments)
             else:
-                return {"error": f"Unknown tool: {tool_name}"}
+                return {"error": f"Unknown tool: {tool_name}"}, False
         except Exception as e:
             api_logger.error(f"Tool execution error ({tool_name}): {e}", exc_info=True)
             # Roll back the aborted transaction so subsequent DB operations work.
@@ -369,7 +381,7 @@ Guidelines:
                 pass
             return {
                 "error": f"Tool '{tool_name}' failed. Please try a different query."
-            }
+            }, False
 
         if cacheable:
             self._redis.set(
@@ -378,7 +390,7 @@ Guidelines:
                 expire=TOOL_RESULT_CACHE_TTL,
             )
 
-        return result
+        return result, False
 
     async def _tool_search_videos(self, query: str, limit: int = 10) -> list[dict]:
         """Search videos using semantic similarity."""
@@ -680,123 +692,131 @@ Guidelines:
 
         Yields structured events for StreamingResponse JSON Lines output.
         """
-        # Optimization E: fetch system prompt and previous_response_id concurrently.
-        # _get_system_prompt is async (and cached); _get_previous_response_id is sync
-        # so we run it in a thread to allow true parallelism.
-        system_prompt, previous_response_id = await asyncio.gather(
-            self._get_system_prompt(),
-            asyncio.get_running_loop().run_in_executor(
-                None, self._get_previous_response_id, session_id
-            ),
-        )
-
-        # Optimization C: choose reasoning effort based on query complexity.
-        # "minimal" is the lowest valid effort (reduces TTFT for simple lookups).
-        simple = _is_simple_query(message)
-        reasoning_effort: Literal["minimal", "low"] = "minimal" if simple else "low"
-        api_logger.debug(
-            f"Query reasoning effort: {reasoning_effort!r} (simple={simple})"
-        )
-
-        # Build input
-        input_messages = [{"role": "user", "content": message}]
-
-        try:
-            # Initial call — use full token budget since we don't know yet whether
-            # the model will call a tool or answer directly (Optimization D).
-            response = await self.client.responses.create(
-                model=settings.openai_model,
-                instructions=system_prompt,
-                input=input_messages,
-                tools=AGENT_TOOLS,
-                previous_response_id=previous_response_id,
-                stream=False,
-                reasoning=Reasoning(effort=reasoning_effort),
-                max_output_tokens=_FINAL_MAX_TOKENS,
+        with trace_span(
+            "chat-turn",
+            session_id=session_id,
+            user_id=str(self.user_id),
+            input=message,
+            tags=["chat", "prompt:v2"],
+        ) as turn_span:
+            # Optimization E: fetch system prompt and previous_response_id concurrently.
+            # _get_system_prompt is async (and cached); _get_previous_response_id is sync
+            # so we run it in a thread to allow true parallelism.
+            system_prompt, previous_response_id = await asyncio.gather(
+                self._get_system_prompt(),
+                asyncio.get_running_loop().run_in_executor(
+                    None, self._get_previous_response_id, session_id
+                ),
             )
 
-            iterations = 0
+            # Optimization C: choose reasoning effort based on query complexity.
+            # "minimal" is the lowest valid effort (reduces TTFT for simple lookups).
+            simple = _is_simple_query(message)
+            reasoning_effort: Literal["minimal", "low"] = "minimal" if simple else "low"
+            api_logger.debug(
+                f"Query reasoning effort: {reasoning_effort!r} (simple={simple})"
+            )
 
-            while iterations < MAX_TOOL_ITERATIONS:
-                iterations += 1
+            # Build input
+            input_messages = [{"role": "user", "content": message}]
 
-                # Check if the response has tool calls
-                function_calls = [
-                    item for item in response.output if item.type == "function_call"
-                ]
-
-                if not function_calls:
-                    # No tool calls — final synthesis text is already in the response
-                    break
-
-                # Execute tool calls and build function call outputs
-                tool_outputs = []
-                for fc in function_calls:
-                    tool_name = fc.name
-                    arguments = json.loads(fc.arguments)
-
-                    # Yield progress event
-                    yield ChatStreamEvent(
-                        type="tool_call",
-                        tool=tool_name,
-                        arguments=arguments,
-                    )
-
-                    result = await self._execute_tool(tool_name, arguments)
-
-                    tool_outputs.append(
-                        {
-                            "type": "function_call_output",
-                            "call_id": fc.call_id,
-                            "output": json.dumps(result, default=str),
-                        }
-                    )
-
-                    # Yield tool result
-                    yield ChatStreamEvent(
-                        type="tool_result",
-                        tool=tool_name,
-                        result=result,
-                    )
-
-                # Check if this is the last iteration (synthesis turn next)
-                is_final_turn = iterations >= MAX_TOOL_ITERATIONS - 1
-                next_max_tokens = (
-                    _FINAL_MAX_TOKENS if is_final_turn else _INTERMEDIATE_MAX_TOKENS
-                )
-
-                # Continue the conversation with tool outputs
+            try:
+                # Initial call — use full token budget since we don't know yet whether
+                # the model will call a tool or answer directly (Optimization D).
                 response = await self.client.responses.create(
                     model=settings.openai_model,
-                    previous_response_id=response.id,
-                    input=tool_outputs,
+                    instructions=system_prompt,
+                    input=input_messages,
                     tools=AGENT_TOOLS,
+                    previous_response_id=previous_response_id,
                     stream=False,
                     reasoning=Reasoning(effort=reasoning_effort),
-                    max_output_tokens=next_max_tokens,
+                    max_output_tokens=_FINAL_MAX_TOKENS,
                 )
 
-            # Extract final text from response
-            text_parts = []
-            for item in response.output:
-                if item.type == "message":
-                    for content in item.content:
-                        if content.type == "output_text":
-                            text_parts.append(content.text)
+                iterations = 0
 
-            final_text = "\n".join(text_parts)
+                while iterations < MAX_TOOL_ITERATIONS:
+                    iterations += 1
 
-            # Save conversation state
-            self._save_session(session_id, response.id, 1)
+                    # Check if the response has tool calls
+                    function_calls = [
+                        item for item in response.output if item.type == "function_call"
+                    ]
 
-            # Yield final message
-            yield ChatStreamEvent(type="message", content=final_text)
-            yield ChatStreamEvent(type="done")
+                    if not function_calls:
+                        # No tool calls — final synthesis text is already in the response
+                        break
 
-        except Exception as e:
-            api_logger.error(f"Agent chat error: {e}", exc_info=True)
-            yield ChatStreamEvent(
-                type="error",
-                content="Something went wrong while processing your request. Please try again.",
-            )
-            yield ChatStreamEvent(type="done")
+                    # Execute tool calls and build function call outputs
+                    tool_outputs = []
+                    for fc in function_calls:
+                        tool_name = fc.name
+                        arguments = json.loads(fc.arguments)
+
+                        # Yield progress event
+                        yield ChatStreamEvent(
+                            type="tool_call",
+                            tool=tool_name,
+                            arguments=arguments,
+                        )
+
+                        result = await self._execute_tool(tool_name, arguments)
+
+                        tool_outputs.append(
+                            {
+                                "type": "function_call_output",
+                                "call_id": fc.call_id,
+                                "output": json.dumps(result, default=str),
+                            }
+                        )
+
+                        # Yield tool result
+                        yield ChatStreamEvent(
+                            type="tool_result",
+                            tool=tool_name,
+                            result=result,
+                        )
+
+                    # Check if this is the last iteration (synthesis turn next)
+                    is_final_turn = iterations >= MAX_TOOL_ITERATIONS - 1
+                    next_max_tokens = (
+                        _FINAL_MAX_TOKENS if is_final_turn else _INTERMEDIATE_MAX_TOKENS
+                    )
+
+                    # Continue the conversation with tool outputs
+                    response = await self.client.responses.create(
+                        model=settings.openai_model,
+                        previous_response_id=response.id,
+                        input=tool_outputs,
+                        tools=AGENT_TOOLS,
+                        stream=False,
+                        reasoning=Reasoning(effort=reasoning_effort),
+                        max_output_tokens=next_max_tokens,
+                    )
+
+                # Extract final text from response
+                text_parts = []
+                for item in response.output:
+                    if item.type == "message":
+                        for content in item.content:
+                            if content.type == "output_text":
+                                text_parts.append(content.text)
+
+                final_text = "\n".join(text_parts)
+                turn_span.update(output=final_text)
+
+                # Save conversation state
+                self._save_session(session_id, response.id, 1)
+
+                # Yield final message
+                yield ChatStreamEvent(type="message", content=final_text)
+                yield ChatStreamEvent(type="done")
+
+            except Exception as e:
+                api_logger.error(f"Agent chat error: {e}", exc_info=True)
+                yield ChatStreamEvent(
+                    type="error",
+                    content="Something went wrong while processing your request. Please try again.",
+                )
+                yield ChatStreamEvent(type="done")
