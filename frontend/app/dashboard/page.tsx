@@ -127,7 +127,7 @@ export default function Dashboard() {
 						</div>
 					</div>
 
-					{/* Auto-categorize status banner (failure / stale) */}
+					{/* Library status: sync recency, categorization progress, auto-sync health */}
 					<LibraryStatusStrip
 						lastSyncAt={user?.last_sync_at ?? null}
 						onJobComplete={refreshStats}
