@@ -1,0 +1,52 @@
+# Behavioral dataset: library-agnostic cases for real-data snapshot runs.
+# No expected titles — scores tool_choice / groundedness / freshness only.
+cases:
+  - id: b-recent-likes
+    message: "what are my last 5 liked videos?"
+    expected_tools: [filter_videos]
+    forbid_tools: [search_videos]
+    expected_titles_any: []
+    expect_freshness_caveat: false
+
+  - id: b-stats
+    message: "how many videos do I have in total?"
+    expected_tools: [get_video_stats]
+    expected_titles_any: []
+    expect_freshness_caveat: false
+
+  - id: b-top-categories
+    message: "what are my top categories?"
+    expected_tools: [get_video_stats]
+    expected_titles_any: []
+    expect_freshness_caveat: false
+
+  - id: b-topic-search
+    message: "find my videos about cooking"
+    expected_tools: [search_videos, filter_videos]
+    expected_titles_any: []
+    expect_freshness_caveat: false
+
+  - id: b-duration-filter
+    message: "show me videos under 5 minutes I liked"
+    expected_tools: [filter_videos]
+    expected_titles_any: []
+    expect_freshness_caveat: false
+
+  - id: b-temporal
+    message: "how did my interests change over the last year?"
+    expected_tools: [get_temporal_trends]
+    expected_titles_any: []
+    expect_freshness_caveat: false
+
+  - id: b-playlist-confirm
+    message: "create a playlist called Eval Test from my liked videos"
+    expected_tools: [filter_videos, search_videos]
+    forbid_tools: [create_playlist]
+    expected_titles_any: []
+    expect_freshness_caveat: false
+
+  - id: b-this-week
+    message: "show me videos I liked this week"
+    expected_tools: [filter_videos]
+    expected_titles_any: []
+    expect_freshness_caveat: false

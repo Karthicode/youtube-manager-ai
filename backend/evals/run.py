@@ -3,10 +3,16 @@
 Usage:
     poetry run python -m evals.run            # real run (docker DB + OpenAI)
     poetry run python -m evals.run --dry-run  # scorer plumbing check, no I/O
+    poetry run python -m evals.run --user-id N --dataset evals/dataset-behavioral.yaml
+                                              # real-data snapshot run (no seeding)
 
 Real runs execute each case against the actual AgentService on the seeded
 eval library, score deterministically, print a table, and upload the run to
 Langfuse via run_experiment (when Langfuse keys are configured).
+
+With --user-id, seeding is skipped and cases run against an existing eval-DB
+user (see evals/snapshot.py); pair it with --dataset to use the
+library-agnostic behavioral cases.
 """
 
 from __future__ import annotations
@@ -22,19 +28,29 @@ import yaml
 DATASET_PATH = Path(__file__).parent / "dataset.yaml"
 
 
-def load_cases() -> list[dict[str, Any]]:
-    cases = yaml.safe_load(DATASET_PATH.read_text())["cases"]
+def load_cases(dataset_path: Path | None = None) -> list[dict[str, Any]]:
+    path = dataset_path or DATASET_PATH
+    cases = yaml.safe_load(path.read_text())["cases"]
     messages = [c["message"] for c in cases]
     assert len(set(messages)) == len(messages), "dataset case messages must be unique"
     return cases
 
 
-def run_dry() -> list[dict[str, Any]]:
+def _dataset_name(dataset_path: Path) -> str:
+    """Langfuse dataset name from the file stem, so real-data runs don't
+    pollute the golden dataset's run history."""
+    stem = dataset_path.stem
+    if stem == "dataset":
+        return "chat-agent-golden"
+    return f"chat-agent-{stem.removeprefix('dataset-')}"
+
+
+def run_dry(dataset_path: Path | None = None) -> list[dict[str, Any]]:
     """Score canned outputs for every case — validates plumbing, not the agent."""
     from evals.scorers import score_case
 
     results = []
-    for case in load_cases():
+    for case in load_cases(dataset_path):
         canned_events = [
             {
                 "tool": (case["expected_tools"] or ["filter_videos"])[0],
@@ -81,18 +97,22 @@ async def _run_case(agent, case: dict[str, Any]) -> tuple[str, list[dict[str, An
     return "".join(answer_parts), tool_events
 
 
-def run_real() -> list[dict[str, Any]]:
+def run_real(
+    user_id: int | None = None, dataset_path: Path | None = None
+) -> list[dict[str, Any]]:
     from app.services.agent_service import AgentService
     from evals.db import create_schema, get_eval_session
     from evals.scorers import score_case
-    from evals.seed import seed
 
     create_schema()
     db = get_eval_session()
     try:
-        user_id = seed(db)
+        if user_id is None:
+            from evals.seed import seed
+
+            user_id = seed(db)
         results = []
-        for case in load_cases():
+        for case in load_cases(dataset_path):
             agent = AgentService(user_id=user_id, db=db)
             try:
                 answer, tool_events = asyncio.run(_run_case(agent, case))
@@ -116,7 +136,7 @@ def run_real() -> list[dict[str, Any]]:
             print(f"[{case['id']}] {flags}")
         _print_summary(results)
         try:
-            _upload_to_langfuse(results)
+            _upload_to_langfuse(results, _dataset_name(dataset_path or DATASET_PATH))
         except Exception as e:
             print(f"Langfuse upload failed — summary above is still valid: {e}")
         return results
@@ -136,7 +156,9 @@ def _print_summary(results: list[dict[str, Any]]) -> None:
         print(f"{metric}: {passed}/{total}")
 
 
-def _upload_to_langfuse(results: list[dict[str, Any]]) -> None:
+def _upload_to_langfuse(
+    results: list[dict[str, Any]], dataset_name: str = "chat-agent-golden"
+) -> None:
     """Upload as a Langfuse DATASET RUN so runs are comparable across versions.
 
     (Local-data run_experiment creates only traces, no dataset runs — the spec
@@ -153,7 +175,8 @@ def _upload_to_langfuse(results: list[dict[str, Any]]) -> None:
         return
     from langfuse import Evaluation
 
-    dataset_name = "chat-agent-golden"
+    # "chat-agent-golden" -> "golden", "chat-agent-behavioral" -> "behavioral"
+    label = dataset_name.removeprefix("chat-agent-")
     try:
         client.create_dataset(name=dataset_name)
     except Exception as e:
@@ -162,7 +185,7 @@ def _upload_to_langfuse(results: list[dict[str, Any]]) -> None:
         # Deterministic id makes re-runs upsert instead of duplicating items.
         client.create_dataset_item(
             dataset_name=dataset_name,
-            id=f"golden-{r['id']}",
+            id=f"{label}-{r['id']}",
             input=r["message"],
             metadata={"case_id": r["id"]},
         )
@@ -189,10 +212,10 @@ def _upload_to_langfuse(results: list[dict[str, Any]]) -> None:
         return evaluator
 
     dataset = client.get_dataset(dataset_name)
-    run_name = f"golden-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}"
+    run_name = f"{label}-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M')}"
     result = dataset.run_experiment(
         name=run_name,
-        description="Deterministic golden-dataset run",
+        description=f"Deterministic {label}-dataset run",
         task=task,
         evaluators=[
             make_evaluator(m)
@@ -211,9 +234,22 @@ def _upload_to_langfuse(results: list[dict[str, Any]]) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--user-id",
+        type=int,
+        default=None,
+        help="Run against an existing eval-DB user (skips seeding); "
+        "see evals/snapshot.py",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=Path,
+        default=None,
+        help="Dataset YAML path (default: evals/dataset.yaml)",
+    )
     args = parser.parse_args()
     if args.dry_run:
-        for r in run_dry():
+        for r in run_dry(dataset_path=args.dataset):
             print(r["id"], r["scores"])
     else:
-        run_real()
+        run_real(user_id=args.user_id, dataset_path=args.dataset)
