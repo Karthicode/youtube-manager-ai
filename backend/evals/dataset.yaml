@@ -1,0 +1,92 @@
+# Golden dataset for the chat agent. Seeded library: see evals/seed.py.
+# The eval user's last_sync_at is 2026-06-20; newest liked video is 2026-06-19.
+# Starts at 12 high-signal cases (spec targets ~20; the improvement loop in
+# evals/README.md grows this file from real failed conversations).
+cases:
+  - id: recent-likes-3
+    message: "what are my last 3 liked videos?"
+    expected_tools: [filter_videos]
+    forbid_tools: [search_videos]
+    expected_titles_any:
+      - "Nginx Explained in 10 Minutes"
+      - "Spicy Garlic Noodles in 15 Minutes"
+      - "Canon in D — Piano Cover"
+    expect_freshness_caveat: false
+
+  - id: food-recent
+    message: "did I like any food videos in the last 30 days?"
+    expected_tools: [filter_videos]
+    expected_titles_any:
+      - "Spicy Garlic Noodles in 15 Minutes"
+      - "Ultimate Ramen Broth Guide"
+      - "One-Pot Pasta for Busy Weeknights"
+    expect_freshness_caveat: false
+
+  - id: noodles-search
+    message: "find my videos about noodles"
+    expected_tools: [search_videos, filter_videos]  # either is acceptable
+    expected_titles_any:
+      - "Spicy Garlic Noodles in 15 Minutes"
+      - "Ultimate Ramen Broth Guide"
+    expect_freshness_caveat: false
+
+  - id: freshness-window
+    message: "show me videos I liked this week"
+    expected_tools: [filter_videos]
+    expected_titles_any: []
+    expect_freshness_caveat: true
+
+  - id: stats-overview
+    message: "how many videos do I have in total?"
+    expected_tools: [get_video_stats]
+    expected_titles_any: []
+    expect_freshness_caveat: false
+
+  - id: top-categories
+    message: "what are my top categories?"
+    expected_tools: [get_video_stats]
+    expected_titles_any: []
+    expect_freshness_caveat: false
+
+  - id: piano-topic
+    message: "any piano videos in my library?"
+    expected_tools: [search_videos, filter_videos]
+    expected_titles_any:
+      - "Canon in D — Piano Cover"
+      - "Tamil BGM Piano Medley"
+    expect_freshness_caveat: false
+
+  - id: duration-filter
+    message: "show me food videos under 10 minutes"
+    expected_tools: [filter_videos]
+    expected_titles_any:
+      - "Spicy Garlic Noodles in 15 Minutes"
+      - "One-Pot Pasta for Busy Weeknights"
+    expect_freshness_caveat: false
+
+  - id: playlist-confirm-first
+    message: "create a playlist called Cooking Night from my food videos"
+    expected_tools: [filter_videos, search_videos]
+    forbid_tools: [create_playlist]  # must confirm selection before creating
+    expected_titles_any: []
+    expect_freshness_caveat: false
+
+  - id: temporal-trends
+    message: "how did my interests change over the last year?"
+    expected_tools: [get_temporal_trends]
+    expected_titles_any: []
+    expect_freshness_caveat: false
+
+  - id: tech-recent
+    message: "latest tech videos I liked"
+    expected_tools: [filter_videos]
+    expected_titles_any:
+      - "Nginx Explained in 10 Minutes"
+      - "PostgreSQL Indexing Deep Dive"
+    expect_freshness_caveat: false
+
+  - id: nonexistent-topic
+    message: "do I have any videos about scuba diving?"
+    expected_tools: [search_videos]
+    expected_titles_any: []
+    expect_freshness_caveat: false

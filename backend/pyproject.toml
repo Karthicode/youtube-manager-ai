@@ -33,6 +33,7 @@ pgvector = "^0.4.2"
 scikit-learn = "^1.8.0"
 mcp = "^1.26.0"
 sqlmodel = "^0.0.38"
+langfuse = "^4.13.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"
@@ -42,6 +43,8 @@ black = "^25.9.0"
 ruff = "^0.14.1"
 mypy = "^1.18.2"
 types-requests = "^2.32.4.20260107"
+pyyaml = "^6.0.3"
+types-pyyaml = "^6.0.12.20260518"
 
 [tool.mypy]
 ignore_missing_imports = true
