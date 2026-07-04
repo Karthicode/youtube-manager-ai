@@ -219,6 +219,23 @@ def _is_simple_query(message: str) -> bool:
     return any(p.search(message) for p in _SIMPLE_QUERY_PATTERNS)
 
 
+def _min_reasoning_effort(model: str) -> Literal["none", "minimal", "low"]:
+    """Lowest reasoning effort the given model accepts (for simple queries).
+
+    The floor tier is model-family specific and sending the wrong one is a
+    hard 400 from OpenAI (this broke prod simple queries twice: gpt-4.1-mini
+    rejected "minimal", then gpt-5-mini rejected "none"):
+    - gpt-5.1 / gpt-5.2 / ...: "none" (renamed from "minimal", which they reject)
+    - gpt-5, gpt-5-mini, gpt-5-nano: "minimal" ("none" not supported)
+    - anything else: "low" — accepted by every reasoning-capable model.
+    """
+    if re.match(r"gpt-5\.\d", model):
+        return "none"
+    if model == "gpt-5" or model.startswith(("gpt-5-", "gpt-5@")):
+        return "minimal"
+    return "low"
+
+
 def _tool_cache_key(user_id: int, tool_name: str, arguments: dict) -> str:
     """Build a stable Redis cache key for a tool call (Optimization B)."""
     params_hash = hashlib.sha256(
@@ -710,10 +727,12 @@ Guidelines:
             )
 
             # Optimization C: choose reasoning effort based on query complexity.
-            # "none" is the lowest valid effort for GPT-5.1+ models (reduces TTFT
-            # for simple lookups).
+            # The floor tier for simple lookups is model-dependent — see
+            # _min_reasoning_effort.
             simple = _is_simple_query(message)
-            reasoning_effort: Literal["none", "low"] = "none" if simple else "low"
+            reasoning_effort: Literal["none", "minimal", "low"] = (
+                _min_reasoning_effort(settings.openai_model) if simple else "low"
+            )
             api_logger.debug(
                 f"Query reasoning effort: {reasoning_effort!r} (simple={simple})"
             )
@@ -816,6 +835,13 @@ Guidelines:
 
             except Exception as e:
                 api_logger.error(f"Agent chat error: {e}", exc_info=True)
+                # Clear any aborted transaction (e.g. a failed _save_session):
+                # callers may reuse this session (the eval runner shares one
+                # across cases) and would otherwise hit InFailedSqlTransaction.
+                try:
+                    self.db.rollback()
+                except Exception:
+                    pass
                 yield ChatStreamEvent(
                     type="error",
                     content="Something went wrong while processing your request. Please try again.",

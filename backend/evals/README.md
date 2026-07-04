@@ -1,5 +1,10 @@
 # Chat Agent Evals
 
+> **Dev tooling only.** Evals run from a developer machine (or CI) and need
+> the dev dependency group: `poetry install --with dev` (pyyaml lives there).
+> Nothing under `evals/` is imported by the deployed app, so a
+> `--only main` install / the Vercel deployment is unaffected.
+
 ## Offline golden dataset
 
     docker compose -f docker-compose.evals.yml up -d
