@@ -33,3 +33,17 @@ def test_format_data_freshness_handles_partial_data() -> None:
 def test_filter_videos_tool_advertises_recency_sorting() -> None:
     filter_tool = next(t for t in AGENT_TOOLS if t["name"] == "filter_videos")
     assert "most recently liked first" in filter_tool["description"]
+
+
+def test_min_reasoning_effort_per_model_family() -> None:
+    from app.services.agent_service import _min_reasoning_effort
+
+    # gpt-5.1+ renamed the floor tier to "none" and dropped "minimal".
+    assert _min_reasoning_effort("gpt-5.2") == "none"
+    assert _min_reasoning_effort("gpt-5.1") == "none"
+    # The original gpt-5 family only accepts "minimal" as the floor.
+    assert _min_reasoning_effort("gpt-5") == "minimal"
+    assert _min_reasoning_effort("gpt-5-mini") == "minimal"
+    assert _min_reasoning_effort("gpt-5-nano-2025-08-07") == "minimal"
+    # Unknown/other models: "low" is accepted by every reasoning model.
+    assert _min_reasoning_effort("gpt-4.1-mini") == "low"
