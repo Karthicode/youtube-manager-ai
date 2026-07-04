@@ -710,9 +710,10 @@ Guidelines:
             )
 
             # Optimization C: choose reasoning effort based on query complexity.
-            # "minimal" is the lowest valid effort (reduces TTFT for simple lookups).
+            # "none" is the lowest valid effort for GPT-5.1+ models (reduces TTFT
+            # for simple lookups).
             simple = _is_simple_query(message)
-            reasoning_effort: Literal["minimal", "low"] = "minimal" if simple else "low"
+            reasoning_effort: Literal["none", "low"] = "none" if simple else "low"
             api_logger.debug(
                 f"Query reasoning effort: {reasoning_effort!r} (simple={simple})"
             )
