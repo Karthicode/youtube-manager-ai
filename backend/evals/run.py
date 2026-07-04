@@ -23,7 +23,10 @@ DATASET_PATH = Path(__file__).parent / "dataset.yaml"
 
 
 def load_cases() -> list[dict[str, Any]]:
-    return yaml.safe_load(DATASET_PATH.read_text())["cases"]
+    cases = yaml.safe_load(DATASET_PATH.read_text())["cases"]
+    messages = [c["message"] for c in cases]
+    assert len(set(messages)) == len(messages), "dataset case messages must be unique"
+    return cases
 
 
 def run_dry() -> list[dict[str, Any]]:
@@ -91,7 +94,12 @@ def run_real() -> list[dict[str, Any]]:
         results = []
         for case in load_cases():
             agent = AgentService(user_id=user_id, db=db)
-            answer, tool_events = asyncio.run(_run_case(agent, case))
+            try:
+                answer, tool_events = asyncio.run(_run_case(agent, case))
+            except Exception as e:
+                # A crashed turn is evidence, not a run-stopper: score it as
+                # a real FAIL and keep going.
+                answer, tool_events = f"[eval runner error] {e}", []
             scores = score_case(case, answer, tool_events)
             results.append(
                 {
@@ -106,8 +114,11 @@ def run_real() -> list[dict[str, Any]]:
                 f"{k}={'PASS' if v else 'FAIL'}" for k, v in scores.items()
             )
             print(f"[{case['id']}] {flags}")
-        _upload_to_langfuse(results)
         _print_summary(results)
+        try:
+            _upload_to_langfuse(results)
+        except Exception as e:
+            print(f"Langfuse upload failed — summary above is still valid: {e}")
         return results
     finally:
         db.close()
@@ -145,8 +156,8 @@ def _upload_to_langfuse(results: list[dict[str, Any]]) -> None:
     dataset_name = "chat-agent-golden"
     try:
         client.create_dataset(name=dataset_name)
-    except Exception:
-        pass  # already exists
+    except Exception as e:
+        print(f"create_dataset: {e} (continuing — likely already exists)")
     for r in results:
         # Deterministic id makes re-runs upsert instead of duplicating items.
         client.create_dataset_item(
@@ -156,14 +167,23 @@ def _upload_to_langfuse(results: list[dict[str, Any]]) -> None:
             metadata={"case_id": r["id"]},
         )
 
-    by_input = {r["message"]: r for r in results}
+    # Keyed by case_id (not message text) to avoid silent collisions if two
+    # cases ever share a message. Confirmed via SDK source (langfuse 4.13.0,
+    # langfuse/_client/client.py::_process_experiment_item) that
+    # dataset.run_experiment() calls each evaluator with
+    # metadata=item.metadata — i.e. the dataset item's own metadata dict,
+    # which we set to {"case_id": ...} above — so evaluators can key off
+    # metadata["case_id"] directly.
+    by_case_id = {r["id"]: r for r in results}
 
     def task(*, item, **kwargs):
-        return by_input[item.input]["answer"]
+        return by_case_id[item.metadata["case_id"]]["answer"]
 
     def make_evaluator(metric: str):
-        def evaluator(*, input, output, **kwargs):
-            return Evaluation(name=metric, value=by_input[input]["scores"][metric])
+        def evaluator(*, input, output, metadata, **kwargs):
+            return Evaluation(
+                name=metric, value=by_case_id[metadata["case_id"]]["scores"][metric]
+            )
 
         evaluator.__name__ = f"{metric}_evaluator"
         return evaluator
