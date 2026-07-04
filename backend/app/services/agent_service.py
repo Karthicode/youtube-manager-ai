@@ -816,6 +816,13 @@ Guidelines:
 
             except Exception as e:
                 api_logger.error(f"Agent chat error: {e}", exc_info=True)
+                # Clear any aborted transaction (e.g. a failed _save_session):
+                # callers may reuse this session (the eval runner shares one
+                # across cases) and would otherwise hit InFailedSqlTransaction.
+                try:
+                    self.db.rollback()
+                except Exception:
+                    pass
                 yield ChatStreamEvent(
                     type="error",
                     content="Something went wrong while processing your request. Please try again.",

@@ -34,16 +34,20 @@ _VIDEO_COPY_COLUMNS = [
 
 
 def _inert_user_copy(source_user: User) -> dict[str, Any]:
-    """Kwargs for the eval-DB User row: tokens/keys stripped, email rewritten.
+    """Kwargs for the eval-DB User row: credentials AND identity scrubbed.
 
-    `last_sync_at` is preserved — freshness-caveat cases depend on it.
+    Nothing identifying survives the copy — no email local-part, name,
+    picture, or real YouTube channel id — so a shared/leaked eval DB can't
+    be tied back to a person. The stable pseudonymous email/youtube_id are
+    derived from the source row id (deterministic, so re-snapshots find and
+    reuse the same eval user). `last_sync_at` is preserved — freshness-caveat
+    cases depend on it.
     """
-    local_part = source_user.email.split("@", 1)[0]
     return {
-        "email": f"snapshot+{local_part}@example.com",
-        "youtube_id": source_user.youtube_id,
-        "name": source_user.name,
-        "picture_url": source_user.picture_url,
+        "email": f"snapshot-user-{source_user.id}@example.com",
+        "youtube_id": f"snapshot_{source_user.id}",
+        "name": "Snapshot User",
+        "picture_url": None,
         "access_token": None,
         "refresh_token": None,
         "token_expires_at": None,
