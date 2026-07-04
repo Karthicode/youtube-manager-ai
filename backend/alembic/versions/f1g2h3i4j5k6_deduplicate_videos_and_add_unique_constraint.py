@@ -66,6 +66,9 @@ def upgrade() -> None:
                     if existing_pids:
                         # Delete loser rows whose playlist_id would conflict with winner
                         conn.execute(
+                            # table/col come from the fixed CHILD_TABLES list
+                            # above, never user input; values use bind params.
+                            # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                             sa.text(
                                 f"DELETE FROM {table} WHERE {col} = :loser_id "  # noqa: S608
                                 "AND playlist_id = ANY(:pids)"
@@ -74,6 +77,7 @@ def upgrade() -> None:
                         )
                     # Update remaining loser rows to point at winner
                     conn.execute(
+                        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                         sa.text(
                             f"UPDATE {table} SET {col} = :winner_id WHERE {col} = :loser_id"  # noqa: S608
                         ),
@@ -130,6 +134,7 @@ def upgrade() -> None:
             else:
                 for loser_id in loser_ids:
                     conn.execute(
+                        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
                         sa.text(
                             f"UPDATE {table} SET {col} = :winner_id WHERE {col} = :loser_id"  # noqa: S608
                         ),
