@@ -74,6 +74,11 @@ jobs:
         run: pip install pip-audit
 
       - name: pip-audit
+        env:
+          # Without this, pip-audit's pip-based dependency source scans the
+          # runner's system Python instead of poetry's venv, and reports the
+          # runner image's own stale click/setuptools instead of our deps.
+          PIPAPI_PYTHON_LOCATION: ${{ github.workspace }}/backend/.venv/bin/python
         run: |
           poetry install --no-interaction --no-root
           poetry run pip-audit --strict
