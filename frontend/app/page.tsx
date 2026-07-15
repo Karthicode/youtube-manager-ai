@@ -45,7 +45,7 @@ export default function Home() {
 
 	const handleLogin = async () => {
 		try {
-			const response = await authApi.getLoginUrl();
+			const response = await authApi.getLoginUrl(window.location.origin);
 			window.location.href = response.data.auth_url;
 		} catch {
 			alert("Failed to start login. Please try again.");

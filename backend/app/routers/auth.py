@@ -25,13 +25,22 @@ router = APIRouter(prefix="/auth")
 
 
 @router.get("/youtube/login", response_model=YouTubeAuthURL)
-async def youtube_login():
+async def youtube_login(
+    origin: Annotated[str | None, Query(max_length=200)] = None,
+):
     """
     Initiate YouTube OAuth flow.
 
+    Args:
+        origin: Optional `window.location.origin` of the calling frontend
+            (e.g. a Vercel Preview Deployment URL). Signed into the OAuth
+            `state` param so `/youtube/callback` knows which origin to
+            redirect back to. Falls back to `settings.frontend_url` at
+            callback time if omitted or not an allowed origin.
+
     Returns authorization URL for user to grant permissions.
     """
-    auth_url = AuthService.get_youtube_authorization_url()
+    auth_url = AuthService.get_youtube_authorization_url(origin=origin)
     return YouTubeAuthURL(auth_url=auth_url)
 
 
@@ -59,12 +68,15 @@ async def get_me(
 async def youtube_callback(
     code: Annotated[str, Query()],
     db: Annotated[Session, Depends(get_db)],
+    state: Annotated[str | None, Query()] = None,
 ):
     """
     Handle YouTube OAuth callback.
 
     Exchanges authorization code for tokens and creates/updates user.
-    Returns JWT tokens for API authentication.
+    Redirects back to the frontend origin embedded in `state` (falling
+    back to `settings.frontend_url` if `state` is missing/invalid) with
+    tokens.
     """
     try:
         # Exchange code for credentials
@@ -119,8 +131,14 @@ async def youtube_callback(
             ),
         }
 
-        # Build redirect URL with tokens using configured frontend URL
-        frontend_callback_url = f"{settings.frontend_url}/auth/callback"
+        # Build redirect URL with tokens. `state` is a JWT signed at
+        # /youtube/login time; an absent, expired, or forged state (e.g.
+        # an in-flight login from before this change deployed, or a
+        # tampered value) safely falls back to the static frontend URL
+        # rather than trusting an unsigned redirect target.
+        origin = AuthService.verify_oauth_state(state)
+        frontend_origin = origin or settings.frontend_url
+        frontend_callback_url = f"{frontend_origin}/auth/callback"
         params = {
             "access_token": tokens["access_token"],
             "refresh_token": tokens["refresh_token"],

@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 
-from jose import jwt
+from jose import jwt, JWTError
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.logger import auth_logger
 from app.models.user import User
 
 
@@ -104,18 +106,109 @@ class AuthService:
         return flow
 
     @staticmethod
-    def get_youtube_authorization_url() -> str:
+    def create_oauth_state(origin: str | None) -> str:
+        """
+        Sign `origin` into a short-lived JWT for the OAuth `state` param.
+
+        `origin` may be None (login initiated without a known frontend
+        origin) - it's still signed so the callback can tell "no origin
+        was supplied" apart from "state is missing/forged/expired".
+
+        Args:
+            origin: Frontend origin to embed, or None.
+
+        Returns:
+            Signed JWT to pass as the OAuth `state` param.
+        """
+        expire = datetime.now(timezone.utc) + timedelta(minutes=10)
+        return jwt.encode(
+            {"origin": origin, "exp": expire, "type": "oauth_state"},
+            settings.secret_key,
+            algorithm=settings.algorithm,
+        )
+
+    @staticmethod
+    def verify_oauth_state(state: str | None) -> str | None:
+        """
+        Decode and verify a state produced by `create_oauth_state`.
+
+        Never raises - callers should fall back to `settings.frontend_url`
+        when this returns None.
+
+        Args:
+            state: The `state` query param received at the OAuth callback.
+
+        Returns:
+            The embedded origin if `state` is valid and the origin is
+            allowed, otherwise None (missing, malformed, expired, forged,
+            wrong-type, or disallowed origin).
+        """
+        if not state:
+            return None
+        try:
+            payload = jwt.decode(
+                state, settings.secret_key, algorithms=[settings.algorithm]
+            )
+        except JWTError:
+            auth_logger.warning(
+                "OAuth callback state failed verification "
+                "(missing/expired/forged/pre-deploy); using default frontend URL"
+            )
+            return None
+
+        if payload.get("type") != "oauth_state":
+            auth_logger.warning(
+                "OAuth callback state had unexpected payload type; "
+                "using default frontend URL"
+            )
+            return None
+
+        origin = payload.get("origin")
+        if origin is None:
+            return None  # no origin was supplied at login time - not an error
+
+        if not isinstance(origin, str) or not re.fullmatch(
+            settings.allowed_origin_regex, origin
+        ):
+            auth_logger.warning(
+                f"OAuth state origin {origin!r} not in allowlist; "
+                "using default frontend URL"
+            )
+            return None
+
+        return origin
+
+    @staticmethod
+    def get_youtube_authorization_url(origin: str | None = None) -> str:
         """
         Generate YouTube OAuth authorization URL.
+
+        Args:
+            origin: `window.location.origin` of the frontend that initiated
+                login (e.g. a Vercel Preview Deployment URL). Signed into
+                `state` so the callback knows where to redirect back to.
+                Rejected (treated as absent) if it doesn't match
+                `settings.allowed_origin_regex`.
 
         Returns:
             Authorization URL string
         """
         flow = AuthService.get_youtube_oauth_flow()
+
+        signed_origin = (
+            origin
+            if origin and re.fullmatch(settings.allowed_origin_regex, origin)
+            else None
+        )
+        if origin and signed_origin is None:
+            auth_logger.warning(f"Rejected disallowed OAuth login origin: {origin!r}")
+
+        state = AuthService.create_oauth_state(signed_origin)
         authorization_url, _ = flow.authorization_url(
             access_type="offline",
             include_granted_scopes="true",
             prompt="consent",  # Force consent to get refresh token
+            state=state,
         )
 
         return authorization_url
