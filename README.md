@@ -54,9 +54,9 @@ poetry run uvicorn app.main:app --reload
 
 ```bash
 cd frontend
-npm install
+bun install
 cp .env.example .env.local  # Set NEXT_PUBLIC_API_URL
-npm run dev
+bun run dev
 ```
 
 ### 4. Access
@@ -80,7 +80,7 @@ Remote Supabase migration workflow (Alembic + Supabase CLI):
 
 ```bash
 cd frontend
-npm run check:fix && npm run typecheck
+bun run check:fix && bun run typecheck
 ```
 
 ## Project Structure
