@@ -47,18 +47,18 @@ pytest -v -s  # Verbose with output
 ```bash
 # Development server
 cd frontend
-npm run dev
+bun run dev
 
 # Code quality (RUN AFTER EVERY CHANGE)
-npm run check:fix    # Format + Lint (auto-fix)
-npm run typecheck    # Type checking
+bun run check:fix    # Format + Lint (auto-fix)
+bun run typecheck    # Type checking
 
 # Combined quality check
-npm run check:fix && npm run typecheck
+bun run check:fix && bun run typecheck
 
 # Production
-npm run build
-npm start
+bun run build
+bun run start
 ```
 
 ---
@@ -568,7 +568,7 @@ it('loads videos on mount', async () => {
 
 **Pre-Commit Checklist:**
 1. Run `black . && ruff check . && mypy .` (backend)
-2. Run `npm run check:fix && npm run typecheck` (frontend)
+2. Run `bun run check:fix && bun run typecheck` (frontend)
 3. Ensure all quality checks pass
 4. Test the changes locally
 
@@ -751,7 +751,7 @@ import Image from 'next/image'
 **Bundle Optimization:**
 - Import only what you need from libraries
 - Use tree-shaking effectively
-- Analyze bundle size with `npm run analyze`
+- Analyze bundle size with `bun run analyze`
 
 ---
 
@@ -962,7 +962,7 @@ const debouncedSearch = useDebouncedCallback(
 
 **Type Errors:**
 - Run `mypy .` in backend
-- Run `npm run typecheck` in frontend
+- Run `bun run typecheck` in frontend
 - Check for any `any` types that need fixing
 
 **Authentication Issues:**

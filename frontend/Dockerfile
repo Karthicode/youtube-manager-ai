@@ -1,18 +1,24 @@
 # ============================================================
 # Stage 1: deps
 # Install production dependencies in isolation so this
-# expensive layer is cached as long as package-lock.json
-# doesn't change.
+# expensive layer is cached as long as bun.lock doesn't change.
 # ============================================================
 FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+# Bun as package manager only — Node stays the actual JS runtime for the
+# build/start steps (bun respects the `#!/usr/bin/env node` shebang on the
+# `next` CLI and shells out to this Node binary instead of using its own
+# runtime). Pinned to the current stable release, not a canary.
+RUN npm install -g bun@1.3.14
 
-# npm ci installs exactly what's in the lockfile (reproducible).
-# --omit=dev skips devDependencies (biome, @types, etc.).
-RUN npm ci --omit=dev
+COPY package.json bun.lock ./
+
+# bun install --frozen-lockfile is the bun equivalent of npm ci (reproducible,
+# fails if the lockfile is out of date). --production skips devDependencies
+# (biome, @types, etc.) — bun's equivalent of npm ci --omit=dev.
+RUN bun install --frozen-lockfile --production
 
 
 # ============================================================
@@ -25,9 +31,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+RUN npm install -g bun@1.3.14
+
 # Copy lock files and install ALL dependencies (including dev)
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
 # Copy the rest of the source
 COPY . .
@@ -43,7 +51,7 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL=http://youtube-manager.local/api/v1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
-RUN npm run build
+RUN bun run build
 
 
 # ============================================================
