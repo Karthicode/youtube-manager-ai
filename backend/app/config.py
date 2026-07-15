@@ -1,3 +1,5 @@
+import re
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -53,6 +55,16 @@ class Settings(BaseSettings):
     # Frontend URL (for OAuth redirects)
     frontend_url: str = "http://localhost:3000"
 
+    # Regex allowlist for additional frontend origins allowed to complete
+    # OAuth login and call the API (e.g. Vercel Preview Deployment URLs),
+    # beyond `frontend_url` and localhost. Empty (default) disables preview
+    # support: only frontend_url + localhost are allowed.
+    #
+    # No ^ or $ anchors here - spliced into a larger anchored pattern.
+    # Must include the real Vercel team slug before enabling, otherwise any
+    # Vercel user could stand up a lookalike deployment and pass the check.
+    frontend_preview_origin_regex: str = ""
+
     # Backend API URL (for QStash worker callbacks)
     backend_url: str = "http://localhost:8000"
 
@@ -74,6 +86,16 @@ class Settings(BaseSettings):
     auto_categorize_sync_videos: int = (
         50  # Number of latest videos to sync before categorizing
     )
+
+    @property
+    def allowed_origin_regex(self) -> str:
+        """Single regex for both CORS `allow_origin_regex` and OAuth
+        `state`-origin validation, so the two allowlists can't drift apart.
+        """
+        parts = [re.escape(self.frontend_url), r"http://localhost:\d+"]
+        if self.frontend_preview_origin_regex:
+            parts.append(self.frontend_preview_origin_regex)
+        return r"^(?:" + "|".join(parts) + r")$"
 
     @property
     def is_production(self) -> bool:

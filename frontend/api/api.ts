@@ -90,7 +90,10 @@ api.interceptors.response.use(
 
 // API endpoints
 export const authApi = {
-	getLoginUrl: () => api.get<{ auth_url: string }>("/auth/youtube/login"),
+	getLoginUrl: (origin?: string) =>
+		api.get<{ auth_url: string }>("/auth/youtube/login", {
+			params: origin ? { origin } : undefined,
+		}),
 	getCurrentUser: () => api.get("/auth/me"),
 	refreshToken: (refreshToken: string) =>
 		api.post("/auth/refresh", { refresh_token: refreshToken }),
